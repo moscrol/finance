@@ -157,6 +157,10 @@ class TaskFrame:
     history_intent: HistoryIntent | None = None
     material_contract: MaterialContract | None = None
     conversation_materials: ConversationMaterials | None = None
+    # Concrete additions supplied by a caller, including ids that overlap a
+    # type default. Without this history rebase cannot distinguish the two.
+    # This is contract state, not a claim of natural-language user authority.
+    required_output_additions: tuple[str, ...] = ()
 
     def _payload(self) -> dict[str, object]:
         payload = asdict(self)
@@ -167,6 +171,8 @@ class TaskFrame:
             payload.pop("history_intent", None)
         if self.material_contract is None:
             payload.pop("material_contract", None)
+        if not self.required_output_additions:
+            payload.pop("required_output_additions", None)
         if self.conversation_materials is None:
             payload.pop("conversation_materials", None)
         else:
@@ -222,13 +228,16 @@ class TaskFrame:
             return None
         try:
             required_outputs = value.get("required_outputs", ())
+            additions = value.get("required_output_additions", ())
             assumptions = value.get("assumptions", ())
             ambiguities = value.get("ambiguities", ())
             if any(
                 not isinstance(items, (list, tuple))
                 or any(not isinstance(item, str) for item in items)
-                for items in (required_outputs, assumptions, ambiguities)
+                for items in (required_outputs, additions, assumptions, ambiguities)
             ):
+                return None
+            if any(item not in required_outputs for item in additions):
                 return None
             subject = value.get("subject")
             timeframe = value.get("timeframe")
@@ -266,6 +275,7 @@ class TaskFrame:
                 market_scope=str(value["market_scope"]),
                 timeframe=timeframe,
                 required_outputs=tuple(required_outputs),
+                required_output_additions=tuple(additions),
                 assumptions=tuple(assumptions),
                 ambiguities=tuple(ambiguities),
                 clarification_question=clarification,
@@ -526,6 +536,9 @@ def build_task_frame(
         market_scope=market_scope,
         timeframe=timeframe,
         required_outputs=outputs,
+        required_output_additions=tuple(
+            item for item in _clean_outputs(tuple(envelope.required_outputs)) if item in outputs
+        ),
         assumptions=_merge_strings(tuple(assumptions)),
         ambiguities=tuple(ambiguities),
         clarification_question=(
@@ -610,6 +623,7 @@ def rebase_task_frame(
     subject_kind: str | None = None,
     timeframe: str | None = None,
     required_outputs: tuple[str, ...] = (),
+    inherited_required_outputs: tuple[str, ...] = (),
 ) -> TaskFrame:
     """Apply validated conversation inheritance before downstream projection."""
 
@@ -619,6 +633,7 @@ def rebase_task_frame(
         return replace(
             frame, question_type=question_type, subject=_safe_subject(subject, frame.raw_question),
             subject_kind=subject_kind or frame.subject_kind, required_outputs=("prior_recall",),
+            required_output_additions=(),
             evidence_policy="personal_memory_recall", timeframe=timeframe,
         )
 
@@ -629,9 +644,15 @@ def rebase_task_frame(
             in {"theme_analysis", "comparison_analog", "stock_deep_dive"}
             else "theme_analysis"
         )
-        required_outputs = frame.required_outputs
+        inherited_required_outputs = frame.required_outputs
 
     explicit_outputs = _explicit_required_outputs(frame.raw_question)
+    inherited_required_outputs = _clean_outputs(inherited_required_outputs)
+    additions = _clean_outputs(
+        frame.required_output_additions,
+        required_outputs,
+        inherited_required_outputs if not explicit_outputs else (),
+    )
     question_type_changed = question_type != frame.question_type
     canonical_outputs = (
         _default_required_outputs(question_type, frame.raw_question)
@@ -642,8 +663,8 @@ def rebase_task_frame(
         tuple(
             item
             for item in frame.required_outputs
-            if item
-            not in _default_required_outputs(frame.question_type, frame.raw_question)
+            if item not in _default_required_outputs(frame.question_type, frame.raw_question)
+            or item in additions
         )
         if question_type_changed
         else frame.required_outputs
@@ -652,22 +673,26 @@ def rebase_task_frame(
     # ``frame.required_outputs``, and a blank id surviving only on the
     # inheritance path would score one answer against two different coverage
     # denominators depending on which path built the frame.
-    merged_outputs = (
+    base_outputs = (
         explicit_outputs
-        if explicit_outputs
-        else _clean_outputs(
-            inherited_outputs,
-            canonical_outputs,
-            required_outputs,
-        )
+        or inherited_required_outputs
+        or _clean_outputs(inherited_outputs, canonical_outputs)
     )
+    merged_outputs = _clean_outputs(base_outputs, additions)
     return replace(
         frame,
         question_type=question_type,
+        user_goal=(
+            _user_goal(question_type, frame.raw_question, frame.user_goal)
+            if question_type_changed and question_type == "dated_market_review"
+            and frame.user_goal in _GENERIC_GOALS
+            else frame.user_goal
+        ),
         subject=_safe_subject(subject, frame.raw_question),
         subject_kind=subject_kind or frame.subject_kind,
         timeframe=timeframe if timeframe is not None else frame.timeframe,
         required_outputs=merged_outputs,
+        required_output_additions=tuple(item for item in additions if item in merged_outputs),
         evidence_policy=_POLICY_BY_QUESTION_TYPE.get(
             question_type,
             _POLICY_BY_QUESTION_TYPE["general_finance_qa"],
@@ -1277,6 +1302,9 @@ def _user_goal(question_type: str, question: str, fallback: str) -> str:
         return "给出可执行的判断方法、证据层级、失败模式与验证路径"
     if _INVALIDATION_FOLLOWUP_RE.search(question):
         return "说明上一判断的可核验失效条件及其证据依据"
+    if question_type == "dated_market_review" and question.strip():
+        # The classifier's generic review goal must not broaden a specific ask.
+        return question.strip()
     return str(fallback or "形成与用户原问题一致的直接回答").strip()
 
 
@@ -1363,6 +1391,13 @@ def _explicit_required_outputs(question: str) -> tuple[str, ...]:
     return ()
 
 
+def research_dimensions_for(frame: TaskFrame) -> tuple[str, ...]:
+    """Default research lenses, subordinate to the user's delivery requirements."""
+    if frame.question_type == "dated_market_review" and frame.history_intent is None:
+        return ("market_summary", "mainline_structure", "risk_signals")
+    return ()
+
+
 def _default_required_outputs(question_type: str, question: str) -> tuple[str, ...]:
     if question_type == "market_forecast" and _REBOUND_HORIZON_RE.search(question):
         return (
@@ -1382,15 +1417,10 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
             "supporting_evidence",
             "evidence_boundary",
         ),
-        # direct_assessment 在首位（2026-10-06）：分类器把「高标晋级有没有空档」这类
-        # 具体问题也判成 dated_market_review，旧三格（总量 / 主线 / 风险）里没有
-        # 「回答用户问的那件事」，模型只能写成泛泛的复盘。
-        "dated_market_review": (
-            "direct_assessment",
-            "market_summary",
-            "mainline_structure",
-            "risk_signals",
-        ),
+        # A dated question still owes the whole original request. Market, theme
+        # and risk lenses are supplied separately by research_dimensions_for;
+        # classification alone must not turn them into extra required chapters.
+        "dated_market_review": ("direct_assessment", "evidence_boundary"),
         "market_forecast": (
             "direct_assessment",
             "scenario_paths",
