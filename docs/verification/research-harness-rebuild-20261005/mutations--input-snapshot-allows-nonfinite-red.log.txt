@@ -1,0 +1,38 @@
+{"label": "input-snapshot-allows-nonfinite-red", "command": ["/Users/a77/finance-workspace-private/.venv-workbench/bin/python", "-u", "-B", "-m", "pytest", "-vv", "--capture=tee-sys", "-p", "no:randomly", "-p", "no:cacheprovider", "--tb=short", "-o", "faulthandler_timeout=45", "--junitxml", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/input-snapshot-allows-nonfinite-red.xml", "--basetemp", "/private/tmp/finance-harness-rebuild/mutations-458fd9de3/pytest/input-snapshot-allows-nonfinite-red", "intelligence/tests/test_research_harness_slice_regressions.py", "tests/test_history_tool_diagnostics.py", "-k", "test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them"], "cwd": "/private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree", "revision": "458fd9de3c13f4293587f969bc733e136079ef53", "started_at": "2026-10-05T10:32:58.691247+00:00", "timeout_seconds": 180, "status": "starting", "exit": null, "timed_out": false, "executed": null, "failures": null, "errors": null, "skipped": null, "failed_cases": [], "junit_status": "not_evaluated", "output_mode": "combined_stdout_stderr"}
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-8.3.5, pluggy-1.6.0 -- /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+解释器: /Users/a77/finance-workspace-private/.venv-workbench/bin/python
+树: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree  HEAD @ 458fd9de3 +未提交改动
+rootdir: /private/var/folders/t1/q6rpw6g103vcwpknb7wf3xv80000gn/T/contract-mutations-5cn06h5w/tree
+configfile: pytest.ini
+plugins: anyio-4.14.1
+collecting ... collected 105 items / 102 deselected / 3 selected
+
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[params] PASSED [ 33%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[evidence] FAILED [ 66%]
+intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[prior_inputs] FAILED [100%]
+
+=================================== FAILURES ===================================
+_ test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[evidence] _
+intelligence/tests/test_research_harness_slice_regressions.py:272: in test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them
+    outcome = dc.run_derived_calculation(
+intelligence/services/derived_calculation.py:361: in run_derived_calculation
+    run = calculation_sandbox.run_script(
+intelligence/tests/test_research_harness_slice_regressions.py:262: in forbidden
+    raise AssertionError("invalid inputs must be rejected before executing a script")
+E   AssertionError: invalid inputs must be rejected before executing a script
+_ test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[prior_inputs] _
+intelligence/tests/test_research_harness_slice_regressions.py:272: in test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them
+    outcome = dc.run_derived_calculation(
+intelligence/services/derived_calculation.py:361: in run_derived_calculation
+    run = calculation_sandbox.run_script(
+intelligence/tests/test_research_harness_slice_regressions.py:262: in forbidden
+    raise AssertionError("invalid inputs must be rejected before executing a script")
+E   AssertionError: invalid inputs must be rejected before executing a script
+- generated xml file: /private/tmp/finance-harness-rebuild/mutations-458fd9de3/input-snapshot-allows-nonfinite-red.xml -
+=========================== short test summary info ============================
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[evidence] - AssertionError: invalid inputs must be rejected before executing a script
+FAILED intelligence/tests/test_research_harness_slice_regressions.py::test_nonfinite_inputs_rejected_before_sandbox_even_if_script_ignores_them[prior_inputs] - AssertionError: invalid inputs must be rejected before executing a script
+================= 2 failed, 1 passed, 102 deselected in 1.23s ==================
+
+EXIT=1 STATUS=completed

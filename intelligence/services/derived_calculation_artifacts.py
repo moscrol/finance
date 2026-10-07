@@ -175,10 +175,25 @@ def result_contract_errors(result: Mapping[str, object]) -> tuple[str, ...]:
     provider data. Legacy emit(dict) remains supported; an empty dict is not a
     result. This checks delivery shape, NOT arithmetic or actual input use.
     """
+    # Python's JSON encoder accepts NaN/Infinity by default, even though they
+    # are not JSON numbers. Check the full tree (legacy dicts and v1 alike),
+    # before normalization can hide them in `extra` or drop a scalar. Archives
+    # remain readable; only admission of new calculations changes here.
+    json_error = ""
+    try:
+        json.dumps(dict(result), ensure_ascii=False, allow_nan=False)
+    except (ValueError, OverflowError):
+        json_error = "result_not_finite_json"
+    except TypeError:
+        json_error = "result_not_json"
     if "schema" in result and result["schema"] != RESULT_SCHEMA_V1:
-        return ("unsupported_result_schema",)
+        return tuple(item for item in ("unsupported_result_schema", json_error) if item)
     if result.get("schema") != RESULT_SCHEMA_V1:
+        if json_error:
+            return (json_error,)
         return () if result else ("no_renderable_result",)
+    # Preserve the existing shape-specific codes and their precedence. The
+    # whole-tree check also covers values that those checks do not inspect.
     errors: list[str] = []
     known = {"schema", "summary", "tables", "charts", "params", "formulas", "notes"}
     if set(result) - known:
@@ -252,6 +267,8 @@ def result_contract_errors(result: Mapping[str, object]) -> tuple[str, ...]:
             errors.append(f"{field_name}_not_text_array")
     if not renderable:
         errors.append("no_renderable_result")
+    if json_error:
+        errors.append(json_error)
     return tuple(dict.fromkeys(errors))
 
 

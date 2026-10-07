@@ -500,6 +500,7 @@ def test_default_project_tool_result_equals_the_inline_projection() -> None:
     ordinals = evidence_ordinal_table(evidence)
     expected_audit = {
         "ok": True,
+        "status": "success",
         "tool": "market_data",
         "query": "当前市场结构",
         "observation": "上涨家数增加，成交保持活跃。",
