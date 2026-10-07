@@ -13,35 +13,36 @@
 修改 `intelligence/services/task_frame.py`，集中提供：
 
 ```python
-def research_dimensions_for(question_type: str) -> tuple[str, ...]:
-    if question_type == "dated_market_review":
+def research_dimensions_for(frame: TaskFrame) -> tuple[str, ...]:
+    if frame.question_type == "dated_market_review" and frame.history_intent is None:
         return ("market_summary", "mainline_structure", "risk_signals")
     return ()
 ```
 
 默认 dated 产出改为 `("direct_assessment", "evidence_boundary")`。既有显式语义分支与 `extra` 合并保留；rebase 已使用同一默认函数，不能再加第二份名单。
+`_user_goal` 在既有语义分支之后，对 dated 默认返回本题 `question.strip()`，避免分类器通用目标扩大任务。
 
-- [ ] 修改对应旧默认断言；增加原问、重建题型和明确必需项的回归。
-- [ ] 跑 `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_task_frame.py`。
+- [x] 修改对应旧默认断言；增加原问、重建题型和明确必需项的回归。
+- [x] 跑 `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_task_frame.py`。
 
 ## 2. 沿真实 Episode 接入研究维度
 
-修改 `intelligence/services/episode_factory.py`：`_required_output_ids` 合并 `frame.required_outputs` 与 `research_dimensions_for(frame.question_type)`。`RequiredOutput.required` 继续原规则，并增加：
+修改 `intelligence/services/episode_factory.py`：`_required_output_ids` 合并 `frame.required_outputs` 与 `research_dimensions_for(frame)`。`RequiredOutput.required` 继续原规则，并增加：
 
 ```python
-output_id not in research_dimensions_for(frame.question_type)
+output_id not in research_dimensions_for(frame)
 or output_id in frame.required_outputs
 ```
 
 材料编号重写仍在原位置；历史研究不挂默认盘面维度。修改 `intelligence/services/episode_protocol.py`，将合同中非必需的这三项移动到 `research_dimensions`，说明内部自检、相关性、反证、用户要求优先、使用时原证据检查仍生效。两处使用同一维度函数，不维护 id 白名单。
 
-- [ ] 用真实输入及终稿验证路径验证维度送达、可省略、显式要求不可省略及伪证据拒收。
-- [ ] 对照原基座保留取证计划、授权、时间及预算；编号材料与其他题型形状不变。
-- [ ] 跑 task-frame、factory、protocol、agent-episode、材料与市场回答相关回归；修正实际失败再复跑。
+- [x] 用真实输入及终稿验证路径验证维度送达、可省略、显式要求不可省略及伪证据拒收。
+- [x] 对照原基座保留取证计划、授权、时间及预算；编号材料与其他题型形状不变。
+- [x] 跑 task-frame、factory、protocol、agent-episode、材料与市场回答相关回归；修正实际失败再复跑。
 
 ## 3. 验证、评审与交接
 
-- [ ] `git diff --check` 与 `.venv-workbench/bin/python -m ruff check .`。
+- [x] `git diff --check` 与 `.venv-workbench/bin/python -m ruff check .`。
 - [ ] pathspec 提交本次文件；在干净固定提交跑 `scripts/run_main_gate.sh`，显式 basetemp，收据根置于 `.finance-runtime/answer-quality-closeout-1007/`。
 - [ ] 用 `scripts/check_test_receipt.py <本轮收据> --require-full-scope` 自证全量；原件与代码 SHA 单独记录。
 - [ ] code-review 的 Standards / Spec 两轴审阅本次固定提交及设计，处理可复现缺陷。

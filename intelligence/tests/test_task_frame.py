@@ -765,4 +765,4 @@ def test_single_day_market_review_answers_the_question_before_the_review() -> No
     assert derive_required_outputs(
         "dated_market_review",
         "2026-07-22 成交量和涨停家数如何",
-    ) == ("direct_assessment", "market_summary", "mainline_structure", "risk_signals")
+    ) == ("direct_assessment", "evidence_boundary")

@@ -1324,6 +1324,9 @@ def _user_goal(question_type: str, question: str, fallback: str) -> str:
         return "给出可执行的判断方法、证据层级、失败模式与验证路径"
     if _INVALIDATION_FOLLOWUP_RE.search(question):
         return "说明上一判断的可核验失效条件及其证据依据"
+    if question_type == "dated_market_review" and question.strip():
+        # The classifier's generic review goal must not broaden a specific ask.
+        return question.strip()
     return str(fallback or "形成与用户原问题一致的直接回答").strip()
 
 
@@ -1410,6 +1413,13 @@ def _explicit_required_outputs(question: str) -> tuple[str, ...]:
     return ()
 
 
+def research_dimensions_for(frame: TaskFrame) -> tuple[str, ...]:
+    """Default research lenses, subordinate to the user's delivery requirements."""
+    if frame.question_type == "dated_market_review" and frame.history_intent is None:
+        return ("market_summary", "mainline_structure", "risk_signals")
+    return ()
+
+
 def _default_required_outputs(question_type: str, question: str) -> tuple[str, ...]:
     if question_type == "market_forecast" and _REBOUND_HORIZON_RE.search(question):
         return (
@@ -1429,15 +1439,10 @@ def _default_required_outputs(question_type: str, question: str) -> tuple[str, .
             "supporting_evidence",
             "evidence_boundary",
         ),
-        # direct_assessment 在首位（2026-10-06）：分类器把「高标晋级有没有空档」这类
-        # 具体问题也判成 dated_market_review，旧三格（总量 / 主线 / 风险）里没有
-        # 「回答用户问的那件事」，模型只能写成泛泛的复盘。
-        "dated_market_review": (
-            "direct_assessment",
-            "market_summary",
-            "mainline_structure",
-            "risk_signals",
-        ),
+        # A dated question still owes the whole original request. Market, theme
+        # and risk lenses are supplied separately by research_dimensions_for;
+        # classification alone must not turn them into extra required chapters.
+        "dated_market_review": ("direct_assessment", "evidence_boundary"),
         "market_forecast": (
             "direct_assessment",
             "scenario_paths",
