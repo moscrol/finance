@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
+from market_feature_store.signals import DOUBLE_RED_DESCRIPTION
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
 from intelligence.services import (
@@ -44,6 +45,7 @@ from intelligence.services import (
     closed_loop_retrieval,
     corrections,
     entity_anchor,
+    episode_tools,
     experience_cards,
     external_market,
     forecast_preflight,
@@ -153,6 +155,7 @@ from intelligence.services.ask_blocks import (  # noqa: F401
     _market_review_evidence_chain,
     _market_review_knowledge_anchor_block_for_llm,
     _market_review_mainline_context_block_for_llm,
+    market_review_mainline_context_snapshot,
     _market_value_block_for_llm,
     _populate_market_index_comparison,
     _quoted_topic,
@@ -1650,8 +1653,10 @@ def _mainline_current_fallback_assessment(
 
 def _current_market_fact_fallback_assessment(
     evidence: list[agent_research.AgentEvidence],
+    *,
+    definition: str = "",
 ) -> str:
-    """Project one definition and its current measured fact without LLM prose."""
+    """Project numeric facts; an explicit canonical definition remains method prose."""
 
     details = [
         item.detail.strip()
@@ -1660,12 +1665,22 @@ def _current_market_fact_fallback_assessment(
     ]
     selected = [
         line
-        for prefix in ("双红定义：", "双红数据截至：", "当前双红板块：")
+        for prefix in ("当前双红板块：",)
         if (line := next((value for value in details if value.startswith(prefix)), ""))
     ]
     if selected:
-        return "；".join(line.rstrip("。； ") for line in selected) + "。"
-    return "；".join(details[:3]) or "当前市场指标数据未取得。"
+        dates = [
+            item.source_date for item in evidence
+            if item.detail.strip() in selected and item.source_date
+        ]
+        lines = [
+            *([f"双红定义：{definition}"] if definition else []),
+            *([f"双红数据截至：{max(dates)}"] if dates else []),
+            *selected,
+        ]
+        return "；".join(line.rstrip("。； ") for line in lines) + "。"
+    fact_text = "；".join(details[:3]) or "当前市场指标数据未取得。"
+    return f"双红定义：{definition}；{fact_text}" if definition else fact_text
 
 
 def _market_forecast_fallback_assessment(
@@ -2054,49 +2069,48 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     ):
         """通用 Owner 的 D4 主线结构工具，保留同日/滞后边界。"""
 
+        context.check_cancelled()
         if context.deadline.expired:
             raise TimeoutError("agent mainline context deadline expired")
-        block = _market_review_mainline_context_block_for_llm(
+        snapshot = market_review_mainline_context_snapshot(
             options.query,
             contract.subject,
             options.market_db_path,
+            as_of=(
+                context.information_cutoff.as_of_date.isoformat()
+                if context.information_cutoff is not None else None
+            ),
         )
+        result = episode_tools.mainline_snapshot_tool_result(snapshot, capability="agent_loop")
         if "双红" in options.query:
             double_red_block = market_timeseries.latest_double_red_snapshot_block_for_llm(
                 options.market_db_path
             )
-            block = "\n".join(part for part in (double_red_block, block) if part)
-        # A freshness/boundary block is useful for the gap explanation but is
-        # not a mainline fact.  Returning it as ``mainline_context`` evidence
-        # would make the fallback presenter promote “主线未知” to a completed
-        # assessment merely because one source emitted a warning line.
-        if not block or "当前交易日的题材级主线未知" in block:
-            return (
-                [],
-                block or "同日主线结构无可用数据",
-                ProviderTrace(
-                    provider="agent:mainline_context",
-                    capability="agent_loop",
-                    status="empty",
-                    detail="mainline_current_context_gap",
-                    result_count=0,
+            # This existing supplement has a deterministic numeric list row.
+            # Convert only that row; its definition and D4 method guidance never
+            # enter the evidence ledger or acquire E numbers/source dates.
+            numeric_lines = [
+                line for line in double_red_block.splitlines()
+                if line.startswith("- 当前双红板块：")
+            ]
+            date_match = re.search(r"双红数据截至：(\d{4}-\d{2}-\d{2})", double_red_block)
+            extra, _observation = agent_research.block_lines_to_evidence(
+                "mainline_context", "\n".join(numeric_lines),
+                "本地 DuckDB · fact_sector_daily 严格双红快照",
+                limit=1, detail_chars=1000,
+                source_date=date_match.group(1) if date_match else None,
+            )
+            merged = (*result.evidence, *extra)
+            result = replace(
+                result, evidence=merged,
+                observation="\n".join(part for part in (result.observation, double_red_block) if part),
+                trace=replace(
+                    result.trace, result_count=len(merged),
+                    status=("partial" if extra and snapshot.status != "available" else result.trace.status),
                 ),
             )
-        evidence, observation = agent_research.block_lines_to_evidence(
-            "mainline_context",
-            block,
-            "本地 DuckDB · D4 同日主线结构",
-            limit=10,
-            detail_chars=1000,
-        )
-        trace = ProviderTrace(
-            provider="agent:mainline_context",
-            capability="agent_loop",
-            status="success" if evidence else "empty",
-            detail="mainline_current_context",
-            result_count=len(evidence),
-        )
-        return evidence, observation or "本地主线结构无匹配", trace
+        context.check_cancelled()
+        return result
 
     tools = {
         **agent_research.build_default_tools(retrieve_kb),
@@ -2549,7 +2563,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         and any(item.tool == "mainline_context" for item in owner_result.evidence)
     ):
         owner_result.loop.assessment = _current_market_fact_fallback_assessment(
-            list(owner_result.evidence)
+            list(owner_result.evidence),
+            definition=DOUBLE_RED_DESCRIPTION if "双红" in options.query else "",
         )
         owner_result.loop.sufficient = True
         if owner_result.loop.research_state is not None:

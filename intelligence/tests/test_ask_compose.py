@@ -968,7 +968,7 @@ class EvidenceDataBlockTests(unittest.TestCase):
         self.assertIn("PCB概念", block)
         self.assertIn("顺势", block)
         self.assertIn("分歧", block)
-        self.assertIn("缩量强修复/存量抱团", block)
+        self.assertIn("上涨、成交额环比下降", block)
         self.assertIn("历史新高", block)
 
     def test_customer_hardness_block_separates_hard_candidate_and_rebuttal(self) -> None:

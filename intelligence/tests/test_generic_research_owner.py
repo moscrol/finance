@@ -12,10 +12,12 @@ from intelligence.services import (
     agent_research,
     answer_model,
     ask,
+    ask_blocks,
     evidence_registry,
     generic_research_owner,
     query_ledger,
 )
+from intelligence.tests.test_market_context_contract import _database
 from intelligence.runtime import conversation_orchestrator
 from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import ConversationStore
@@ -260,9 +262,12 @@ def test_current_mainline_prefetches_market_daily_and_d4_once(
     )
     monkeypatch.setattr(
         ask,
-        "_market_review_mainline_context_block_for_llm",
-        lambda *_args: "## 主线\n- 算力：涨停 8，强度高",
+        "market_review_mainline_context_snapshot",
+        lambda *_args, **_kwargs: ask_blocks.market_review_mainline_context_snapshot(
+            "市场主线", None, mainline_db,
+        ),
     )
+    mainline_db = _database(tmp_path, [("算力", "S1", "算力板块", 1)], trade_date="2026-07-20")
     monkeypatch.setattr(ask, "_market_data_asof", lambda _path: "2026-07-20")
     monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
     monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
@@ -334,9 +339,12 @@ def test_mainline_market_daily_respects_enabled_providers_pruning(
     )
     monkeypatch.setattr(
         ask,
-        "_market_review_mainline_context_block_for_llm",
-        lambda *_args: "## 主线\n- 算力：涨停 8，强度高",
+        "market_review_mainline_context_snapshot",
+        lambda *_args, **_kwargs: ask_blocks.market_review_mainline_context_snapshot(
+            "市场主线", None, mainline_db,
+        ),
     )
+    mainline_db = _database(tmp_path, [("算力", "S1", "算力板块", 1)], trade_date="2026-07-20")
     monkeypatch.setattr(ask, "_market_data_asof", lambda _path: "2026-07-20")
     monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})
     monkeypatch.setattr(agent_research, "build_graph_tools", lambda _knowledge: {})
@@ -412,10 +420,10 @@ def test_current_mainline_boundary_only_cannot_complete_mainline_answer(
     )
     monkeypatch.setattr(
         ask,
-        "_market_review_mainline_context_block_for_llm",
-        lambda *_args: (
-            "## 市场复盘主线数据边界\n"
-            "- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。"
+        "market_review_mainline_context_snapshot",
+        lambda *_args, **_kwargs: ask_blocks.MainlineContextSnapshot(
+            status="stale", market_date="2026-07-21", snapshot_date="2026-07-20",
+            gap_messages=("当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。",),
         ),
     )
     monkeypatch.setattr(agent_research, "build_default_tools", lambda _retrieve: {})

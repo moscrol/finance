@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import re
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from market_feature_store import signals as market_signals
 
 from intelligence.services import retrieval_cache
 from intelligence.services import (
@@ -153,6 +156,465 @@ def _shorten_evidence_line(line: str, max_chars: int = 120) -> str:
     return line if len(line) <= max_chars else line[: max_chars - 1] + "…"
 
 
+MAINLINE_PREVIEW_ROWS_PER_THEME = 8
+_MAINLINE_COVERAGE_METRICS = (
+    "today_pct", "limit_up_count", "net_inflow_1d", "amount", "cycle_status",
+    "cycle_level", "sector_pct", "diff_ratio", "sector_amount", "sw_l1",
+)
+_MAINLINE_ORDERING = (
+    "theme_name", "sort_no NULLS LAST", "sector_name", "theme_code", "sector_ts_code",
+)
+
+
+@dataclass(frozen=True)
+class MainlineSectorFact:
+    """One source row, keyed by date × theme code × sector code; unknown stays None."""
+
+    trade_date: str
+    theme_code: str
+    theme_name: str
+    sector_ts_code: str
+    sector_name: str
+    sort_no: int | None
+    today_pct: float | None
+    limit_up_count: int | None
+    net_inflow_1d: float | None
+    amount: float | None
+    cycle_status: str | None
+    cycle_level: str | None
+    startup_date_small: str | None
+    high_status_label: str | None
+    near_breakout_label: str | None
+    sector_pct: float | None
+    diff_ratio: float | None
+    sector_amount: float | None
+    sw_l1: str | None
+    pct_source: str | None
+    amount_source: str | None
+
+
+@dataclass(frozen=True)
+class MainlinePriceVolumeSignal:
+    """A descriptive calculation on exactly one MainlineSectorFact, not an evidence card."""
+
+    trade_date: str
+    theme_code: str
+    sector_ts_code: str
+    sector_pct: float | None
+    diff_ratio: float | None
+    sector_amount: float | None
+    strict_double_red: bool | None
+    state: str
+    theme_name: str
+    inputs_complete: bool
+    missing_inputs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class MainlineGroupCoverage:
+    """Counts over the full joined theme group, before its eight-row preview."""
+
+    theme_name: str
+    total_rows: int
+    preview_rows: int
+    omitted_rows: int
+    non_null_counts: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True)
+class MainlineHistoryCoverage:
+    """Inclusive calendar-window membership in this table, not market presence or rank."""
+
+    theme_name: str
+    day_count: int
+    first_date: str
+    last_date: str
+    sector_rows: int
+    has_snapshot_day: bool
+
+
+@dataclass(frozen=True)
+class MainlineContextSnapshot:
+    """D4's sole read product: complete coverage, bounded facts, signals and guidance.
+
+    Every nested collection is immutable. ReadingRule objects are instructions,
+    never evidence; price-volume signals must retain their source fact's key and
+    inputs. A stale market-review snapshot contains no current sector facts.
+    """
+
+    status: Literal["available", "stale", "empty", "unavailable"]
+    market_date: str | None = None
+    snapshot_date: str | None = None
+    requested_as_of: str | None = None
+    target_theme: str | None = None
+    total_rows: int = 0
+    total_groups: int = 0
+    groups: tuple[MainlineGroupCoverage, ...] = ()
+    facts: tuple[MainlineSectorFact, ...] = ()
+    signals: tuple[MainlinePriceVolumeSignal, ...] = ()
+    history_start: str | None = None
+    history_end: str | None = None
+    lookback_days: int = 20
+    history: tuple[MainlineHistoryCoverage, ...] = ()
+    guidance: tuple[reading_baseline.ReadingRule, ...] = ()
+    gap_messages: tuple[str, ...] = ()
+    # Same-day theme summaries explain an old sector snapshot without claiming
+    # that its sector names or values are current.
+    theme_date: str | None = None
+    theme_summaries: tuple[tuple[str, int], ...] = ()
+
+    def __post_init__(self) -> None:
+        if len(self.facts) != len(self.signals) or any(
+            (fact.trade_date, fact.theme_code, fact.sector_ts_code,
+             fact.sector_pct, fact.diff_ratio, fact.sector_amount)
+            != (signal.trade_date, signal.theme_code, signal.sector_ts_code,
+                signal.sector_pct, signal.diff_ratio, signal.sector_amount)
+            for fact, signal in zip(self.facts, self.signals)
+        ):
+            raise ValueError("D4 signals must correspond to the same source facts")
+
+
+def _mainline_price_volume_signal(fact: MainlineSectorFact) -> MainlinePriceVolumeSignal:
+    strict, state = _mainline_volume_assessment(
+        fact.sector_pct, fact.diff_ratio, fact.sector_amount,
+    )
+    return MainlinePriceVolumeSignal(
+        fact.trade_date, fact.theme_code, fact.sector_ts_code,
+        fact.sector_pct, fact.diff_ratio, fact.sector_amount, strict, state,
+        fact.theme_name,
+        all(value is not None for value in (fact.sector_pct, fact.diff_ratio, fact.sector_amount)),
+        tuple(name for name in ("sector_pct", "diff_ratio", "sector_amount") if getattr(fact, name) is None),
+    )
+
+
+def mainline_context_snapshot(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+    lookback_days: int = 20,
+    *,
+    as_of: str | None = None,
+) -> MainlineContextSnapshot:
+    """Read the latest D4 sector date <= as_of, preserving the existing theme match."""
+    return _load_mainline_context_snapshot(
+        query, theme, market_db_path, lookback_days, as_of=as_of, market_review=False,
+    )
+
+
+def market_review_mainline_context_snapshot(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+    *,
+    as_of: str | None = None,
+) -> MainlineContextSnapshot:
+    """D4 for market review: sector facts must match the bounded market-data date."""
+    return _load_mainline_context_snapshot(
+        query, theme, market_db_path, 20, as_of=as_of, market_review=True,
+    )
+
+
+@contextmanager
+def _mainline_read_transaction(con: Any):
+    """Commit a completed read; query/commit errors roll back before delivery."""
+    con.execute("BEGIN TRANSACTION")
+    try:
+        yield
+        con.execute("COMMIT")
+    except BaseException:
+        try:
+            con.execute("ROLLBACK")
+        except Exception:
+            # Preserve the original query/commit exception; close is guaranteed
+            # by the loader even if the connection can no longer roll back.
+            pass
+        raise
+
+
+def _load_mainline_context_snapshot(
+    query: str,
+    theme: str | None,
+    market_db_path: str | Path | None,
+    lookback_days: int,
+    *,
+    as_of: str | None,
+    market_review: bool,
+) -> MainlineContextSnapshot:
+    """One readonly transaction; full joined aggregates and per-theme row previews.
+
+    Read only canonical fact_sector_daily (its published view), never generation
+    rows. Coverage is counted before ROW_NUMBER filtering, independent of prose
+    or evidence budgets. The history window includes both calendar boundaries.
+    """
+    common: dict[str, Any] = {
+        "requested_as_of": as_of,
+        "lookback_days": int(lookback_days),
+        "guidance": reading_baseline.block_rules("D4_mainline"),
+    }
+    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
+    if not db_path.exists():
+        return MainlineContextSnapshot(
+            status="unavailable", gap_messages=("本地主线数据库不可用；不能据此断言市场没有主线。",),
+            **common,
+        )
+    db_result = retrieval_cache.try_connect_readonly(db_path)
+    if not db_result.available:
+        return MainlineContextSnapshot(
+            status="unavailable", gap_messages=("本地主线数据库暂不可读取；本次未交付事实。",),
+            **common,
+        )
+    con = db_result.connection
+    try:
+        with _mainline_read_transaction(con):
+            tables = {
+                str(row[0]) for row in con.execute(
+                    "select table_name from information_schema.tables where table_schema='main'"
+                ).fetchall()
+            }
+            if "fact_mainline_sector_daily" not in tables or (
+                market_review and "fact_market_daily" not in tables
+            ):
+                return MainlineContextSnapshot(
+                    status="unavailable", gap_messages=("所需主线或市场数据表不可用；本次未交付事实。",),
+                    **common,
+                )
+            market_date = None
+            if "fact_market_daily" in tables:
+                market_date = con.execute(
+                    "select max(trade_date) from fact_market_daily "
+                    "where (? is null or trade_date <= cast(? as date))", [as_of, as_of],
+                ).fetchone()[0]
+            common["market_date"] = str(market_date) if market_date else None
+            if market_review and not market_date:
+                return MainlineContextSnapshot(
+                    status="empty", gap_messages=("查询上界内没有市场日期记录；不能据此断言市场没有主线。",),
+                    **common,
+                )
+            upper = str(market_date) if market_review else as_of
+            latest = con.execute(
+                "select max(trade_date) from fact_mainline_sector_daily "
+                "where (? is null or trade_date <= cast(? as date))", [upper, upper],
+            ).fetchone()[0]
+            common["snapshot_date"] = str(latest) if latest else None
+            if not latest:
+                return MainlineContextSnapshot(
+                    status="empty", gap_messages=("本表查询范围内没有主线板块记录；不等于市场没有主线。",),
+                    **common,
+                )
+            cutoff = latest - timedelta(days=int(lookback_days))
+            common.update(history_start=str(cutoff), history_end=str(latest))
+            if market_review and latest != market_date:
+                if "fact_mainline_theme_daily" in tables:
+                    theme_date = con.execute(
+                        "select max(trade_date) from fact_mainline_theme_daily "
+                        "where trade_date <= cast(? as date)", [upper],
+                    ).fetchone()[0]
+                    common["theme_date"] = str(theme_date) if theme_date else None
+                    if theme_date == market_date:
+                        common["theme_summaries"] = tuple(
+                            (str(name), int(count or 0)) for name, count in con.execute(
+                                "select theme_name, sector_count from fact_mainline_theme_daily "
+                                "where trade_date=? order by min_sort nulls last, theme_name",
+                                [theme_date],
+                            ).fetchall() if name
+                        )
+                return MainlineContextSnapshot(
+                    status="stale",
+                    gap_messages=("主线板块日期与市场日期错位；旧板块不能作为当日事实。",),
+                    **common,
+                )
+            target = _resolve_mainline_theme(con, query, theme, latest)
+            common["target_theme"] = target
+            params: list[Any] = [latest]
+            theme_filter = ""
+            if target:
+                theme_filter = "and m.theme_name = ?"
+                params.append(target)
+            counts = ", ".join(
+                f"count({metric}) as non_null_{metric}" for metric in _MAINLINE_COVERAGE_METRICS
+            )
+            result = con.execute(
+                f"""
+                with joined as (
+                  select m.trade_date, m.theme_code, m.theme_name, m.sector_ts_code,
+                         m.sector_name, m.sort_no, m.today_pct, m.limit_up_count,
+                         m.net_inflow_1d, m.amount, m.cycle_status, m.cycle_level,
+                         m.startup_date_small, m.high_status_label, m.near_breakout_label,
+                         coalesce(s.pct_chg, m.today_pct) as sector_pct,
+                         s.diff_ratio, coalesce(s.amount, m.amount / 10000.0) as sector_amount,
+                         s.sw_l1,
+                         case when s.pct_chg is not null then 'fact_sector_daily.pct_chg'
+                              when m.today_pct is not null then 'fact_mainline_sector_daily.today_pct'
+                         end as pct_source,
+                         case when s.amount is not null then 'fact_sector_daily.amount'
+                              when m.amount is not null then 'fact_mainline_sector_daily.amount/10000'
+                         end as amount_source
+                  from fact_mainline_sector_daily m
+                  left join fact_sector_daily s
+                    on m.trade_date=s.trade_date and m.sector_ts_code=s.sector_ts_code
+                  where m.trade_date=? {theme_filter}
+                ), coverage as (
+                  select theme_name, count(*) as total_rows, {counts}
+                  from joined group by theme_name
+                ), ranked as (
+                  select *, row_number() over (
+                    partition by theme_name
+                    order by sort_no nulls last, sector_name, theme_code, sector_ts_code
+                  ) as preview_no from joined
+                )
+                select c.total_rows, {', '.join('c.non_null_' + m for m in _MAINLINE_COVERAGE_METRICS)},
+                       r.* from coverage c join ranked r
+                       on c.theme_name is not distinct from r.theme_name
+                where r.preview_no <= {MAINLINE_PREVIEW_ROWS_PER_THEME}
+                order by r.theme_name, r.sort_no nulls last, r.sector_name,
+                         r.theme_code, r.sector_ts_code
+                """, params,
+            )
+            columns = [item[0] for item in result.description]
+            rows = [dict(zip(columns, row)) for row in result.fetchall()]
+            if not rows:
+                return MainlineContextSnapshot(
+                    status="empty", gap_messages=("本表匹配范围内没有主线板块记录；不等于市场没有主线。",),
+                    **common,
+                )
+            groups: dict[str, MainlineGroupCoverage] = {}
+            facts = []
+            for row in rows:
+                name = str(row["theme_name"] or "")
+                total = int(row["total_rows"])
+                groups.setdefault(name, MainlineGroupCoverage(
+                    name, total, min(total, MAINLINE_PREVIEW_ROWS_PER_THEME),
+                    max(0, total - MAINLINE_PREVIEW_ROWS_PER_THEME),
+                    tuple((m, int(row["non_null_" + m])) for m in _MAINLINE_COVERAGE_METRICS),
+                ))
+                fields = {key: row[key] for key in MainlineSectorFact.__dataclass_fields__}
+                fields.update(
+                    trade_date=str(row["trade_date"]), theme_name=name,
+                    startup_date_small=(str(row["startup_date_small"]) if row["startup_date_small"] else None),
+                )
+                facts.append(MainlineSectorFact(**fields))
+            history_params: list[Any] = [latest, cutoff]
+            history_filter = ""
+            if target:
+                history_filter = "and theme_name = ?"
+                history_params.append(target)
+            history = tuple(
+                MainlineHistoryCoverage(
+                    str(name or ""), int(days), str(first), str(last), int(sector_rows), last == latest,
+                ) for name, days, first, last, sector_rows in con.execute(
+                    f"""
+                    select theme_name, count(distinct trade_date), min(trade_date),
+                           max(trade_date), count(*)
+                    from fact_mainline_sector_daily
+                    where trade_date <= ? and trade_date >= ? {history_filter}
+                    group by theme_name
+                    order by count(distinct trade_date) desc, count(*) desc, theme_name
+                    """, history_params,
+                ).fetchall()
+            )
+            return MainlineContextSnapshot(
+                status="available", total_rows=sum(g.total_rows for g in groups.values()),
+                total_groups=len(groups), groups=tuple(groups.values()), facts=tuple(facts),
+                signals=tuple(_mainline_price_volume_signal(fact) for fact in facts),
+                history=history, **common,
+            )
+    except Exception:
+        return MainlineContextSnapshot(
+            status="unavailable", gap_messages=("主线数据查询未完成；本次未交付事实，不能据此断言事实不存在。",),
+            **common,
+        )
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+
+
+def render_mainline_context_snapshot(snapshot: MainlineContextSnapshot) -> str:
+    """Legacy text and tool observation render only this snapshot, never re-read it."""
+    if snapshot.status == "stale":
+        lines = ["## 市场复盘主线数据边界"]
+        if snapshot.theme_date == snapshot.market_date and snapshot.theme_summaries:
+            names = "、".join(name for name, _count in snapshot.theme_summaries)
+            lines.append(
+                f"- 当日市场总览和题材级主线汇总均截至 {snapshot.market_date}；"
+                f"当前主线题材为 {names}。"
+            )
+        elif snapshot.theme_date:
+            lines.append(
+                f"- 当日市场总览截至 {snapshot.market_date}；"
+                f"主线题材汇总仅截至 {snapshot.theme_date}。"
+            )
+            lines.append("- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。")
+        else:
+            lines.append(
+                f"- 当日市场总览截至 {snapshot.market_date}；没有可用的同日主线题材汇总。"
+            )
+            lines.append("- 当前交易日的题材级主线未知。")
+        lines.append(
+            f"- 核心板块明细仅截至 {snapshot.snapshot_date}；"
+            "当前核心板块、周期状态和标的未知。"
+        )
+        lines.append("- 禁止把旧板块名称、涨幅、生命周期或标的写成当日事实。")
+        return "\n".join(lines)
+    lines = ["## 主线题材结构数据块 [D4]"]
+    lines.extend(f"- 数据缺口：{gap}" for gap in snapshot.gap_messages)
+    if snapshot.status != "available":
+        return "\n".join(lines)
+    lines.append(
+        f"- 最新主线日期：{snapshot.snapshot_date}；匹配口径："
+        f"{snapshot.target_theme or '本表当日主题'}；"
+        f"本表共 {snapshot.total_groups} 组、{snapshot.total_rows} 行；每组最多预览 {MAINLINE_PREVIEW_ROWS_PER_THEME} 行。"
+    )
+    lines.append(
+        "- 口径：这是 L4 市场行情；diff_ratio 是今昨成交额环比%，不是净流入；"
+        "量价描述不能单独证明资金启动、唯一市场主线或公司基本面兑现。"
+    )
+    if snapshot.guidance:
+        lines.append("### 判读指导（方法，不是事实证据）")
+        lines.extend(
+            f"- 判读[{r.id}] {r.title}：{r.rule}；来源：{r.source}。"
+            for r in snapshot.guidance
+        )
+    if snapshot.history:
+        lines.append(
+            "- 主线持续性：历史出现统计，非截止日主线排名；"
+            f"本表查询窗口{snapshot.history_start}~{snapshot.history_end}"
+            f"（含边界，回看参数{snapshot.lookback_days}自然日）；截止日{snapshot.snapshot_date}；"
+            "截止日记录仅指本表是否收录，不等于市场存在或不存在："
+            + "；".join(
+                f"{h.theme_name}：出现{h.day_count}天、板块行{h.sector_rows}，"
+                f"已观测日期{h.first_date}~{h.last_date}，"
+                f"截止日记录={'有' if h.has_snapshot_day else '未见'}"
+                for h in snapshot.history
+            )
+        )
+    signal_by_key = {
+        (signal.trade_date, signal.theme_code, signal.sector_ts_code): signal
+        for signal in snapshot.signals
+    }
+    for group in snapshot.groups:
+        facts = [f for f in snapshot.facts if f.theme_name == group.theme_name]
+        bits = []
+        for fact in facts:
+            signal = signal_by_key[(fact.trade_date, fact.theme_code, fact.sector_ts_code)]
+            bits.append(
+                f"{fact.sector_name}({fact.sw_l1 or '未提供'}，"
+                f"{fact.cycle_status or '未标注'}/{fact.cycle_level or '未提供'}，"
+                f"涨{_fmt_optional(fact.sector_pct)}%，成交额环比{_fmt_optional(fact.diff_ratio)}%，"
+                f"成交{_fmt_optional(fact.sector_amount)}亿，"
+                f"涨停{'未提供' if fact.limit_up_count is None else fact.limit_up_count}，{signal.state}"
+                f"{('，' + fact.high_status_label) if fact.high_status_label else ''}"
+                f"{('，' + fact.near_breakout_label) if fact.near_breakout_label else ''}"
+                f"{('，启动日' + fact.startup_date_small) if fact.startup_date_small else ''})"
+            )
+        lines.append(
+            f"- {group.theme_name}核心板块（本表{group.total_rows}行，"
+            f"预览{group.preview_rows}行，省略{group.omitted_rows}行）：" + "；".join(bits)
+        )
+    return "\n".join(lines)
+
+
 def _mainline_context_block_for_llm(
     query: str,
     theme: str | None,
@@ -161,143 +623,10 @@ def _mainline_context_block_for_llm(
     *,
     as_of: str | None = None,
 ) -> str:
-    """Build the D4 mainline-theme structure block from local DuckDB.
-
-    Grain: trade_date × mainline theme × core sector. This is L4 market signal,
-    not entity baseline or hard company evidence.
-    """
-    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
-    if not db_path.exists():
-        return ""
-    db_result = retrieval_cache.try_connect_readonly(db_path)
-    if not db_result.available:
-        return ""
-    con = db_result.connection
-    try:
-        exists = con.execute(
-            "select count(*) from information_schema.tables where table_name='fact_mainline_sector_daily'"
-        ).fetchone()[0]
-        if not exists:
-            return ""
-        latest = con.execute(
-            "select max(trade_date) from fact_mainline_sector_daily "
-            "where (? is null or trade_date <= cast(? as date))",
-            [as_of, as_of],
-        ).fetchone()[0]
-        if not latest:
-            return ""
-        target_theme = _resolve_mainline_theme(con, query, theme, latest)
-        params: list[Any] = [latest]
-        theme_filter = ""
-        if target_theme:
-            theme_filter = "and m.theme_name = ?"
-            params.append(target_theme)
-        rows = con.execute(
-            f"""
-            select
-              m.trade_date, m.theme_name, m.sector_name, m.sort_no,
-              m.cycle_status, m.cycle_level, m.today_pct, m.limit_up_count,
-              m.startup_date_small, m.high_status_label, m.near_breakout_label,
-              coalesce(s.pct_chg, m.today_pct) as sector_pct,
-              s.diff_ratio, coalesce(s.amount, m.amount / 10000.0) as sector_amount,
-              s.sw_l1
-            from fact_mainline_sector_daily m
-            left join fact_sector_daily s
-              on m.trade_date = s.trade_date and m.sector_ts_code = s.sector_ts_code
-            where m.trade_date = ? {theme_filter}
-            order by m.theme_name, m.sort_no nulls last, m.sector_name
-            limit 30
-            """,
-            params,
-        ).fetchall()
-        if not rows:
-            return ""
-        cutoff = latest - timedelta(days=int(lookback_days)) if hasattr(latest, "__sub__") else latest
-        history_params: list[Any] = [latest, cutoff]
-        history_filter = ""
-        if target_theme:
-            history_filter = "and theme_name = ?"
-            history_params.append(target_theme)
-        history = con.execute(
-            f"""
-            select theme_name, count(distinct trade_date) as day_count,
-                   min(trade_date) as first_date, max(trade_date) as last_date,
-                   count(*) as sector_rows
-            from fact_mainline_sector_daily
-            where trade_date <= ?
-              and trade_date >= ?
-              {history_filter}
-            group by theme_name
-            order by day_count desc, sector_rows desc, theme_name
-            limit 8
-            """,
-            history_params,
-        ).fetchall()
-        lines = ["## 主线题材结构数据块 [D4]"]
-        lines.extend(reading_baseline.block_rule_lines("D4_mainline"))
-        matched = target_theme or "最新全市场主线"
-        lines.append(f"- 最新主线日期：{latest}；匹配口径：{matched}；该块是 L4_market_signal，只能说明市场主线归因，不等同公司基本面兑现。")
-        if history:
-            # A dataset snapshot date is not the observation date of every
-            # historical theme. The aggregate's max date, unlike the truncated
-            # current-sector preview, establishes same-table cutoff membership.
-            # Keep the original inclusive calendar window and snapshot freshness;
-            # neither historical frequency nor an absent row is a market verdict.
-            hist_text = "；".join(
-                f"{name}：出现{days}天、板块行{sector_rows}，已观测日期{first}~{last}，"
-                f"截止日记录={'有' if last == latest else '未见'}"
-                for name, days, first, last, sector_rows in history[:5]
-            )
-            lines.append(
-                "- 主线持续性：历史出现统计，非截止日主线排名；"
-                f"本表查询窗口{cutoff}~{latest}（含边界，回看参数{lookback_days}自然日）；"
-                f"截止日{latest}；"
-                "截止日记录仅指本表是否收录，不等于市场存在或不存在："
-                f"{hist_text}"
-            )
-        grouped: dict[str, list[tuple[Any, ...]]] = {}
-        for row in rows:
-            grouped.setdefault(str(row[1]), []).append(row)
-        for theme_name, items in grouped.items():
-            sector_bits = []
-            for row in items[:8]:
-                (
-                    _td,
-                    _theme_name,
-                    sector_name,
-                    _sort_no,
-                    cycle_status,
-                    cycle_level,
-                    _today_pct,
-                    limit_up_count,
-                    startup_date_small,
-                    high_status_label,
-                    near_breakout_label,
-                    sector_pct,
-                    diff_ratio,
-                    sector_amount,
-                    sw_l1,
-                ) = row
-                volume_state = _classify_mainline_volume_state(sector_pct, diff_ratio, sector_amount)
-                breakout = high_status_label or near_breakout_label or ""
-                breakout_text = f"，{breakout}" if breakout else ""
-                startup_text = f"，启动日{startup_date_small}" if startup_date_small else ""
-                limit_up_text = "未提供" if limit_up_count is None else str(limit_up_count)
-                sector_bits.append(
-                    f"{sector_name}({sw_l1 or '-'}，{cycle_status or '未标注'}/{cycle_level or '-'}，"
-                    f"涨{_fmt_optional(sector_pct)}%，边际量{_fmt_optional(diff_ratio)}%，"
-                    f"成交{_fmt_optional(sector_amount)}亿，涨停{limit_up_text}，{volume_state}{breakout_text}{startup_text})"
-                )
-            lines.append(f"- {theme_name}核心板块：" + "；".join(sector_bits))
-        lines.append("- 使用要求：回答时要区分连续主线与新启动主线；cycle_status=分歧/消亡不能写成无条件主升；涨幅为正但 diff_ratio 为负时，优先解释为缩量强修复/存量抱团，而不是低位放量启动。")
-        return "\n".join(lines)
-    except Exception:
-        return ""
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
+    """Compatibility renderer for the same typed D4 read product."""
+    return render_mainline_context_snapshot(mainline_context_snapshot(
+        query, theme, market_db_path, lookback_days, as_of=as_of,
+    ))
 
 
 def _market_review_mainline_context_block_for_llm(
@@ -307,97 +636,9 @@ def _market_review_mainline_context_block_for_llm(
     *,
     as_of: str | None = None,
 ) -> str:
-    market_date = _market_data_asof(market_db_path, as_of=as_of)
-    db_path = Path(market_db_path).expanduser() if market_db_path else DEFAULT_MARKET_DB_PATH
-    if not market_date or not db_path.exists():
-        return ""
-    db_result = retrieval_cache.try_connect_readonly(db_path)
-    if not db_result.available:
-        return ""
-    con = db_result.connection
-    try:
-        table_names = {
-            str(row[0])
-            for row in con.execute(
-                """
-                select table_name
-                from information_schema.tables
-                where table_schema = 'main'
-                """
-            ).fetchall()
-        }
-        theme_date = None
-        themes: list[tuple[str, int]] = []
-        if "fact_mainline_theme_daily" in table_names:
-            row = con.execute(
-                "select max(trade_date) from fact_mainline_theme_daily "
-                "where trade_date <= cast(? as date)",
-                [market_date],
-            ).fetchone()
-            theme_date = str(row[0]) if row and row[0] else None
-            if theme_date == market_date:
-                themes = [
-                    (str(name), int(sector_count or 0))
-                    for name, sector_count in con.execute(
-                        """
-                        select theme_name, sector_count
-                        from fact_mainline_theme_daily
-                        where trade_date = ?
-                        order by min_sort nulls last, theme_name
-                        limit 10
-                        """,
-                        [theme_date],
-                    ).fetchall()
-                    if name
-                ]
-        sector_date = None
-        if "fact_mainline_sector_daily" in table_names:
-            row = con.execute(
-                "select max(trade_date) from fact_mainline_sector_daily "
-                "where trade_date <= cast(? as date)",
-                [market_date],
-            ).fetchone()
-            sector_date = str(row[0]) if row and row[0] else None
-    except Exception:
-        return ""
-    finally:
-        con.close()
-    if sector_date == market_date:
-        return _mainline_context_block_for_llm(
-            query,
-            theme,
-            market_db_path,
-            as_of=market_date,
-        )
-    lines = ["## 市场复盘主线数据边界"]
-    if theme_date == market_date and themes:
-        theme_text = "、".join(name for name, _ in themes)
-        lines.append(
-            f"- 当日市场总览和题材级主线汇总均截至 {market_date}；"
-            f"当前主线题材为 {theme_text}。"
-        )
-    elif theme_date:
-        lines.append(
-            f"- 当日市场总览截至 {market_date}；主线题材汇总仅截至 {theme_date}。"
-        )
-        lines.append(
-            "- 当前交易日的题材级主线未知，禁止把旧题材名称写成当日事实。"
-        )
-    else:
-        lines.append(
-            f"- 当日市场总览截至 {market_date}；没有可用的同日主线题材汇总。"
-        )
-        lines.append("- 当前交易日的题材级主线未知。")
-    if sector_date:
-        lines.append(
-            f"- 核心板块明细仅截至 {sector_date}；当前核心板块、周期状态和标的未知。"
-        )
-    else:
-        lines.append("- 没有可用的核心板块明细；当前核心板块、周期状态和标的未知。")
-    lines.append(
-        "- 禁止把旧板块名称、涨幅、生命周期或标的写成当日事实。"
-    )
-    return "\n".join(lines)
+    return render_mainline_context_snapshot(market_review_mainline_context_snapshot(
+        query, theme, market_db_path, as_of=as_of,
+    ))
 
 
 def _mainline_theme_names(
@@ -687,18 +928,28 @@ def _resolve_mainline_theme(con: Any, query: str, theme: str | None, latest_date
 
 
 def _classify_mainline_volume_state(pct_chg: Any, diff_ratio: Any, amount: Any) -> str:
+    """Legacy signature for the same descriptive, canonical qualification logic."""
+    return _mainline_volume_assessment(pct_chg, diff_ratio, amount)[1]
+
+
+def _mainline_volume_assessment(
+    pct_chg: Any, diff_ratio: Any, amount: Any,
+) -> tuple[bool | None, str]:
     pct = _safe_float(pct_chg)
     diff = _safe_float(diff_ratio)
     amt = _safe_float(amount)
-    if pct is not None and pct > 0 and diff is not None and diff > 10 and (amt is None or amt > 500):
-        return "真正双红/增量启动"
-    if pct is not None and pct > 0 and diff is not None and diff < 0:
-        return "缩量强修复/存量抱团"
-    if pct is not None and pct > 0 and diff is not None and diff >= 0:
-        return "弱放量修复"
-    if pct is not None and pct < 0 and diff is not None and diff > 0:
-        return "放量分歧/承接检验"
-    return "量价状态待确认"
+    if pct is None or diff is None or amt is None:
+        return None, "量价输入不足待确认"
+    strict = market_signals.is_double_red(pct_chg, diff_ratio, amount)
+    if strict:
+        return strict, "满足严格双红"
+    if pct > 0 and diff < 0:
+        return strict, "上涨、成交额环比下降"
+    if pct > 0 and diff >= 0:
+        return strict, "上涨、成交额环比非负，未确认严格双红"
+    if pct < 0 and diff > 0:
+        return strict, "下跌、成交额环比上升"
+    return strict, "量价状态不足待确认"
 
 
 def _safe_float(value: Any) -> float | None:
