@@ -24,6 +24,7 @@ def research_dimensions_for(frame: TaskFrame) -> tuple[str, ...]:
 复审发现 id 集合不足以区分默认项与同名调用者要求：补 `TaskFrame.required_output_additions`，由实际调用参数写入，rebase 保留同名要求，`from_dict` 拒绝不合法或不在最终要求内的记录。空值不进旧形状/哈希，对齐模型无写权；加入默认同名冲突及序列化恢复的拒漏反例。
 rebase 转入 dated 时使用已有 `_GENERIC_GOALS` 区分占位目标与有内容的上下文目标；前者调用 `_user_goal` 恢复原问，后者保留。用真实 legacy Controller 的 `route_id` 回复验证与直接构建一致。
 全仓暴露继承污染：`rebase_task_frame` 用 `inherited_required_outputs` 接活动旧合同，Controller 的 intent 继承调用改用此参数；当前明确子任务覆盖旧报告，本轮 `required_outputs` 新要求仍保留。原 benchmark 冻结断言保持不动，增加两条来源同时存在的正反控制。
+盘点全部真实 rebase 调用者：query_resolution、Controller decision/intent、TurnControlCore legacy intent。legacy 的 QueryEnvelope 不再重复填旧 required_outputs，rebase 统一走继承参数。基础项取 `explicit_outputs or inherited_required_outputs or _clean_outputs(inherited_outputs, canonical_outputs)`，最后与 additions 合并；验证继续/详细续问/指代续问完整沿用旧合同、明确追问收窄以及无 frame 兼容入口。
 
 - [x] 修改对应旧默认断言；增加原问、重建题型和明确必需项的回归。
 - [x] 跑 `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_task_frame.py`。

@@ -653,9 +653,10 @@ def rebase_task_frame(
             in {"theme_analysis", "comparison_analog", "stock_deep_dive"}
             else "theme_analysis"
         )
-        required_outputs = frame.required_outputs
+        inherited_required_outputs = frame.required_outputs
 
     explicit_outputs = _explicit_required_outputs(frame.raw_question)
+    inherited_required_outputs = _clean_outputs(inherited_required_outputs)
     additions = _clean_outputs(
         frame.required_output_additions,
         required_outputs,
@@ -681,15 +682,12 @@ def rebase_task_frame(
     # ``frame.required_outputs``, and a blank id surviving only on the
     # inheritance path would score one answer against two different coverage
     # denominators depending on which path built the frame.
-    merged_outputs = (
-        _clean_outputs(explicit_outputs, additions)
-        if explicit_outputs
-        else _clean_outputs(
-            inherited_outputs,
-            canonical_outputs,
-            required_outputs,
-        )
+    base_outputs = (
+        explicit_outputs
+        or inherited_required_outputs
+        or _clean_outputs(inherited_outputs, canonical_outputs)
     )
+    merged_outputs = _clean_outputs(base_outputs, additions)
     return replace(
         frame,
         question_type=question_type,

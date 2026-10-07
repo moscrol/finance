@@ -1567,11 +1567,19 @@ def decide_turn(
             subject=intent.primary_subject,
             subject_kind=inherited_kind,
             timeframe=intent.timeframe,
-            inherited_required_outputs=intent.required_outputs,
+            # The provisional intent also contains current type defaults.
+            # Continue the actual prior contract; rebase owns any narrowing.
+            inherited_required_outputs=(
+                previous_intent.required_outputs if previous_intent is not None
+                else intent.required_outputs
+            ),
         )
         envelope = project_task_frame(task_frame, envelope)
         resolution = replace(resolution, envelope=envelope)
-        intent = replace(intent, task_frame_hash=task_frame.task_frame_hash)
+        intent = replace(
+            intent, required_outputs=task_frame.required_outputs,
+            task_frame_hash=task_frame.task_frame_hash,
+        )
     effective_query = contextualize_intent_query(query, intent)
     deterministic = _deterministic_decision(
         effective_query,

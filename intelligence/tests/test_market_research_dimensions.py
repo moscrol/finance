@@ -19,6 +19,7 @@ from intelligence.services.query_understanding import understand_query
 from intelligence.services.research_contract import release_root_budget
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.task_frame import TaskFrame, derive_required_outputs, rebase_task_frame
+from intelligence.services.turn_controller import TurnDecision
 
 
 QUESTION = "2026-07-22 复盘高标连板晋级有没有断层？"
@@ -207,6 +208,38 @@ def test_explicit_followup_overrides_inherited_report_but_keeps_new_caller_requi
     )
     assert explicit.required_outputs == (*frame.required_outputs, "risk_signals")
     assert explicit.required_output_additions == ("risk_signals",)
+
+
+@pytest.mark.parametrize("question", ("继续", "继续说详细一点", "那它呢"))
+def test_default_continuation_keeps_exact_active_contract(question):
+    def disabled(*_args, **_kwargs):
+        return None, None, "disabled"
+    first = TurnControlCore().control("昨天的反弹能持续多久", llm_complete=disabled)
+    resumed = TurnControlCore().control(
+        question, previous_intent=first.turn_intent, previous_turn_id="first-turn", llm_complete=disabled,
+    )
+    assert resumed.task_frame.required_outputs == first.task_frame.required_outputs
+    assert resumed.turn_intent.required_outputs == first.task_frame.required_outputs
+    assert "scenario_paths" not in resumed.task_frame.required_outputs
+
+
+@pytest.mark.parametrize(("query", "narrowed"), (
+    ("继续", False), ("那它什么时候算失效", True),
+))
+def test_legacy_intent_adapter_uses_same_continuation_and_narrowing_contract(query, narrowed):
+    first = TurnControlCore().control(
+        "昨天的反弹能持续多久", llm_complete=lambda *_args, **_kwargs: (None, None, "disabled"),
+    )
+    decision = TurnDecision(
+        lane="research", needs_retrieval=True, needs_memory=False, needs_template=True,
+        question_type=first.task_frame.question_type, subject=first.task_frame.subject,
+        timeframe=first.task_frame.timeframe, turn_intent=first.turn_intent,
+    )
+    result = TurnControlCore(legacy_decide=lambda *_args, **_kwargs: decision).control(query)
+    assert result.task_frame.required_outputs == (
+        ("invalidation_conditions", "supporting_evidence")
+        if narrowed else first.task_frame.required_outputs
+    )
 
 
 def test_multiday_comparison_requirements_keep_priority(contexts):

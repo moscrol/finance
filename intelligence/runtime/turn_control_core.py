@@ -293,7 +293,6 @@ class TurnControlCore:
             timeframe=intent.timeframe,
             matched_by="explicit" if intent.primary_subject is not None else "generic",
             confidence=confidence,
-            required_outputs=intent.required_outputs,
         )
         frame = build_task_frame(
             query, envelope, conversation_context=context if context else None
@@ -306,7 +305,7 @@ class TurnControlCore:
             subject=intent.primary_subject,
             subject_kind=subject_kind,
             timeframe=intent.timeframe,
-            required_outputs=intent.required_outputs,
+            inherited_required_outputs=intent.required_outputs,
         )
 
     @staticmethod
