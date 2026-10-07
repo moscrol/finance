@@ -18,11 +18,30 @@ gh pr create --repo moscrol/finance --base main --head fix/example --body-file <
 
 合入纪律：`workbench-check` 与 `registry-check` 必须通过，管理员也遵守；
 不强推、不删除 main。**纪律不等于平台强制**：2026-10-07 01:05 +08:00
-只读核查时，`moscrol/finance` 已是 PUBLIC，但 main 的 `protected=false`、
-仓库 rulesets 为空。公开只使保护可配置，不会自动启用保护；当时仍靠人工检查。
-变更保护配置须经用户确认，并回读 required checks、管理员约束、强推/删除设置；
-实际生效前不得宣称“管理员同样受保护”。核查依据见
-[接手核查记录](../handoffs/2026-10-07-review-takeover.md)。
+最初核查仍未开启；经用户确认，01:39 配置，09:21 独立回读确认：
+
+- 两项 required checks 绑定 GitHub Actions（app ID `15368`），`strict=true`（包含最新 main）。
+- 管理员受约束，禁止强推 / 删除；必须走 PR，并解决讨论。
+- 必需审批人数为 0，避免单人仓库无法获得另一名真人批准；用户逐次合并授权仍有效。
+
+执行前回读 `gh api repos/moscrol/finance/branches/main/protection`；配置 / 套餐 /
+可见性变化都可能影响保护，不把旧收据当永久事实。主干 SHA 本轮未改。
+私有证据：`~/.finance-runtime/reviews/release-guard-20261007/protection-latest.json`；
+背景见[接手核查记录](../handoffs/2026-10-07-review-takeover.md)及
+[发布保护后续](../handoffs/2026-10-07-release-guard.md)。
+
+## 公开前与事件处置
+
+扫描当前 main 不覆盖归档分支和历史。公开 / 公开推送前扫描拟发布 refs 的可达历史，
+记录准确 refs、工具 / 规则版本及脱敏报告。`block-forbidden-files` 按文件名检查；
+`staged-credentials` 检查本次暂存的完整 blob（Git 文件对象），涵盖普通文本中的会话 /
+应用密钥形状，值不进输出。后者不扫描全历史，不解压 / 解码封装，也不是通用密钥扫描器。
+
+2026-10-07 离线扫描发现需要撤销核实的历史凭据，本会话公开推送暂停。完整定位、账号
+信息和脱敏原始报告仅留上述本机私有证据目录；不复制到公开 Issue / PR / CI 日志。
+先由账号持有人撤销 / 轮换并确认，再决定私有化、删引用、历史清理及恢复公开；这些操作
+各自获批。只删文件或分支不等于凭据失效，也不保证 GitHub 缓存 / fork 中的副本消失。
+改为私有仅缩小新增暴露，不能收回已被复制的内容；之后还须核对该套餐下保护是否生效。
 
 源端删掉已完成的工作分支后，备份端仍保留历史引用。分支数量不同是正常备份状态，
 不能因此把 Gitea 旧枝批量重建到 GitHub。
