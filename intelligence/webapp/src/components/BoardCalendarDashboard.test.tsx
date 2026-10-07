@@ -82,6 +82,64 @@ describe("BoardCalendarDashboard", () => {
     expect(await screen.findByText("2-000001 乙公司")).toBeInTheDocument();
   });
 
+  it("marks stocks above five boards with the distinct high-board style", async () => {
+    const payload = calendarFor(currentMonth(), 3);
+    const day = payload.calendar_days[0];
+    day.board_groups.push({
+      boards: 4,
+      stocks: [{ stock_ts_code: "600002.SH", stock_name: "丁公司", boards: 4, theme: null, pct_chg: 10 }],
+    });
+    day.stock_count = 2;
+    payload.trading_days = [day];
+    mockedGetBoardCalendar.mockResolvedValue(payload);
+    render(<BoardCalendarDashboard />);
+
+    const highStock = await screen.findByText("6-000001 甲公司");
+    expect(highStock).toHaveClass("board-calendar-stock--x5");
+    const normalStock = screen.getByText("4-600002 丁公司");
+    expect(normalStock).not.toHaveClass("board-calendar-stock--x5");
+    expect(screen.getByText("6板")).toHaveClass("board-calendar-group-title--x5");
+    expect(screen.getByText("4板")).not.toHaveClass("board-calendar-group-title--x5");
+    expect(screen.getByText(/超过 5 板的个股/)).toBeInTheDocument();
+  });
+
+  it("writes a ≥5-board break on the day it happened, in the unified chip style", async () => {
+    const payload = calendarFor(currentMonth(), 3);
+    const day = payload.calendar_days[0];
+    day.high_board_breaks = [
+      { date: day.date, stock_ts_code: "600009.SH", stock_name: "戊公司", height_at_break: 6, theme: "高标题材" },
+    ];
+    payload.high_board_breaks = day.high_board_breaks;
+    payload.high_board_min = 5;
+    mockedGetBoardCalendar.mockResolvedValue(payload);
+    render(<BoardCalendarDashboard />);
+
+    const cell = await screen.findByRole("article", { name: day.date });
+    const inDay = within(cell);
+    expect(inDay.getByText("断板")).toHaveClass("board-calendar-group-title--break");
+    expect(inDay.getByText("断 6板 戊公司")).toHaveClass("board-calendar-stock--break");
+    expect(screen.getByText(/次 ≥5板 高标断板/)).toBeInTheDocument();
+  });
+
+  it("legend break threshold follows payload.high_board_min (not a hardcoded 5)", async () => {
+    const payload = calendarFor(currentMonth(), 3);
+    payload.high_board_min = 6;
+    mockedGetBoardCalendar.mockResolvedValue(payload);
+    render(<BoardCalendarDashboard />);
+    await screen.findByText(/某只 ≥6板个股收盘不再涨停/);
+  });
+
+  it("break chip keeps the WCAG-AA muted grey (#6f6a61) for its 9px text", async () => {
+    const css = (await import("../styles.css?raw")).default as string;
+    const start = css.indexOf(".board-calendar-stock--break");
+    const block = css.slice(start, css.indexOf("}", start));
+    const colorDecl = block
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.startsWith("color:"));
+    expect(colorDecl).toContain("#6f6a61");
+  });
+
   it("keeps the selected threshold when navigating between months", async () => {
     const user = userEvent.setup();
     render(<BoardCalendarDashboard />);
