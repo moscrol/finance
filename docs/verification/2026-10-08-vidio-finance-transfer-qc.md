@@ -104,7 +104,13 @@ FWP_TEST_RECEIPT_PATH=<本轮独占收据路径> \
 .venv-workbench/bin/python -m ruff check .
 ```
 
-旧 `545fb854b` 的五项 GitHub 检查已成功，但不覆盖新接线。2026-10-08 05:37 CST 对 `7389549bc` 的观察：registry/frontend 成功，python/e2e 仍在运行。新 workbench run `37689283789`，registry run `37689283765`；最新 head 和终态需从 PR Checks 回读，后续文档提交也有独立身份。
+旧 `545fb854b` 的五项 GitHub 检查只覆盖旧接线前版本。05:37 CST 的运行中观察不是终态：后来回读确认 `7389549bc`（run `37689283789`）及 `1a055b87`（run `37691469323`）的全量 Python 都是 **9F/20971P/167S/2X**，九例均为补写测试裸 `object()` 不满足 `AnswerSpec` 合同；两版聚合均未通过。前者 E2E 安装阶段超时、未执行测试，后者 registry/frontend/E2E 成功，分别记账。
+
+### 全量 CI 追补（测试提交 `0154b06d1`）
+
+同一锁定环境：干净基线的补写组 16P，`1a055b87` 为 9F/7P。核定义与真实调用后，只将测试夹具改成合法最小 `AnswerSpec`，不在生产添加吞缺字段的兜底；新增两个真实 registry 补写实例，验证完整镜头/共同限制送达或超预算拒发，原重新过门禁断言保留。新消费文件由 33 增至 35 例；原 33 例收据不改签。
+
+干净 `0154b06d1ed3adcdcc5236d6441155e44d4ab37c` 两文件 **51P**，独立收据 `fulfillment-fixed-code-receipt.json` 及校验日志均在新证据根；全仓 Ruff/提交门通过。进程内撤掉必需行占位，两例均红，还原后绿；首次错误量具留档，不当证据。这里只是定向追补，后续固定 HEAD 的完整门与 CI 尚待执行/回读。方案取舍、红集和完整原件指针见[CI 追补快照](../handoffs/2026-10-08-river-repair-ci-followup.md)。
 
 ## 未验证 / 不成立的结论
 
