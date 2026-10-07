@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "patch_id": "pp-29bbc4c1f691",
+  "perspective_id": "sptfei",
+  "field": "opportunity_preferences",
+  "value": "在主线出清缩量阶段，优先从临近突破状态的板块和韧性抱团个股中筛选候选集合，观察其量价资金配合情况。",
+  "status": "approved",
+  "supporting_article_count": 1,
+  "evidence": [
+    {
+      "article_id": "pa-e199358af052",
+      "title": "2026.29",
+      "date": "2026-07-13",
+      "quote": "临近突破或者突破类、韧性抱团类个股就可以编织成一个集合，在我的看板上，观察量价资金。"
+    }
+  ],
+  "created_at": "2026-08-13T07:02:00+00:00",
+  "reviewed_at": "2026-08-13T07:22:23+00:00",
+  "review_note": "agent评审:可迁移规则,引文核验通过",
+  "applied": true
+}

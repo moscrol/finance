@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-10-07T14:20:11.927403+00:00",
+  "source_records_reread_unchanged": 26,
+  "privacy_scan": {
+    "status": "PASS",
+    "patterns": [
+      "home_path",
+      "local_user_id",
+      "private_key",
+      "github_token",
+      "bearer",
+      "assigned_secret"
+    ],
+    "matches": [],
+    "limit": "Targeted basic scan and selected-content review, not a guarantee of absence of all sensitive information; no gitleaks installed."
+  },
+  "helper_lint": {
+    "command": "python -m ruff check --no-cache --ignore E501 tools/",
+    "result": "All checks passed",
+    "scope": "3 newly written helper scripts only; source snapshots untouched; not a repository-wide test"
+  },
+  "repository_revision": "148a09ec85d2d5ef63957f3318ce88e8b18ef05b",
+  "repository_status_short": "",
+  "scope": "Source/hash and export consistency only; no production changes or full framework build."
+}

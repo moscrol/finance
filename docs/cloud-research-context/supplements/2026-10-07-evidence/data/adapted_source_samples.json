@@ -1,0 +1,70 @@
+{
+  "kind": "TEMP_VIEW_READ",
+  "samples": {
+    "tf_src_dragon": [
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000002.SZ",
+        "net_amount": 0.7138455948000001
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000011.SZ",
+        "net_amount": -0.5594984232
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000504.SZ",
+        "net_amount": 0.8162894742
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000560.SZ",
+        "net_amount": 1.71060394
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000678.SZ",
+        "net_amount": 1.3861997902
+      }
+    ],
+    "tf_src_auction_zt": [
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000158.SZ",
+        "auction_pct": 0.29,
+        "auction_amount": 0.43
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000564.SZ",
+        "auction_pct": 2.41,
+        "auction_amount": 0.59
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "002104.SZ",
+        "auction_pct": 0.33,
+        "auction_amount": 0.31
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "003040.SZ",
+        "auction_pct": 0.1,
+        "auction_amount": 1.02
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "600121.SH",
+        "auction_pct": 10.0,
+        "auction_amount": 0.68
+      }
+    ]
+  },
+  "auction_duplicate_audit": [
+    {
+      "duplicated_stock_days": 0,
+      "excess_rows": 0
+    }
+  ]
+}

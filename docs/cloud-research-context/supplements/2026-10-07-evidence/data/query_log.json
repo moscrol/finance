@@ -1,0 +1,764 @@
+[
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_calendar\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_teaching_labels\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_teaching_receipts\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_range_leaders\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_range_leader_handoffs\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_dynasties\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_dynasty_handoffs\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS rows FROM \"history_reference_stages\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT label, entity_type, status, COUNT(*) AS rows, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM history_teaching_labels GROUP BY ALL ORDER BY label, entity_type, status",
+    "parameters": [],
+    "returned_rows": 0
+  },
+  {
+    "database": "labels",
+    "sql": "SELECT COUNT(*) AS days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM history_calendar",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT trade_date, total_amount, sh_index_open, sh_index_high, sh_index_low, sh_index_close, sh_week_ma, sh_deviation_pct, cycle_stage FROM fact_market_daily ORDER BY trade_date",
+    "parameters": [],
+    "returned_rows": 432
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 60
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"total_amount\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"sh_index_open\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"sh_index_high\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"sh_index_low\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"sh_index_close\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"sh_week_ma\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"sh_deviation_pct\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"cycle_stage\") AS n FROM \"fact_market_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"total_amount\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"sh_index_open\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"sh_index_high\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"sh_index_low\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"sh_index_close\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"sh_week_ma\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"sh_deviation_pct\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_market_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"cycle_stage\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"total_amount\", \"sh_index_open\", \"sh_index_high\", \"sh_index_low\", \"sh_index_close\", \"sh_week_ma\", \"sh_deviation_pct\", \"cycle_stage\" FROM \"fact_market_daily\" WHERE trade_date <= ? ORDER BY trade_date DESC, total_amount, sh_index_open, sh_index_high, sh_index_low, sh_index_close, sh_week_ma, sh_deviation_pct, cycle_stage LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_dragon_tiger_hithink\"",
+    "parameters": [],
+    "returned_rows": 15
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_dragon_tiger_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"net_value\") AS n FROM \"fact_dragon_tiger_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"buy_value\") AS n FROM \"fact_dragon_tiger_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"sell_value\") AS n FROM \"fact_dragon_tiger_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"range_days\") AS n FROM \"fact_dragon_tiger_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_dragon_tiger_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_dragon_tiger_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"net_value\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_dragon_tiger_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"buy_value\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_dragon_tiger_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"sell_value\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_dragon_tiger_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"range_days\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"stock_ts_code\", \"net_value\", \"buy_value\", \"sell_value\", \"range_days\" FROM \"fact_dragon_tiger_hithink\" WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code, net_value, buy_value, sell_value, range_days LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_dragon_tiger_daily\"",
+    "parameters": [],
+    "returned_rows": 16
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_dragon_tiger_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"net_amount\") AS n FROM \"fact_dragon_tiger_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"l_buy\") AS n FROM \"fact_dragon_tiger_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"l_sell\") AS n FROM \"fact_dragon_tiger_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_dragon_tiger_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_dragon_tiger_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"net_amount\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_dragon_tiger_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"l_buy\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_dragon_tiger_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"l_sell\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"stock_ts_code\", \"net_amount\", \"l_buy\", \"l_sell\" FROM \"fact_dragon_tiger_daily\" WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code, net_amount, l_buy, l_sell LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_theme_limit_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 38
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_theme_limit_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"fd_amount\") AS n FROM \"fact_theme_limit_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"circ_mv\") AS n FROM \"fact_theme_limit_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"limit_status\") AS n FROM \"fact_theme_limit_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_theme_limit_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_theme_limit_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"fd_amount\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_theme_limit_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"circ_mv\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_theme_limit_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"limit_status\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"stock_ts_code\", \"sector_ts_code\", \"fd_amount\", \"circ_mv\", \"limit_status\" FROM \"fact_theme_limit_stock_daily\" WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code, sector_ts_code, fd_amount, circ_mv, limit_status LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_auction_hithink\"",
+    "parameters": [],
+    "returned_rows": 19
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_auction_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"auction_pct\") AS n FROM \"fact_auction_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"auction_amount\") AS n FROM \"fact_auction_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"kind\") AS n FROM \"fact_auction_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_auction_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_auction_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"auction_pct\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_auction_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"auction_amount\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_auction_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"kind\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"stock_ts_code\", \"auction_pct\", \"auction_amount\", \"kind\" FROM \"fact_auction_hithink\" WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code, auction_pct, auction_amount, kind LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_auction_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 13
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_auction_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"auction_pct\") AS n FROM \"fact_auction_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"auction_amount\") AS n FROM \"fact_auction_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"panel_key\") AS n FROM \"fact_auction_stock_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_auction_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_auction_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"auction_pct\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_auction_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"auction_amount\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_auction_stock_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"panel_key\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"stock_ts_code\", \"auction_pct\", \"auction_amount\", \"panel_key\" FROM \"fact_auction_stock_daily\" WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code, auction_pct, auction_amount, panel_key LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_stock_daily_hithink\"",
+    "parameters": [],
+    "returned_rows": 11
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_stock_daily_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"close\") AS n FROM \"fact_stock_daily_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"high\") AS n FROM \"fact_stock_daily_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"low\") AS n FROM \"fact_stock_daily_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"adjusted\") AS n FROM \"fact_stock_daily_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_stock_daily_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_stock_daily_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"close\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_stock_daily_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"high\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_stock_daily_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"low\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_stock_daily_hithink\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"adjusted\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"stock_ts_code\", \"close\", \"high\", \"low\", \"adjusted\" FROM \"fact_stock_daily_hithink\" WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code, close, high, low, adjusted LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_stock_adjustment_hithink\"",
+    "parameters": [],
+    "returned_rows": 9
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT ex_date) AS dates, MIN(ex_date) AS first_day, MAX(ex_date) AS last_day FROM \"fact_stock_adjustment_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"dividend_per_share\") AS n FROM \"fact_stock_adjustment_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"per_share_bonus\") AS n FROM \"fact_stock_adjustment_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"allotment_ratio\") AS n FROM \"fact_stock_adjustment_hithink\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.ex_date) AS dates FROM \"fact_stock_adjustment_hithink\" s JOIN fact_market_daily c ON s.ex_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.ex_date) AS n FROM \"fact_stock_adjustment_hithink\" s JOIN fact_market_daily c ON s.ex_date=c.trade_date WHERE s.\"dividend_per_share\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.ex_date) AS n FROM \"fact_stock_adjustment_hithink\" s JOIN fact_market_daily c ON s.ex_date=c.trade_date WHERE s.\"per_share_bonus\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.ex_date) AS n FROM \"fact_stock_adjustment_hithink\" s JOIN fact_market_daily c ON s.ex_date=c.trade_date WHERE s.\"allotment_ratio\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"ex_date\", \"stock_ts_code\", \"dividend_per_share\", \"per_share_bonus\", \"allotment_ratio\" FROM \"fact_stock_adjustment_hithink\" WHERE ex_date <= ? ORDER BY ex_date DESC, stock_ts_code, dividend_per_share, per_share_bonus, allotment_ratio LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "DESCRIBE \"fact_sector_kline_daily\"",
+    "parameters": [],
+    "returned_rows": 10
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS dates, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_sector_kline_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"close\") AS n FROM \"fact_sector_kline_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"high\") AS n FROM \"fact_sector_kline_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(\"low\") AS n FROM \"fact_sector_kline_daily\"",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS rows, COUNT(DISTINCT s.trade_date) AS dates FROM \"fact_sector_kline_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_sector_kline_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"close\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_sector_kline_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"high\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(DISTINCT s.trade_date) AS n FROM \"fact_sector_kline_daily\" s JOIN fact_market_daily c ON s.trade_date=c.trade_date WHERE s.\"low\" IS NOT NULL",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"trade_date\", \"sector_ts_code\", \"close\", \"high\", \"low\" FROM \"fact_sector_kline_daily\" WHERE trade_date <= ? ORDER BY trade_date DESC, sector_ts_code, close, high, low LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"kind\", COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_auction_hithink\" GROUP BY \"kind\" ORDER BY \"kind\"",
+    "parameters": [],
+    "returned_rows": 2
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"limit_status\", COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_theme_limit_stock_daily\" GROUP BY \"limit_status\" ORDER BY \"limit_status\"",
+    "parameters": [],
+    "returned_rows": 2
+  },
+  {
+    "database": "main",
+    "sql": "SELECT \"range_days\", COUNT(*) AS rows, COUNT(DISTINCT trade_date) AS days, MIN(trade_date) AS first_day, MAX(trade_date) AS last_day FROM \"fact_dragon_tiger_hithink\" GROUP BY \"range_days\" ORDER BY \"range_days\"",
+    "parameters": [],
+    "returned_rows": 4
+  },
+  {
+    "database": "main",
+    "sql": "\nWITH cal AS (SELECT trade_date, total_amount FROM fact_market_daily),\nidx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),\ndt AS (\n    SELECT trade_date, COUNT(DISTINCT stock_ts_code) AS dragon_count,\n           CAST(SUM(CAST(net_amount AS DECIMAL(18, 6))) AS DOUBLE) AS dragon_net_amount,\n           CAST(SUM(CAST(CASE WHEN net_amount > 0 THEN net_amount ELSE 0 END AS DECIMAL(18, 6))) AS DOUBLE) AS buy_sum,\n           CAST(SUM(CAST(CASE WHEN net_amount < 0 THEN -net_amount ELSE 0 END AS DECIMAL(18, 6))) AS DOUBLE) AS sell_sum\n    FROM tf_src_dragon WHERE net_amount IS NOT NULL GROUP BY trade_date\n),\ndt_day AS (\n    SELECT c.trade_date, c.i, dt.dragon_count, dt.dragon_net_amount,\n           CASE WHEN cal.total_amount > 0 THEN 1000.0 * dt.dragon_net_amount / cal.total_amount END AS dragon_net_amount_ratio_pm,\n           CASE WHEN dt.sell_sum > 0 THEN dt.buy_sum / dt.sell_sum END AS dragon_buy_sell_ratio\n    FROM idx c JOIN cal USING (trade_date) LEFT JOIN dt USING (trade_date)\n),\ndt_w AS (\n    SELECT trade_date, dragon_count, dragon_net_amount, dragon_net_amount_ratio_pm, dragon_buy_sell_ratio,\n           AVG(dragon_net_amount_ratio_pm) OVER w AS ratio_ma5, AVG(dragon_buy_sell_ratio) OVER w AS bs_ma5,\n           COUNT(dragon_net_amount_ratio_pm) OVER w AS n5_ratio, COUNT(dragon_buy_sell_ratio) OVER w AS n5_bs,\n           LAG(i, 4) OVER (ORDER BY i) AS i_lag4, i\n    FROM dt_day WINDOW w AS (ORDER BY i ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)\n),\nseal AS (\n    SELECT trade_date, stock_ts_code, MAX(fd_amount) AS fd, MAX(circ_mv) AS mv\n    FROM fact_theme_limit_stock_daily WHERE limit_status = 'U' GROUP BY 1, 2\n),\nseal_day AS (\n    SELECT trade_date, MEDIAN(fd) AS limit_seal_amount_median_wan, MEDIAN(fd / NULLIF(mv, 0)) AS limit_seal_mv_ratio_median,\n           CAST(SUM(CASE WHEN fd / NULLIF(mv, 0) >= 100 THEN 1 ELSE 0 END) AS DOUBLE) * 100.0 / NULLIF(COUNT(fd), 0) AS limit_thick_seal_share_pct\n    FROM seal GROUP BY trade_date\n),\nau AS (\n    SELECT trade_date, MEDIAN(auction_pct) AS auction_zt_pct_median,\n           CAST(SUM(CASE WHEN auction_pct > 0 THEN 1 ELSE 0 END) AS DOUBLE) * 100.0 / NULLIF(COUNT(auction_pct), 0) AS auction_zt_positive_share_pct,\n           CAST(SUM(CAST(auction_amount AS DECIMAL(18, 6))) AS DOUBLE) AS auction_zt_amount\n    FROM tf_src_auction_zt GROUP BY trade_date\n)\nSELECT cal.trade_date, dt_w.dragon_count, dt_w.dragon_net_amount, dt_w.dragon_net_amount_ratio_pm, dt_w.dragon_buy_sell_ratio,\n       CASE WHEN dt_w.n5_ratio = 5 AND dt_w.i_lag4 = dt_w.i - 4 THEN dt_w.ratio_ma5 END AS dragon_net_amount_ratio_pm_ma5,\n       CASE WHEN dt_w.n5_bs = 5 AND dt_w.i_lag4 = dt_w.i - 4 THEN dt_w.bs_ma5 END AS dragon_buy_sell_ratio_ma5,\n       seal_day.limit_seal_amount_median_wan, seal_day.limit_seal_mv_ratio_median, seal_day.limit_thick_seal_share_pct,\n       au.auction_zt_pct_median, au.auction_zt_positive_share_pct, au.auction_zt_amount\nFROM cal LEFT JOIN dt_w USING (trade_date) LEFT JOIN seal_day USING (trade_date) LEFT JOIN au USING (trade_date)\nORDER BY cal.trade_date\n\n",
+    "parameters": [],
+    "returned_rows": 432
+  },
+  {
+    "database": "main",
+    "sql": "SELECT * FROM tf_src_dragon WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "SELECT * FROM tf_src_auction_zt WHERE trade_date <= ? ORDER BY trade_date DESC, stock_ts_code LIMIT 5",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 5
+  },
+  {
+    "database": "main",
+    "sql": "SELECT COUNT(*) AS duplicated_stock_days, COALESCE(SUM(n-1),0) AS excess_rows FROM (SELECT trade_date, stock_ts_code, COUNT(*) AS n FROM tf_src_auction_zt GROUP BY ALL HAVING COUNT(*)>1)",
+    "parameters": [],
+    "returned_rows": 1
+  },
+  {
+    "database": "main",
+    "sql": "SELECT * FROM (\nWITH idx AS (SELECT trade_date, ROW_NUMBER() OVER (ORDER BY trade_date) AS i FROM fact_market_daily),\npx AS (\n    SELECT s.trade_date, s.stock_ts_code, rtrim(replace(s.stock_name, chr(0), '')) AS stock_name, s.close, c.i\n    FROM tf_src_stock_daily s JOIN idx c USING (trade_date)\n    WHERE s.close IS NOT NULL AND s.close > 0\n),\nlagged AS (\n    SELECT *,\n           LAG(close, 20) OVER w AS base_close_20, LAG(i, 20) OVER w AS base_i_20\n    FROM px WINDOW w AS (PARTITION BY stock_ts_code ORDER BY i)\n),\ngains AS (\n    SELECT trade_date, i, stock_ts_code, stock_name, 20 AS window_days, (close / base_close_20 - 1) * 100 AS gain_pct\n    FROM lagged WHERE base_close_20 IS NOT NULL AND base_close_20 > 0 AND base_i_20 = i - 20\n),\nranked AS (\n    SELECT *, ROW_NUMBER() OVER (PARTITION BY window_days, trade_date ORDER BY gain_pct DESC, stock_ts_code) AS rank\n    FROM gains\n),\n-- 个股的申万一级：fact_sector_stock_daily.sw_industry 只从 2026-04 起逐日覆盖全市场（更早只有零星日子），\n-- 而行业归属基本不随时间变（5574 只里 97 只在覆盖期内换过一次一级）。取每只股票最近一天的归属作静态维表，\n-- 用到全部日期；同日多行按 sw_industry 排序取首，确定性。\nl1_latest AS (\n    SELECT stock_ts_code, split_part(sw_industry, '-', 1) AS sw_l1,\n           ROW_NUMBER() OVER (PARTITION BY stock_ts_code ORDER BY trade_date DESC, sw_industry) AS rn\n    FROM fact_sector_stock_daily WHERE sw_industry IS NOT NULL\n),\nl1 AS (SELECT stock_ts_code, sw_l1 FROM l1_latest WHERE rn = 1),\nlim AS (\n    SELECT trade_date, stock_ts_code, MAX(limit_times) AS limit_times\n    FROM fact_theme_limit_stock_daily WHERE limit_status = 'U' GROUP BY 1, 2\n)\nSELECT r.window_days, r.trade_date, r.rank, r.stock_ts_code, r.stock_name, r.gain_pct, l1.sw_l1, lim.limit_times\nFROM ranked r LEFT JOIN l1 USING (stock_ts_code) LEFT JOIN lim USING (trade_date, stock_ts_code)\nWHERE r.rank <= 30\nORDER BY r.window_days, r.trade_date, r.rank\n) q WHERE trade_date = ? ORDER BY rank",
+    "parameters": [
+      "2026-09-30"
+    ],
+    "returned_rows": 30
+  }
+]

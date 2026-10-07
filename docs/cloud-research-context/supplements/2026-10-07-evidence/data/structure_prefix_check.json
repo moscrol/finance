@@ -1,0 +1,216 @@
+{
+  "kind": "READ_ONLY_RECOMPUTATION_CHECK",
+  "comparison": "For each calendar day, full-series output versus prefix output for that same day; no code changes.",
+  "days_checked": 432,
+  "mismatch_counts_by_field": {
+    "chan_fractal": 29,
+    "chan_stroke_dir": 186,
+    "chan_stroke_day": 186,
+    "chan_stroke_count": 186,
+    "macd_top_div_dif": 2,
+    "macd_top_div_hist": 4,
+    "days_since_macd_top_div": 2,
+    "chan_third_buy": 6,
+    "chan_pivot_strokes": 108,
+    "chan_stroke_top_divergence": 1,
+    "chan_pivot_zg": 6,
+    "chan_pivot_zd": 6,
+    "chan_pivot_pos": 3,
+    "macd_bottom_div_dif": 1,
+    "macd_bottom_div_hist": 2,
+    "days_since_macd_bottom_div": 1,
+    "chan_third_sell": 2,
+    "chan_stroke_bottom_divergence": 1
+  },
+  "first_mismatch_examples": [
+    {
+      "trade_date": "2025-01-07",
+      "differences": {
+        "chan_fractal": {
+          "full_series": null,
+          "prefix_ending_on_day": "bottom"
+        }
+      }
+    },
+    {
+      "trade_date": "2025-01-08",
+      "differences": {
+        "chan_fractal": {
+          "full_series": null,
+          "prefix_ending_on_day": "bottom"
+        }
+      }
+    },
+    {
+      "trade_date": "2025-01-21",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 1
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-01-22",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 2
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-01-23",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 3
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-01-24",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 1
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-01-27",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 2
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-02-05",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 1
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-02-06",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 2
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-02-07",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 3
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-02-10",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 4
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    },
+    {
+      "trade_date": "2025-02-11",
+      "differences": {
+        "chan_stroke_dir": {
+          "full_series": null,
+          "prefix_ending_on_day": "down"
+        },
+        "chan_stroke_day": {
+          "full_series": null,
+          "prefix_ending_on_day": 5
+        },
+        "chan_stroke_count": {
+          "full_series": 0,
+          "prefix_ending_on_day": 1
+        }
+      }
+    }
+  ],
+  "limit": "A mismatch disproves same-day prefix invariance for this input. A match alone is not a general proof of no future dependence."
+}

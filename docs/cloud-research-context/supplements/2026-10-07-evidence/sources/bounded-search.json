@@ -1,0 +1,894 @@
+{
+  "scope": "74 manifest-listed source files only; fengyuan includes regenerated material; not a full private-memory search",
+  "method": "case-sensitive exact substring count",
+  "files": [
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-fd7ce7ebe0c6",
+      "file": "2026-07-20-2026-30.md",
+      "sha256": "fd7ce7ebe0c663c7ecc39dca1b40dd88bdb2fb352a7c48ba044ef1bd4eadaaae",
+      "exact_phrase_counts": {
+        "临突破": 5,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-e199358af052",
+      "file": "2026-07-13-2026-29.md",
+      "sha256": "e199358af052d686e8c9dd57a76283e8d8a8d7adb6411ba6865d848e5f2a2abc",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 4,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-82ff93af6733",
+      "file": "2026-07-06-2026-28.md",
+      "sha256": "82ff93af67336ce0758737e65c0b6c4f059657b4e8174a2f36068ddb02dc9aac",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 4,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-370f12c08d61",
+      "file": "2025-02-01-2024-2025年跨年综述.md",
+      "sha256": "370f12c08d612d0ebec4b59feea647980223fdc0db4c9437c8d8ef42b1ee133b",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-5d9fb34825a0",
+      "file": "2026-08-17-2026-34.md",
+      "sha256": "5d9fb34825a0d9b6acc0e1432e5e34ef695da822eceb30938776d74fe742b7c4",
+      "exact_phrase_counts": {
+        "临突破": 7,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-713b65bd1448",
+      "file": "2026-06-30-2026-27.md",
+      "sha256": "713b65bd144871d429c361a081aa65e9c8d257b43573c19c2d1f60bed72d0f2c",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-1c3f6af95764",
+      "file": "2026-06-09-2026-24.md",
+      "sha256": "1c3f6af95764c1f60ae41ed04aafdc3b131e76c4a1d485ef6cad25d830734dd3",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-4f56572bb540",
+      "file": "2026-06-02-2026-23-超板块.md",
+      "sha256": "4f56572bb540c85af301e8ec23fe93c3a5985dc4f5af8bd725eb433a2d6179d6",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 3,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-1cd061c7b7ff",
+      "file": "2026-06-01-2026-23.md",
+      "sha256": "1cd061c7b7ffb2f4b82b1ce97a09c0193dca0f7e98acf9294ea3f3512cb8931c",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-ca0736a9e0f8",
+      "file": "2026-05-22-2026-21-1.md",
+      "sha256": "ca0736a9e0f805ab552ea55569242f914706691ab87de8a625feed42a505c8fb",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 2,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-ed0b9b605b44",
+      "file": "2026-05-18-2026-21.md",
+      "sha256": "ed0b9b605b44e355d899db2a98903d95ffc98dc931c386d39aa8c608c8db42eb",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 3,
+        "波段涨幅": 0,
+        "区间涨幅": 1
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-39cd84b51709",
+      "file": "2026-05-06-2026-19.md",
+      "sha256": "39cd84b5170903915c79711c5431bc32a848cffeee4e6d5eea11ae60e18dc850",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-479bdc3ec1e7",
+      "file": "2026-04-26-2026-18.md",
+      "sha256": "479bdc3ec1e76829b90a967311c8a8f173c42794f091f26d785bdecb5debf390",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-f311e162b0de",
+      "file": "2026-04-23-2026-17-1.md",
+      "sha256": "f311e162b0de96d53c7158e726de173216f241bbe959f2ec2a6e78756fc50e69",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-310e24960494",
+      "file": "2026-04-20-2026-17.md",
+      "sha256": "310e249604948ba8d920be6263976ea0c576de97215d0df30a2d7cb91923d932",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-f1d319af8db0",
+      "file": "2026-04-13-2026-16.md",
+      "sha256": "f1d319af8db03abebfc62b34252b1f93fc557465a962944297b2a30ee6d1ff56",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-902e6f89bcf3",
+      "file": "2026-03-22-2026-13.md",
+      "sha256": "902e6f89bcf36cbfe7bb00e7e6728c8cf2cdbe70de3e7afc0131ccda9cffaf09",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-c27901ada179",
+      "file": "2026-03-16-2026-12.md",
+      "sha256": "c27901ada1799897a79316d4d2c1a0fdd6a68d1aa7ec2a17b1418e64b845f45d",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-a44a9a8a0492",
+      "file": "2026-03-09-2026-11.md",
+      "sha256": "a44a9a8a049238d2fecd6d967f801614b64c880768bbf78aed5fae62185c386e",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-9fdb55df8dc5",
+      "file": "2026-02-13-2026-8.md",
+      "sha256": "9fdb55df8dc5bc51167c967770ea66ec9017f20126e10bbe38d37bff796c3eab",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-b1f753284c08",
+      "file": "2025-12-29-2026-1.md",
+      "sha256": "b1f753284c085e78b856633df144a062ab8b2732cae553681d347b4bc98bd90c",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-69eca9d03ab4",
+      "file": "2026-01-05-2026-2.md",
+      "sha256": "69eca9d03ab4ec03339aa91c805f746500ea6c0e0fbaad11e3d90a90c7538ead",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-321648cf1d7c",
+      "file": "2026-01-12-2026-3.md",
+      "sha256": "321648cf1d7c19907c5457d3296219ab4f1479fb802a2dbfa676bf63d5e52bd1",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-d51d1fa90275",
+      "file": "2026-01-19-2026-4.md",
+      "sha256": "d51d1fa90275b4f46bbf0494adfae5845afa6f6fe39f0f8141dddf7225eebf9d",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-cc33b7e15bf4",
+      "file": "2026-02-01-2026-6.md",
+      "sha256": "cc33b7e15bf46e3839855c3cde020f75a847d8b72044dde1882016e56daff303",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-aa6744b29735",
+      "file": "2026-02-09-2026-7.md",
+      "sha256": "aa6744b29735eb140be089472ccc462d9f4ca7300865fea53be6b116447f2a57",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-b686fbd1792e",
+      "file": "2025-12-22-2025-52.md",
+      "sha256": "b686fbd1792e80b239e1dc13d63cf01692e93fac9b58464c6b3aee0d4b166258",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-b158a9654e9c",
+      "file": "2025-09-22-2025-39.md",
+      "sha256": "b158a9654e9c85b342defa5f07514c615f874f798c27b4f110b1660b639a952e",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-e9a91a10886b",
+      "file": "2025-09-29-2025-40.md",
+      "sha256": "e9a91a10886b8e2f602d1c22cd4865e17178601f37e54f9ef0b4ec5f4e92369f",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-d3acfd2169b8",
+      "file": "2025-10-12-2025-42.md",
+      "sha256": "d3acfd2169b86d281ed36fd9872206304d05fad9f404ea46987203824fdbe992",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-9f6bb09f43ea",
+      "file": "2025-10-22-2025-43.md",
+      "sha256": "9f6bb09f43ea4113a7b870da2d2ea83692228d3913cabb8919d6ace743442069",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-336af1a48ac4",
+      "file": "2025-10-26-2025-44.md",
+      "sha256": "336af1a48ac41e8c2768e7ec62f617b25a7fea3c33c8fcce34d0dc3c7ef34835",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-e99f7fd33612",
+      "file": "2025-11-02-2025-45.md",
+      "sha256": "e99f7fd33612c012b344c8cbc9e156b49b0f399d7f82c0e73f95c091170ef52e",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-ca53c88dbedf",
+      "file": "2025-11-10-2025-46.md",
+      "sha256": "ca53c88dbedf5edb1fdc41ffccd3ed4d1d67d18bb69e89735721455e021b74af",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-9cb0cdeb1fd0",
+      "file": "2025-11-19-2025-47.md",
+      "sha256": "9cb0cdeb1fd085e8f70d8781af32849657eaf8e030a7d23e468bdb14e0fa57b1",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-bba6f3720bb1",
+      "file": "2025-12-01-2025-49.md",
+      "sha256": "bba6f3720bb1170c0254c01f2eb0d72ad1f4fa537b60fd16386acf8ee72cd7e1",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-374d2fec45ce",
+      "file": "2025-12-08-2025-50.md",
+      "sha256": "374d2fec45ce93029b01ea14a35af499d0022099d399166fac2727d9a1bec77e",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-a0bb66b1442c",
+      "file": "2025-12-15-2025-51.md",
+      "sha256": "a0bb66b1442c1e5162cca00c2e315690b5b5e09750c6b68bb3478e0dee8a1048",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-af47be9c26e3",
+      "file": "2025-02-09-主流主升与DS板块夺量.md",
+      "sha256": "af47be9c26e31175024a7e4365375c600f756ae56acbc016716c773096f84de3",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-576f1e829ea8",
+      "file": "2025-02-17-DS板块的一次量顶分歧.md",
+      "sha256": "576f1e829ea8ae0f9a1748ca07fbd626d11238459b03cfa01ed64f4e2793811a",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-c1c341a36082",
+      "file": "2025-02-23-反复顶值与狂欢.md",
+      "sha256": "c1c341a360827fe18c5396f10c1b14136c1a0f45e5ccfeb0fa5c31db1400e880",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-5e065b6a6d2e",
+      "file": "2025-03-10-二波的酝酿期.md",
+      "sha256": "5e065b6a6d2ecd7c72f19fe072bb9db73b9dadc4e6e182e8ab13bdf66082480e",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-7c45c22e25a6",
+      "file": "2025-04-21-等待出清.md",
+      "sha256": "7c45c22e25a6ebe59ced6b7a2b3f51f8a22f7d3a4390d2657d2513c73b0fe474",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-9e151b553ca5",
+      "file": "2025-06-16-博弈的艺术.md",
+      "sha256": "9e151b553ca5def29deba7510f101a1958e61b815134c49884077685093ff621",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-95fdcba55a0a",
+      "file": "2025-08-11-2025-33.md",
+      "sha256": "95fdcba55a0afe0afea7d141f681c588f072df8ffbc8b345075532230cb0a39a",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-e2a9054cd6d4",
+      "file": "2025-08-15-2025-34.md",
+      "sha256": "e2a9054cd6d4da0e558698d7f1cb48c24a04a1bf9c09531b00d5b4a60d78919d",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-2de4c60ee79f",
+      "file": "2025-08-26-2025-35.md",
+      "sha256": "2de4c60ee79f1adf9f8a0351bcb51bc71dadf0c1e61d0a53384dcd8f4f6d2030",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-61edd6d4869b",
+      "file": "2025-09-01-2025-36.md",
+      "sha256": "61edd6d4869b58a6f1b5269ae90fab05010450da07a31d62e4246984d8b88676",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-fffd21c9773b",
+      "file": "2025-09-07-2025-37.md",
+      "sha256": "fffd21c9773b7fa4467eb4f33f14629a0fa8efac16558cb0587daa8e86598a72",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "sptfei",
+      "article_id": "pa-5de6eb41b8f2",
+      "file": "2025-09-14-2025-38.md",
+      "sha256": "5de6eb41b8f27c344ad770ba0d873e2c6bab46b841689b52f11d615137541524",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-c39a423b9ad8",
+      "file": "2026-06-16-三层选票框架-赛道水位-公司纯度-赔率位置.md",
+      "sha256": "c39a423b9ad8e0c3eda7b0d5339ab8af808562cf826fa57322d14b9e97044c25",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-56ff163cdf96",
+      "file": "2026-07-10-先头部队ATH突破-高潮而非起点.md",
+      "sha256": "56ff163cdf96e6d91e0f2d1bd1949ad34a26a5c530817093740015f879dfdf3c",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-19973e52f83e",
+      "file": "2026-07-12-7-10暴跌-五类资金共振杀跌的经典案例.md",
+      "sha256": "19973e52f83ec620d3471511f9ac47831afed4759a07b6f1a86ea95a0a44e4f0",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-1caee58ae914",
+      "file": "2026-07-19-投机溢价剥离法-出清目标价的三参数模型.md",
+      "sha256": "1caee58ae914ca552b2db4bed787c036f59eb1525da4e510691d21527d05cb16",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-09c58db1657b",
+      "file": "2026-07-19-跨资产通用经验-热门票调整八大规律.md",
+      "sha256": "09c58db1657baeabceb0034085671e540a5942c18b7d6db8272b9773a6f920c0",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-88c8eaf8d656",
+      "file": "2026-07-19-边缘地带头寸不可完美交易.md",
+      "sha256": "88c8eaf8d6560d1dc7dbff201ee0aa474904394c57560c69d86acf81191fd1b0",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-2605ab170f30",
+      "file": "2026-08-05-下跌三因归因框架-逻辑证伪-vs-流动性挤压-vs-情绪错杀.md",
+      "sha256": "2605ab170f30b6b4e8fe18499873314e5064b4227a6f535d178d948a4381fb92",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-254c5e524f98",
+      "file": "2026-07-19-多周期共振烈度评估器-六周期叠加模型.md",
+      "sha256": "254c5e524f982f25b689360c4b20e18d2721a819733889b79ffb055605a087ce",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-c1f71e0166ba",
+      "file": "2026-07-08-存储分析框架-按品类画成长-周期光谱.md",
+      "sha256": "c1f71e0166ba6f6120a88658d9ff4ccab70b6198f1535965420d3454e4a50236",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-17d67b110d3a",
+      "file": "2026-07-08-存储周期领先指标体系-Tier-1-3-五级预警框架.md",
+      "sha256": "17d67b110d3a2475cd7e33100eb71e6eeaf0786405b9513df90c576383c49732",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-5525e0171a7c",
+      "file": "2026-07-12-本轮存储周期三大结构性保护-vs-2017-2018-价格崩塌.md",
+      "sha256": "5525e0171a7cfe8c82cb9cf99dc0a19de5cd17019d623945119d68c8b9930154",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-f684b37abbc9",
+      "file": "2026-07-12-存储周期领先-确认-滞后三级信号体系.md",
+      "sha256": "f684b37abbc953b09f15a5c35762a681bb6a20fb9952625eecb02986360abd9b",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-6d4e0963d6cc",
+      "file": "2026-07-19-资产定价底锚定法-五类产业锚的估值框架.md",
+      "sha256": "6d4e0963d6cc68bdbd61d41abea6fedf4862e4a8cf93867b73ae6b83def8a52e",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-7b827da26a95",
+      "file": "2026-08-08-反身性泡沫阶段判断的三变量验证框架.md",
+      "sha256": "7b827da26a9522248a6a49e347106f3399a428991e9fbe98df55f97ecc96201f",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-73052e4b5668",
+      "file": "2026-08-28-退潮期竞价五模式-模式4全持仓联动与模式5停手默认.md",
+      "sha256": "73052e4b5668c910d6aa9d5aaa02d24288a50475a3b19469097956f3b23c9337",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-5a07f51329a6",
+      "file": "2026-08-28-边缘地带五原则-上限-冻结与升回框架.md",
+      "sha256": "5a07f51329a64e7b09662feeef00823b99ae0bf2077933b1b6e92d72ae693db7",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-f7bb7c0a9be8",
+      "file": "2026-08-28-框架谱系底部定位-停在段位与无可投标的留白.md",
+      "sha256": "f7bb7c0a9be8717fa10f2aed8658fa47f553cc095d4db1266905ff5bdea7001c",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-8fbd6c3dae85",
+      "file": "2026-08-28-五段第5段-水泥型-纯量只做波段仓.md",
+      "sha256": "8fbd6c3dae85285baf737613ab030e2b0888825ac6de9d64ba05da07ba866d46",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-e56dbab0a88b",
+      "file": "2026-08-28-资金映射0-4-5段-用观察量判别A-E谁主导.md",
+      "sha256": "e56dbab0a88b6477bb88fa8bb266522df5f010eeb1c5647ce5e9b96a026ee58d",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-1d3b8cd30cf1",
+      "file": "2026-08-28-同链后半分层-SST-vs-HBM的四弹性变量比较.md",
+      "sha256": "1d3b8cd30cf1bdca4ee5c403392a87a650e3613d45fe8345772dfd354fb613fa",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-516facf90296",
+      "file": "2026-07-12-风远94共享记忆卡-2026-07-12快照-优先审读组-R12-R27-R30-R35-R61-R65.md",
+      "sha256": "516facf902962635d073321b94feb98fe0b37ba56694646d08cc7584779af426",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-e0178691c647",
+      "file": "2026-07-12-风远94共享记忆卡-2026-07-12快照-新增组第二批-R13-R15-R16-R18-R19-R26-R38-R4.md",
+      "sha256": "e0178691c6470aee651f59222392ddd91a9aa0455a05e5e13375b95d6b38c72a",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-403ebdafaf79",
+      "file": "2026-08-08-风远94共享记忆卡-2026-08-08快照-B侧新增框架组-11条.md",
+      "sha256": "403ebdafaf791ecd14e2a740dcd3ca3bad7673e315b851e123760ff958d0ecbc",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    },
+    {
+      "perspective_id": "fengyuan",
+      "article_id": "pa-fbb827444720",
+      "file": "2026-07-12-风远94共享记忆卡-2026-07-12快照-部分覆盖组-台账建议进闭环的15张.md",
+      "sha256": "fbb8274447200cb4accc6944d4a02e6a952a271d2478c18bb4b4fa3b2b4f0837",
+      "exact_phrase_counts": {
+        "临突破": 0,
+        "临近突破": 0,
+        "波段涨幅": 0,
+        "区间涨幅": 0
+      }
+    }
+  ]
+}

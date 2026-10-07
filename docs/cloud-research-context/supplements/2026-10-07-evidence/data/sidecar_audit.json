@@ -1,0 +1,45 @@
+{
+  "kind": "PERSISTED_DB_READ",
+  "tables": [
+    {
+      "table": "history_calendar",
+      "rows": 432
+    },
+    {
+      "table": "history_teaching_labels",
+      "rows": 0
+    },
+    {
+      "table": "history_teaching_receipts",
+      "rows": 0
+    },
+    {
+      "table": "history_range_leaders",
+      "rows": 0
+    },
+    {
+      "table": "history_range_leader_handoffs",
+      "rows": 0
+    },
+    {
+      "table": "history_dynasties",
+      "rows": 0
+    },
+    {
+      "table": "history_dynasty_handoffs",
+      "rows": 0
+    },
+    {
+      "table": "history_reference_stages",
+      "rows": 0
+    }
+  ],
+  "label_groups": [],
+  "calendar": [
+    {
+      "days": 432,
+      "first_day": "2024-12-20",
+      "last_day": "2026-09-30"
+    }
+  ]
+}

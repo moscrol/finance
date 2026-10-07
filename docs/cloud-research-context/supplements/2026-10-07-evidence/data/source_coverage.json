@@ -1,0 +1,240 @@
+{
+  "kind": "PERSISTED_DB_READ",
+  "calendar": {
+    "days": 432,
+    "first_day": "2024-12-20",
+    "last_day": "2026-09-30"
+  },
+  "tables": [
+    {
+      "table": "fact_market_daily",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 432,
+        "dates": 432,
+        "first_day": "2024-12-20",
+        "last_day": "2026-09-30",
+        "total_amount__nonnull_rows": 424,
+        "sh_index_open__nonnull_rows": 430,
+        "sh_index_high__nonnull_rows": 430,
+        "sh_index_low__nonnull_rows": 430,
+        "sh_index_close__nonnull_rows": 432,
+        "sh_week_ma__nonnull_rows": 428,
+        "sh_deviation_pct__nonnull_rows": 428,
+        "cycle_stage__nonnull_rows": 0
+      },
+      "on_market_calendar": {
+        "rows": 432,
+        "dates": 432
+      },
+      "days_with_non_null_field_on_calendar": {
+        "total_amount": 424,
+        "sh_index_open": 430,
+        "sh_index_high": 430,
+        "sh_index_low": 430,
+        "sh_index_close": 432,
+        "sh_week_ma": 428,
+        "sh_deviation_pct": 428,
+        "cycle_stage": 0
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_dragon_tiger_hithink",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 18108,
+        "dates": 251,
+        "first_day": "2025-09-08",
+        "last_day": "2026-09-30",
+        "net_value__nonnull_rows": 18108,
+        "buy_value__nonnull_rows": 18108,
+        "sell_value__nonnull_rows": 18081,
+        "range_days__nonnull_rows": 18108
+      },
+      "on_market_calendar": {
+        "rows": 18108,
+        "dates": 251
+      },
+      "days_with_non_null_field_on_calendar": {
+        "net_value": 251,
+        "buy_value": 251,
+        "sell_value": 251,
+        "range_days": 251
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_dragon_tiger_daily",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 28499,
+        "dates": 405,
+        "first_day": "2025-01-02",
+        "last_day": "2026-09-02",
+        "net_amount__nonnull_rows": 28499,
+        "l_buy__nonnull_rows": 28499,
+        "l_sell__nonnull_rows": 28499
+      },
+      "on_market_calendar": {
+        "rows": 28499,
+        "dates": 405
+      },
+      "days_with_non_null_field_on_calendar": {
+        "net_amount": 405,
+        "l_buy": 405,
+        "l_sell": 405
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_theme_limit_stock_daily",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 159971,
+        "dates": 414,
+        "first_day": "2025-01-02",
+        "last_day": "2026-09-30",
+        "fd_amount__nonnull_rows": 149740,
+        "circ_mv__nonnull_rows": 148905,
+        "limit_status__nonnull_rows": 149893
+      },
+      "on_market_calendar": {
+        "rows": 159971,
+        "dates": 414
+      },
+      "days_with_non_null_field_on_calendar": {
+        "fd_amount": 394,
+        "circ_mv": 394,
+        "limit_status": 395
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_auction_hithink",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 28912,
+        "dates": 174,
+        "first_day": "2026-01-05",
+        "last_day": "2026-09-30",
+        "auction_pct__nonnull_rows": 28491,
+        "auction_amount__nonnull_rows": 27393,
+        "kind__nonnull_rows": 28912
+      },
+      "on_market_calendar": {
+        "rows": 28912,
+        "dates": 174
+      },
+      "days_with_non_null_field_on_calendar": {
+        "auction_pct": 174,
+        "auction_amount": 5,
+        "kind": 174
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_auction_stock_daily",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 10008,
+        "dates": 152,
+        "first_day": "2026-01-16",
+        "last_day": "2026-09-02",
+        "auction_pct__nonnull_rows": 9929,
+        "auction_amount__nonnull_rows": 9929,
+        "panel_key__nonnull_rows": 10008
+      },
+      "on_market_calendar": {
+        "rows": 10008,
+        "dates": 152
+      },
+      "days_with_non_null_field_on_calendar": {
+        "auction_pct": 151,
+        "auction_amount": 151,
+        "panel_key": 152
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_stock_daily_hithink",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 10354827,
+        "dates": 2442,
+        "first_day": "2016-09-08",
+        "last_day": "2026-09-30",
+        "close__nonnull_rows": 10354827,
+        "high__nonnull_rows": 10354827,
+        "low__nonnull_rows": 10354827,
+        "adjusted__nonnull_rows": 10354827
+      },
+      "on_market_calendar": {
+        "rows": 2343900,
+        "dates": 432
+      },
+      "days_with_non_null_field_on_calendar": {
+        "close": 432,
+        "high": 432,
+        "low": 432,
+        "adjusted": 432
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_stock_adjustment_hithink",
+      "date_column": "ex_date",
+      "whole_table": {
+        "rows": 57533,
+        "dates": 5452,
+        "first_day": "1991-02-26",
+        "last_day": "2026-10-15",
+        "dividend_per_share__nonnull_rows": 57533,
+        "per_share_bonus__nonnull_rows": 57533,
+        "allotment_ratio__nonnull_rows": 57533
+      },
+      "on_market_calendar": {
+        "rows": 9328,
+        "dates": 391
+      },
+      "days_with_non_null_field_on_calendar": {
+        "dividend_per_share": 391,
+        "per_share_bonus": 391,
+        "allotment_ratio": 391
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    },
+    {
+      "table": "fact_sector_kline_daily",
+      "date_column": "trade_date",
+      "whole_table": {
+        "rows": 823131,
+        "dates": 1004,
+        "first_day": "2022-08-02",
+        "last_day": "2026-09-30",
+        "close__nonnull_rows": 823131,
+        "high__nonnull_rows": 823131,
+        "low__nonnull_rows": 823131
+      },
+      "on_market_calendar": {
+        "rows": 361125,
+        "dates": 425
+      },
+      "days_with_non_null_field_on_calendar": {
+        "close": 425,
+        "high": 425,
+        "low": 425
+      },
+      "calendar_denominator": 432,
+      "limit": "One non-null row makes a day present; not full stock-universe coverage."
+    }
+  ]
+}
