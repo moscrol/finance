@@ -99,6 +99,18 @@ Controller 首次调用与一次纠错共享剩余研究截止；过期不再发
 旧工程候选的财务/消息/历史答卷仍有失败；本轮接续尚未合并或部署，
 范围和验收见[接续计划](superpowers/plans/2026-09-30-answer-quality-closeout.md)。结构测试通过不等于回答质量通过。
 
+### 盘面研究维度（2026-10-07 候选，未部署）
+
+`dated_market_review` 默认以完整用户原问和证据边界作为交付要求。总览、主线、风险仍通过
+既有 `RequiredOutput` 送达 Episode，作为内部研究维度按相关性展开，未单独绑定不阻断交付。
+模型输入将非必需维度移到 `research_contract.research_dimensions`，保留描述与原证据资格；
+后端仍校验已使用维度的来源。用户明确的输出要求、编号材料和多日比较契约优先，
+调用者已有的必需项不因维度 id 降级。判读基线、观点视角、取证计划、权限、时点和预算保持原路径。
+`TaskFrame.required_output_additions` 记录实际调用者追加的要求，在换题型与恢复后保留同名项；
+它不自证用户授权，对齐模型不能写，空值不改变旧持久化形状。
+这只改变默认章节义务，不表示自然回答质量通过；设计见
+[研究维度设计](superpowers/specs/2026-10-07-knevo-market-research-dimensions-design.md)。
+
 ### 评测专用目录视图（非生产入口）
 
 `intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，
