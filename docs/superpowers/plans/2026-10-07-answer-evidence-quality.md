@@ -42,17 +42,17 @@
       return None
   ```
   保留后续 `_structural_verifier` 与上层语义/公开交付调用，保存失败和空稿回退分支原样。
-- [ ] 将旧测试改为按实际证据资格区分候选：有据可解释；无依据新增事实由既有核验拒绝/降级；保存失败仍传到产品失败。另测字少但无依据不能获准。不得新增句式、金融词或数值白名单。
+- [ ] 将旧测试改为按实际证据资格区分候选：有据可解释；无依据数值按既有策略删除/待核，不允许悄悄变成有依据；保存失败仍传到产品失败。另测字少但无依据也进入同一核验。默认判官off的mark模式仍可能completed，应留边界；无效绑定/错误证据类型继续拒收。不得新增句式、金融词或数值白名单。
 - [ ] `.venv-workbench/bin/python -m pytest -q intelligence/tests/test_continuous_turn_adapter.py`，保存完整本文件结果；用 pathspec 提交，再独立双轴复核。
 
 ### Task 3: 每张检索卡携带立场
 
-**Files:** `intelligence/services/evidence_search.py`；视真实投影决定是否修改 `intelligence/services/agent_research.py`、`intelligence/runtime/agent_episode.py`；测试 `intelligence/tests/test_evidence_search.py` 及实际 Episode 投影测试文件。
+**Files:** `intelligence/services/evidence_search.py`；视真实投影决定是否修改 `intelligence/services/agent_research.py`、`intelligence/services/agent_runtime.py`、`intelligence/services/prior_evidence.py`；同步 `intelligence/services/research_tool_registry.py` 中旧立场说明；测试 `intelligence/tests/test_evidence_search.py`、`intelligence/tests/test_research_harness.py` 及需要的旧证据恢复测试。
 
 - [ ] 在既有窄/宽/反方检索夹具构造超过现有观察窗的支持文本，将反方卡放最后。通过真实 Episode 工具结果模型投影检查末卡的检索方向，而非只检查工具原件总文本。
 - [ ] 旧代码运行并见反方标签缺失，保留红结果与原观察上限。
 - [ ] 最小实现将真实 `stance` 保存在逐卡投影可见位置，采用独立可选元数据或明确的逐卡检索方向前缀；若复用文本须明确为检索分桶，不能赋予新来源强度。原 WikiHit `content_hash`、日期、来源保留。不得用 `supports`/`contradicts` 输出ID字段偷存检索标签。旧卡无标签兼容。
-- [ ] 正/反/线索三桶以及长观察末卡都验证；所有标签仅说明检索方向。模型可见原正文、来源与日期仍存在，已有 ordinal/hash 接纳和证据资格不变。
+- [ ] 实际返回的支持/反方两桶以及长观察末卡都验证；不扩交付集合。所有标签仅说明检索方向。模型可见原正文、来源与日期仍存在，已有 ordinal/hash 接纳和证据资格不变。若新增字段，验证旧普通卡有/无历史元数据的两种既有形状、完整新卡均可恢复；未知字段/无效类型仍拒绝。
 - [ ] 实际投影邻近测试全部跑绿，pathspec 提交；独立 Spec → Standards 通过。
 
 ### Task 4: 集成与真实内容核验
