@@ -120,6 +120,36 @@ def test_explicit_cutoff_withholds_all_future_in_general_research(tmp_path):
     assert "不是源里没有" in model["observation"]
 
 
+def test_frozen_continuation_keeps_same_contract_across_later_runtime_and_consumers(tmp_path):
+    original_date = date(2026, 9, 30)
+    previous = decide_turn(
+        QUESTION, resolver=LocalResolver(), today=original_date,
+        temporal_contract=compile_temporal_contract(QUESTION, today=original_date, message_id="prior-user"),
+        llm_complete=lambda *_args: (None, None, "offline"),
+    )
+    query = "那这个判断有哪些反证？只使用截至今天的信息。"
+    frozen = compile_temporal_contract(
+        query, today=original_date, message_id="current-user",
+        previous=previous.turn_intent.temporal_contract, continuing=True,
+    )
+    decision = decide_turn(
+        query, resolver=LocalResolver(), today=TODAY, temporal_contract=frozen,
+        previous_intent=previous.turn_intent, previous_turn_id="prior-assistant",
+        llm_complete=lambda *_args: (None, None, "offline"),
+    )
+    control = project_turn_decision(decision, task_frame=decision.task_frame)
+    context = build_episode_context(
+        control.task_frame, task_id=str(uuid4()), capabilities=("news_search",),
+        today=TODAY.isoformat(), latest_data_date=TODAY.isoformat(),
+    )
+    observation, model = _consume(_sentinel_registry(tmp_path), context)
+    assert context.information_cutoff.as_of_date == original_date
+    assert frozen is decision.task_frame.temporal_contract is decision.turn_intent.temporal_contract
+    assert frozen is control.task_frame.temporal_contract is context.temporal_contract
+    assert not observation.evidence
+    assert SENTINEL not in json.dumps(model, ensure_ascii=False)
+
+
 @pytest.mark.parametrize(("query", "target", "cutoff", "origin"), [
     (QUESTION, ("2026-09-30", "2026-09-30"), "2026-09-30", "relative_target"),
     ("复盘9/30的A股，只使用截至当日的信息", ("2026-09-30", "2026-09-30"), "2026-09-30", "relative_target"),
@@ -240,10 +270,28 @@ def _run_orchestrator(tmp_path, monkeypatch, *, prior="none", new_query=QUESTION
     conversation = conversations.create_conversation()
     prior_source = None
     if prior != "none":
+        original_query = QUESTION
+        original_today = TODAY
+        if prior == "tightened_chain":
+            original_query = QUESTION.replace("只使用截至当日可见的信息", "资料截至2026年10月7日")
+        elif prior == "runtime_relative_chain":
+            original_query = QUESTION.replace("只使用截至当日可见的信息", "只使用截至今天可见的信息")
+            original_today = date(2026, 9, 30)
+        elif prior in {"target_only", "relative_bound_chain"}:
+            original_query = "复盘2026年9月30日的A股。"
+        elif prior in {"target_only_range", "relative_bound_range_chain"}:
+            original_query = "复盘2026年9月28日至2026年9月30日的A股。"
         if damage == "unrelated_source_run":
             _prepare_turn(conversations, runs, conversation.conversation_id, QUESTION)
-        old_run, old_user, old_assistant = _prepare_turn(conversations, runs, conversation.conversation_id, QUESTION)
-        temporal = compile_temporal_contract(QUESTION, today=TODAY, message_id=old_user)
+        if prior == "runtime_relative_chain":
+            from intelligence.services import conversation_store
+
+            with monkeypatch.context() as clock:
+                clock.setattr(conversation_store, "_now_iso", lambda: "2026-09-30T12:00:00+00:00")
+                old_run, old_user, old_assistant = _prepare_turn(conversations, runs, conversation.conversation_id, original_query)
+        else:
+            old_run, old_user, old_assistant = _prepare_turn(conversations, runs, conversation.conversation_id, original_query)
+        temporal = compile_temporal_contract(original_query, today=original_today, message_id=old_user)
         if damage == "unrelated_source_run":
             unrelated_user = next(m for m in conversations.load_messages(conversation.conversation_id)
                                   if m.role == "user" and m.run_id != old_run)
@@ -264,17 +312,33 @@ def _run_orchestrator(tmp_path, monkeypatch, *, prior="none", new_query=QUESTION
             conversations.revise_message(conversation.conversation_id, old_user, content="助手摘要里说截至10/7", status="completed")
         if prior.endswith("_chain"):
             bridge_query = "那这个判断有哪些反证？"
+            if prior == "tightened_chain":
+                bridge_query += "资料截至2026年9月30日"
+            elif prior == "relaxed_chain":
+                bridge_query += "资料截至2026年10月7日"
+            elif prior == "relative_bound_chain":
+                bridge_query += "只用截至当日的信息。"
+            elif prior == "relative_bound_range_chain":
+                bridge_query += "只用截至区间结束日的信息。"
+            if damage == "ancestor_parent_mismatch":
+                conversations.update_summary(conversation.conversation_id, "", last_run_id=None)
             _bridge_run, bridge_user, bridge_assistant = _prepare_turn(conversations, runs, conversation.conversation_id, bridge_query)
             bridge = decide_turn(
                 bridge_query, previous_intent=replace(_control().turn_intent, temporal_contract=temporal),
                 previous_turn_id=old_assistant, resolver=LocalResolver(), today=TODAY,
-                temporal_contract=compile_temporal_contract(bridge_query, today=TODAY, message_id=bridge_user),
+                temporal_contract=compile_temporal_contract(bridge_query, today=TODAY, message_id=bridge_user,
+                                                            previous=temporal, continuing=True),
                 llm_complete=lambda *_args: (None, None, "offline bridge"),
             ).turn_intent.to_dict()
             if prior.startswith("legacy"):
                 bridge.pop("temporal_contract")
             if damage == "dropped_persisted_permission":
                 bridge["temporal_contract"] = TemporalContract(market_target=temporal.market_target).to_dict()
+            if damage == "dropped_permission_and_continuation":
+                bridge["temporal_contract"] = TemporalContract().to_dict()
+                bridge["inherited_from_turn"] = None
+            if damage == "older_ancestor_permission":
+                bridge["temporal_contract"] = replace(temporal, cutoff_origin="inherited_user").to_dict()
             conversations.revise_message(conversation.conversation_id, bridge_assistant,
                                          content="第二轮上下文", status="completed", turn_intent=bridge)
 
@@ -288,7 +352,7 @@ def _run_orchestrator(tmp_path, monkeypatch, *, prior="none", new_query=QUESTION
     controller_calls = []
 
     def adversarial_controller(query, **kwargs):
-        controller_calls.append(query)
+        controller_calls.append((query, kwargs["temporal_contract"]))
         reply = json.dumps({"route_id": "dated_market_review", "confidence": 0.9,
                             "reason": "offline controller fixture", "user_goal": "核验反证",
                             "assumptions": [], "ambiguities": []})
@@ -330,10 +394,11 @@ def _run_orchestrator(tmp_path, monkeypatch, *, prior="none", new_query=QUESTION
 
 
 def test_real_entry_pins_current_user_identity_against_controller_rewrites(tmp_path, monkeypatch):
-    captured, _calls, _conversations, _runs, _result, _prior, user_id = _run_orchestrator(tmp_path, monkeypatch)
+    captured, calls, _conversations, _runs, _result, _prior, user_id = _run_orchestrator(tmp_path, monkeypatch)
     frame, control, context, (observation, model) = captured[0]
     temporal = frame.temporal_contract
     assert temporal is control.turn_intent.temporal_contract is context.temporal_contract
+    assert temporal is calls[0][1]
     assert (temporal.cutoff_source.message_id, temporal.cutoff_source.excerpt) == (user_id, QUESTION)
     assert temporal.information_cutoff == frame.timeframe == "2026-09-30"
     assert not observation.evidence
@@ -349,6 +414,121 @@ def test_real_message_chain_recovers_user_bound_on_continuation(tmp_path, monkey
     temporal = frame.temporal_contract
     assert temporal.cutoff_origin == "inherited_user"
     assert temporal.cutoff_source == prior_source
+    assert temporal is control.turn_intent.temporal_contract is context.temporal_contract
+    assert context.information_cutoff.as_of_date == date(2026, 9, 30)
+    assert not observation.evidence
+    assert SENTINEL not in json.dumps(model, ensure_ascii=False)
+
+
+def test_recovery_obeys_newer_user_tightening_over_valid_broader_ancestor(tmp_path, monkeypatch):
+    captured, _calls, _conversations, _runs, _result, _source, _id = _run_orchestrator(
+        tmp_path, monkeypatch, prior="tightened_chain", damage="older_ancestor_permission",
+        new_query="那这个判断有哪些反证？",
+    )
+    frame, control, context, (observation, model) = captured[0]
+    assert context.information_cutoff.as_of_date == date(2026, 9, 30)
+    assert frame.temporal_contract.cutoff_source.excerpt == "那这个判断有哪些反证？资料截至2026年9月30日"
+    assert frame.temporal_contract is control.turn_intent.temporal_contract is context.temporal_contract
+    assert not observation.evidence
+    assert SENTINEL not in json.dumps(model, ensure_ascii=False)
+
+
+@pytest.mark.parametrize(("prior", "expected"), [
+    ("tightened_chain", date(2026, 9, 30)),
+    ("relaxed_chain", TODAY),
+    ("runtime_relative_chain", date(2026, 9, 30)),
+])
+def test_recovery_replays_latest_user_authority_and_preserves_relative_freeze(tmp_path, monkeypatch, prior, expected):
+    captured, _calls, _conversations, _runs, _result, _source, _id = _run_orchestrator(
+        tmp_path, monkeypatch, prior=prior, new_query="那这个判断有哪些反证？",
+    )
+    frame, control, context, (observation, model) = captured[0]
+    assert context.information_cutoff.as_of_date == expected
+    assert frame.temporal_contract is control.turn_intent.temporal_contract is context.temporal_contract
+    assert bool(observation.evidence) == (expected == TODAY)
+    assert (SENTINEL in json.dumps(model, ensure_ascii=False)) == (expected == TODAY)
+
+
+def test_recovery_verifies_ancestor_run_links_before_inheriting_permission(tmp_path, monkeypatch):
+    captured, _calls, _conversations, _runs, result, _source, _id = _run_orchestrator(
+        tmp_path, monkeypatch, prior="frozen_chain", damage="ancestor_parent_mismatch",
+        new_query="那这个判断有哪些反证？",
+    )
+    assert captured == []
+    assert result[1]["task_frame"]["temporal_contract"]["errors"]
+    assert result[1]["decision"]["capabilities"] == []
+
+
+@pytest.mark.parametrize(("original", "current", "cutoff", "relative"), [
+    ("复盘2026年9月30日的A股。", "继续，只用截至当日的信息。", "2026-09-30", True),
+    ("复盘2026年9月28日至2026年9月30日的A股。", "继续，只用截至区间结束日的信息。", "2026-09-30", True),
+    ("复盘2026年9月30日的A股。", "继续，资料截至2026年10月7日。", "2026-10-07", False),
+])
+def test_new_permission_uses_current_source_and_inherited_target_anchor(original, current, cutoff, relative):
+    previous = compile_temporal_contract(original, today=TODAY, message_id="u-original")
+    assert previous.cutoff_origin == "none"
+    temporal = compile_temporal_contract(current, today=TODAY, message_id="u-current",
+                                         previous=previous, continuing=True)
+    assert not temporal.errors
+    assert temporal.market_target is previous.market_target
+    assert temporal.information_cutoff == cutoff
+    assert temporal.cutoff_source.message_id == "u-current"
+    assert temporal.cutoff_source.excerpt == current
+    assert temporal.cutoff_source != temporal.market_target.source
+    assert temporal.relative_anchor_sha256 == (previous.market_target.source.message_sha256 if relative else None)
+    assert TemporalContract.from_dict(temporal.to_dict()) == temporal
+
+
+def test_relative_type_separates_permission_source_from_target_anchor_and_preserves_inheritance():
+    previous = compile_temporal_contract("复盘2026年9月30日的A股。", today=TODAY, message_id="u-original")
+    query = "继续，只用截至当日的信息。"
+    permission = TemporalSource("u-current", message_digest(query), query)
+    temporal = TemporalContract(previous.market_target, "2026-09-30", "relative_target", permission,
+                                "0d83f1c32be689218d3198b054eeb0fa42ad2fbf83b77fd792e2cde3fb9a5b32")
+    assert temporal.relative_anchor_sha256 != permission.message_sha256
+    assert TemporalContract.from_dict(temporal.to_dict()) == temporal
+    with pytest.raises(ValueError):
+        replace(temporal, relative_anchor_sha256=permission.message_sha256)
+    inherited = compile_temporal_contract("继续，分析2026年10月7日的A股。", today=TODAY,
+                                           message_id="u-next", previous=temporal, continuing=True)
+    assert inherited.market_target.end == "2026-10-07"
+    assert inherited.information_cutoff == "2026-09-30"
+    assert inherited.cutoff_source is permission
+    assert inherited.relative_anchor_sha256 == temporal.relative_anchor_sha256
+
+
+@pytest.mark.parametrize(("prior", "query", "cutoff"), [
+    ("target_only", "那这个判断有哪些反证？只用截至当日的信息。", date(2026, 9, 30)),
+    ("target_only_range", "那这个判断有哪些反证？只用截至区间结束日的信息。", date(2026, 9, 30)),
+    ("target_only", "那这个判断有哪些反证？资料截至2026年10月7日。", TODAY),
+])
+def test_real_entry_binds_new_permission_to_verified_inherited_target(tmp_path, monkeypatch, prior, query, cutoff):
+    captured, _calls, _conversations, _runs, result, _source, user_id = _run_orchestrator(
+        tmp_path, monkeypatch, prior=prior, new_query=query,
+    )
+    assert len(captured) == 1, result[1]
+    frame, control, context, (observation, model) = captured[0]
+    temporal = frame.temporal_contract
+    assert temporal is control.turn_intent.temporal_contract is context.temporal_contract
+    assert temporal.market_target.end == "2026-09-30"
+    assert temporal.cutoff_source.message_id == user_id
+    assert temporal.cutoff_source.excerpt == query
+    assert temporal.market_target.source.message_id != user_id
+    assert context.information_cutoff.as_of_date == cutoff
+    assert bool(observation.evidence) == (cutoff == TODAY)
+    assert (SENTINEL in json.dumps(model, ensure_ascii=False)) == (cutoff == TODAY)
+
+
+@pytest.mark.parametrize("prior", ["relative_bound_chain", "relative_bound_range_chain"])
+def test_real_recovery_verifies_distinct_relative_permission_and_target_sources(tmp_path, monkeypatch, prior):
+    captured, _calls, _conversations, _runs, result, _source, _id = _run_orchestrator(
+        tmp_path, monkeypatch, prior=prior, new_query="那这个判断有哪些反证？",
+    )
+    assert len(captured) == 1, result[1]
+    frame, control, context, (observation, model) = captured[0]
+    temporal = frame.temporal_contract
+    assert temporal.cutoff_source != temporal.market_target.source
+    assert temporal.relative_anchor_sha256 == temporal.market_target.source.message_sha256
     assert temporal is control.turn_intent.temporal_contract is context.temporal_contract
     assert context.information_cutoff.as_of_date == date(2026, 9, 30)
     assert not observation.evidence
@@ -503,6 +683,43 @@ def test_controller_model_projection_keeps_public_semantics_without_private_sour
     assert decision.task_frame.temporal_contract.cutoff_source.excerpt == original
 
 
+def test_actual_episode_first_model_input_uses_public_contract_and_keeps_private_audit():
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+
+    frozen = compile_temporal_contract(QUESTION, today=TODAY, message_id="private-original-user-id")
+    frame = decide_turn(
+        QUESTION, today=TODAY, temporal_contract=frozen, resolver=LocalResolver(),
+        llm_complete=lambda *_args: (None, None, "offline"),
+    ).task_frame
+    context = build_episode_context(frame, task_id=str(uuid4()), capabilities=("news_search",),
+                                    today=TODAY.isoformat(), latest_data_date=TODAY.isoformat())
+    captured = []
+
+    class BoundaryStop(BaseException):
+        pass
+
+    class BoundaryModel:
+        def complete(self, **kwargs):
+            captured.extend(dict(message) for message in kwargs["messages"])
+            raise BoundaryStop("captured real first model boundary without sending a request")
+
+    registry = ResearchToolRegistry(())
+    with pytest.raises(BoundaryStop):
+        ContinuousAgentEpisode(BoundaryModel()).run(task_frame=frame, context=context, registry=registry)
+    delivered = json.dumps(captured, ensure_ascii=False)
+    payload = json.loads(captured[1]["content"])
+    assert "private-original-user-id" not in delivered
+    assert frozen.cutoff_source.message_sha256 not in delivered
+    assert payload["task_frame"]["raw_question"] == QUESTION
+    assert payload["task_frame"]["temporal_contract"] == {
+        "market_target": {"start": "2026-09-30", "end": "2026-09-30"},
+        "information_cutoff": "2026-09-30", "cutoff_origin": "relative_target",
+        "scope": "known_date_upper_bound", "errors": [],
+    }
+    assert frame.to_dict()["temporal_contract"]["cutoff_source"] == frozen.cutoff_source.to_dict()
+    assert context.temporal_contract is frozen
+
+
 @pytest.mark.parametrize(("new_query", "expected"), [
     ("那这个判断有哪些反证？资料截至2026年9月29日", "2026-09-29"),
     ("那这个判断有哪些反证？资料截至2026年10月7日", "2026-10-07"),
@@ -542,6 +759,26 @@ def test_persisted_none_cannot_erase_ancestor_user_permission(tmp_path, monkeypa
     assert result[1]["decision"]["capabilities"] == []
 
 
+def test_persisted_none_and_missing_continuation_cannot_erase_real_run_chain(tmp_path, monkeypatch):
+    captured, _calls, _conversations, _runs, result, _source, _id = _run_orchestrator(
+        tmp_path, monkeypatch, prior="frozen_chain", damage="dropped_permission_and_continuation",
+        new_query="那这个判断有哪些反证？",
+    )
+    assert captured == []
+    assert result[1]["task_frame"]["temporal_contract"]["errors"]
+    assert result[1]["decision"]["capabilities"] == []
+
+
+def test_current_multiple_targets_do_not_reuse_old_unique_relative_anchor():
+    previous = compile_temporal_contract("复盘2026年9月30日A股", today=TODAY, message_id="previous")
+    temporal = compile_temporal_contract(
+        "继续，比较2026年8月12日和2026年9月29日，只用截至当日的信息", today=TODAY,
+        message_id="current", previous=previous, continuing=True,
+    )
+    assert temporal.errors
+    assert temporal.information_cutoff is None
+
+
 @pytest.mark.parametrize("history_mode", [False, True])
 @pytest.mark.parametrize("mixed", [False, True])
 def test_real_registry_rebuilds_only_eligible_cards_and_clears_preview(tmp_path, history_mode, mixed):
@@ -575,6 +812,69 @@ def test_real_registry_rebuilds_only_eligible_cards_and_clears_preview(tmp_path,
     if not mixed:
         assert observation.trace.status == "future_of_cutoff"
         assert "不是源里没有" in model["observation"]
+
+
+@pytest.mark.parametrize("source_date", ["2026-08-30", None])
+@pytest.mark.parametrize("mixed", [False, True])
+def test_history_range_rejection_isolates_prose_gaps_and_query_basis(source_date, mixed):
+    from intelligence.services.historical_research.intent import HistoryIntent
+
+    context = replace(_context(), history_intent=HistoryIntent(
+        purpose="retrospective_discovery", strict_window=True,
+        requested_start="2026-09-01", requested_end="2026-09-30",
+    ))
+    rejected = AgentEvidence(tool="news_search", title="授权窗口外或未知日原件", detail=SENTINEL,
+                             source="fixture", source_date=source_date, evidence_tier="news")
+    eligible = replace(rejected, title="已知的未来日程10/9", detail="合法窗口材料123456", source_date="2026-09-30")
+    result = ToolRunResult(
+        (eligible, rejected) if mixed else (rejected,), SENTINEL,
+        ProviderTrace("fixture", "history-scope", "success", result_count=2 if mixed else 1),
+        gaps=(SENTINEL,), query_basis={"preview": SENTINEL, "preview_date": "2026-10-01"},
+    )
+    registry = ResearchToolRegistry((ToolSpec("news_search", "news_search", "fixture", "local", "current",
+                                            lambda *_args: result),))
+    observation, model = _consume(registry, context)
+    assert observation.query_basis == {}
+    assert SENTINEL not in json.dumps(model, ensure_ascii=False)
+    assert bool(observation.evidence) == mixed
+    assert ("合法窗口材料123456" in json.dumps(model, ensure_ascii=False)) == mixed
+    private = observation.telemetry["temporal_withheld"]
+    assert private["evidence"][0]["detail"] == SENTINEL
+    assert private["query_basis"] == result.query_basis
+    assert private["gaps"] == [SENTINEL]
+    assert private["count"] == private["history_scope_count"] == 1
+    assert private["future_count"] == 0
+    assert "history_scope_withheld=1" in observation.trace.detail
+
+
+@pytest.mark.parametrize("diagnostic_only", [False, True])
+def test_history_untyped_prose_is_quarantined_but_diagnostic_only_metadata_survives(diagnostic_only):
+    from intelligence.services.historical_research.intent import HistoryIntent
+    from intelligence.services.research_tool_registry import ToolDiagnostic
+
+    unsafe = ToolRunResult((), SENTINEL, ProviderTrace("fixture", "history-scope", "success"),
+                           query_basis={"preview": SENTINEL})
+    safe_basis = {"requested_window": {"start": "2026-09-01", "end": "2026-09-30"}}
+    diagnostic = ToolRunResult((), "", ProviderTrace("fixture", "history-scope", "error"),
+                               diagnostics=(ToolDiagnostic("missing_metric", "请指定核验指标"),),
+                               query_basis=safe_basis)
+    result = diagnostic if diagnostic_only else unsafe
+    context = replace(_context(), history_intent=HistoryIntent(
+        purpose="retrospective_discovery", strict_window=True,
+        requested_start="2026-09-01", requested_end="2026-09-30",
+    ))
+    registry = ResearchToolRegistry((ToolSpec("news_search", "news_search", "fixture", "local", "current",
+                                            lambda *_args: result),))
+    observation, model = _consume(registry, context)
+    assert not observation.evidence
+    assert SENTINEL not in json.dumps(model, ensure_ascii=False)
+    if not diagnostic_only:
+        assert observation.query_basis == {}
+        assert observation.telemetry["temporal_withheld"]["history_prose_withheld"]
+    else:
+        assert observation.query_basis == safe_basis
+        assert "missing_metric" in model["observation"]
+        assert "temporal_withheld" not in observation.telemetry
 
 
 @pytest.mark.parametrize(("with_card", "mixed"), [(False, False), (True, False), (True, True)])

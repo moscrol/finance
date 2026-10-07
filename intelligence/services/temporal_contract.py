@@ -136,19 +136,20 @@ class TemporalContract:
             if not isinstance(self.cutoff_source, TemporalSource):
                 raise ValueError("temporal permission requires a user source")
         if self.relative_anchor_sha256 is not None:
+            # An inherited permit keeps its original target anchor even when
+            # the current goal changes. Recovery verifies it against the
+            # prior user chain, rather than rebinding it to the new goal/source.
             if (not isinstance(self.relative_anchor_sha256, str)
                     or self.cutoff_origin not in {"relative_target", "inherited_user", "legacy_user"}
                     or not re.fullmatch(r"[0-9a-f]{64}", self.relative_anchor_sha256)
-                    or self.cutoff_source is None
-                    or self.relative_anchor_sha256 != self.cutoff_source.message_sha256):
+                    or self.cutoff_source is None):
                 raise ValueError("invalid relative temporal anchor")
         if self.cutoff_origin == "relative_target" and (
             self.market_target is None or self.cutoff_source is None
             or self.relative_anchor_sha256 != self.market_target.source.message_sha256
-            or self.cutoff_source != self.market_target.source
             or self.information_cutoff != self.market_target.end
         ):
-            raise ValueError("relative permission must bind its same-message target")
+            raise ValueError("relative permission must bind its target source and end")
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -244,7 +245,10 @@ def market_review_requested_date(query: str, *, today: date | None = None) -> st
     return parsed.isoformat() if parsed else None
 
 
-def _target_window(text: str, *, today: date, source: TemporalSource) -> tuple[ResearchDateWindow | None, tuple[str, ...]]:
+def _target_window(
+    text: str, *, today: date, source: TemporalSource,
+    inherited: ResearchDateWindow | None = None,
+) -> tuple[ResearchDateWindow | None, tuple[str, ...]]:
     full = list(_FULL_DATE_RE.finditer(text))
     matches = full + [m for m in _YEARLESS_DATE_RE.finditer(text) if not any(
         f.start() <= m.start() < f.end() for f in full
@@ -255,7 +259,7 @@ def _target_window(text: str, *, today: date, source: TemporalSource) -> tuple[R
     if any(d is None for d in dates):
         return None, ("时间日期无效，请明确有效的目标日期或窗口",)
     if not matches:
-        return None, ()
+        return inherited, ()
     start = dates[0]
     short_end = _SHORT_RANGE_END.match(text, matches[0].end())
     if short_end is not None:
@@ -296,7 +300,10 @@ def compile_temporal_contract(
     goal_text = list(visible)
     for start, end, _kind, _raw in instructions:
         goal_text[start:end] = " " * (end - start)
-    target, target_errors = _target_window("".join(goal_text), today=today, source=source)
+    target, target_errors = _target_window(
+        "".join(goal_text), today=today, source=source,
+        inherited=previous.market_target if continuing and previous else None,
+    )
     errors = list(target_errors)
     if uncertain:
         errors.append("时间指令与材料边界不明确，请将授权和材料分开提供")
@@ -315,7 +322,7 @@ def compile_temporal_contract(
         elif target.end > today.isoformat():
             errors.append("目标截止日尚未到来，请明确截至今天或已知日期的资料范围")
         else:
-            candidates.append((target.end, "relative_target", source.message_sha256))
+            candidates.append((target.end, "relative_target", target.source.message_sha256))
     if not instructions:
         standing = _standing_information_date(visible)
         if standing:
@@ -332,13 +339,12 @@ def compile_temporal_contract(
         return TemporalContract(target, errors=tuple(dict.fromkeys(errors)))
     if candidates:
         chosen = next((v for v in candidates if v[1] == "explicit_user"), candidates[0])
-        return TemporalContract(target or (previous.market_target if continuing and previous else None),
-                                chosen[0], chosen[1], source, chosen[2])
+        return TemporalContract(target, chosen[0], chosen[1], source, chosen[2])
     if continuing:
         if previous is None:
             return TemporalContract(target, errors=("无法恢复上一轮的完整用户时间授权，请明确本轮资料截止日",))
         return TemporalContract(
-            target or previous.market_target, previous.information_cutoff,
+            target, previous.information_cutoff,
             "inherited_user" if previous.information_cutoff else "none", previous.cutoff_source,
             previous.relative_anchor_sha256, previous.errors,
         )

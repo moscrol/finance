@@ -1418,6 +1418,10 @@ class ResearchToolRegistry:
                 not evidence and trace_trade_date is not None
                 and trace_trade_date > effective_context.information_cutoff.as_of_date
             )
+            future_withheld = bool(rejected) or undated_future
+            future_withheld_count = len(rejected) or (trace.result_count if undated_future else 0)
+            history_rejected: list[agent_research.AgentEvidence] = []
+            history_prose_withheld = False
             history = effective_context.history_intent
             if history is not None and history.strict_window and spec.name not in {
                 "history_query", "read_history_result", "save_history_research",
@@ -1439,23 +1443,29 @@ class ResearchToolRegistry:
                 # A diagnostic-only result carries no facts to date. Do not erase
                 # the repair hint or falsely report that its facts were withheld.
                 # An untyped prose observation is still filtered, even on errors.
-                if len(kept) != len(evidence) or (
-                    not evidence and (observation or not run_result.diagnostics)
-                ):
-                    gaps = (*gaps, "未取得历史授权范围内可交付的有日期材料；越界或日期未知内容未交付")
-                    evidence = kept
-                    observation = "；".join(f"{item.title}：{item.detail}" for item in kept) or gaps[-1]
+                history_rejected = [item for item in evidence if item not in kept]
+                history_prose_withheld = bool(
+                    not evidence and not future_withheld
+                    and (observation or not run_result.diagnostics)
+                )
+                evidence = kept
             remaining_after_cutoff_filter = list(evidence)
-            withheld = bool(rejected) or undated_future
-            withheld_count = len(rejected) or (trace.result_count if undated_future else 0)
+            history_withheld = bool(history_rejected) or history_prose_withheld
+            withheld = future_withheld or history_withheld
+            withheld_count = future_withheld_count + len(history_rejected)
             if withheld:
                 # A warning is not permission, in any research mode. Rebuild
-                # mixed observations only from eligible dated cards.
+                # every temporal/range rejection from eligible cards only;
+                # raw prose, gaps and query previews share the quarantine.
                 observation = "；".join(f"{item.title}：{item.detail}" for item in evidence)
-                notice = "已检索但内容晚于信息截止日，未交付；不是源里没有。"
+                notices = []
+                if future_withheld:
+                    notices.append("已检索但内容晚于信息截止日，未交付；不是源里没有。")
+                if history_withheld:
+                    notices.append("已检索但内容超出历史授权窗口或日期未知，未交付；不是源里没有。")
                 if not evidence:
-                    observation = notice
-                gaps = (notice,)
+                    observation = "；".join(notices)
+                gaps = tuple(notices)
             # Render only the explicit trusted control channel after fact gates.
             # Never restore the original prose when its evidence was withheld.
             if run_result.diagnostics:
@@ -1477,11 +1487,15 @@ class ResearchToolRegistry:
                 trace,
                 status=(
                     "future_of_cutoff"
-                    if withheld and not remaining_after_cutoff_filter
+                    if future_withheld and not remaining_after_cutoff_filter
                     else trace.status
                 ),
                 detail=(
-                    f"{trace.detail}; future_of_cutoff={withheld_count}".strip("; ")
+                    "; ".join(part for part in (
+                        trace.detail,
+                        f"future_of_cutoff={future_withheld_count}" if future_withheld else "",
+                        f"history_scope_withheld={len(history_rejected)}" if history_withheld else "",
+                    ) if part)
                     if withheld
                     else trace.detail
                 ),
@@ -1503,12 +1517,15 @@ class ResearchToolRegistry:
                 telemetry = agent_research.kb_delivery_telemetry(evidence, observation)
             if withheld:
                 telemetry["temporal_withheld"] = {
-                    "evidence": [asdict(item) for item in rejected],
+                    "evidence": [asdict(item) for item in (*rejected, *history_rejected)],
                     "observation": run_result.observation,
                     "query_basis": run_result.query_basis,
                     "gaps": list(run_result.gaps),
                     "source_trade_date": trace.source_trade_date,
                     "count": withheld_count,
+                    "future_count": future_withheld_count,
+                    "history_scope_count": len(history_rejected),
+                    "history_prose_withheld": history_prose_withheld,
                 }
             _remember_authorized_trade_dates(context, evidence)
             if scope is not None:

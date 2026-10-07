@@ -1224,6 +1224,7 @@ def _decide_turn_semantics(
     deadline: ResearchDeadline | None = None,
     today: date | None = None,
     temporal_contract: TemporalContract | None = None,
+    temporal_contract_frozen: bool = False,
 ) -> TurnDecision:
     from intelligence.services.historical_research.intent import inherit_history_followup
 
@@ -1568,13 +1569,12 @@ def _decide_turn_semantics(
             intent, required_outputs=task_frame.required_outputs,
             task_frame_hash=task_frame.task_frame_hash,
         )
-        temporal = compile_temporal_contract(
-            query, today=today or date.today(), continuing=True,
-            previous=previous_intent.temporal_contract if previous_intent else None,
-            message_id=(temporal_contract.cutoff_source.message_id if temporal_contract and temporal_contract.cutoff_source
-                        else temporal_contract.market_target.source.message_id if temporal_contract and temporal_contract.market_target
-                        else None),
-        )
+        temporal = temporal_contract
+        if not temporal_contract_frozen or temporal is None:
+            temporal = compile_temporal_contract(
+                query, today=today or date.today(), continuing=True,
+                previous=previous_intent.temporal_contract if previous_intent else None,
+            )
         task_frame = pin_temporal_contract(task_frame, temporal)
         envelope = project_task_frame(task_frame, envelope)
         intent = replace(intent, timeframe=task_frame.timeframe,
@@ -1798,9 +1798,10 @@ def decide_turn(
         llm_complete=llm_complete, previous_intent=previous_intent, previous_turn_id=previous_turn_id,
         resolver=resolver, conversation_materials=conversation_materials, deadline=deadline,
         today=runtime_date, temporal_contract=temporal,
+        temporal_contract_frozen=temporal_contract is not None,
     )
     intent = decision.turn_intent
-    if intent is not None and intent.inherited_from_turn is not None:
+    if temporal_contract is None and intent is not None and intent.inherited_from_turn is not None:
         temporal = compile_temporal_contract(
             query, today=runtime_date, previous=previous_intent.temporal_contract if previous_intent else None,
             continuing=True,

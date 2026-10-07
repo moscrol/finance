@@ -494,7 +494,7 @@ def build_episode_input(
         contract_for_model["research_dimensions"] = dimensions
     date_context = runtime_date_context(context)
     payload: dict[str, object] = {
-        "task_frame": task_frame.to_dict(),
+        "task_frame": task_frame.to_model_dict(),
         "research_contract": contract_for_model,
         "today": date_context["today"],
         "latest_data_date": date_context["latest_data_date"],

@@ -1689,11 +1689,17 @@ def build_conversation_context(
 
 def _recover_temporal_authority(
     intent: TurnIntent | None, prior_message: Message | None,
-    messages: Sequence[Message], *, today: date,
+    messages: Sequence[Message], *, today: date, run_store: RunStore,
     visited: frozenset[str] = frozenset(),
 ) -> TemporalContract | None:
     """Recover only complete users linked by bounded prior-turn/run pointers."""
     if intent is None or prior_message is None or prior_message.message_id in visited:
+        return None
+    try:
+        prior_run = run_store.load_run(prior_message.run_id)
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+    if prior_run.session_id != prior_message.conversation_id:
         return None
     visited = visited | {prior_message.message_id}
     users = [m for m in messages if m.role == "user" and m.status == "completed"
@@ -1718,40 +1724,68 @@ def _recover_temporal_authority(
         parents = [m for m in messages if m.message_id == intent.inherited_from_turn
                    and m.role == "assistant" and m.status == "completed"
                    and m.conversation_id == prior_message.conversation_id]
+        if len(parents) != 1 or prior_run.parent_run_id != parents[0].run_id:
+            return None
+        parent_message = parents[0]
+        try:
+            parent_intent = TurnIntent.from_dict(parent_message.turn_intent)
+        except ValueError:
+            return None
+    elif prior_run.parent_run_id is not None:
+        parents = [m for m in messages if m.run_id == prior_run.parent_run_id
+                   and m.role == "assistant" and m.status == "completed"
+                   and m.conversation_id == prior_message.conversation_id]
         if len(parents) == 1:
-            parent_message = parents[0]
             try:
-                parent_intent = TurnIntent.from_dict(parent_message.turn_intent)
+                candidate_intent = TurnIntent.from_dict(parents[0].turn_intent)
             except ValueError:
-                pass
+                candidate_intent = None
+            provisional = original_contract(records[0])
+            if provisional is not None and is_contextual_follow_up(
+                records[0].content,
+                understand_query(records[0].content, today=today, temporal_contract=provisional),
+                candidate_intent,
+            ):
+                parent_message, parent_intent = parents[0], candidate_intent
+    previous = _recover_temporal_authority(
+        parent_intent, parent_message, messages, today=today, run_store=run_store, visited=visited,
+    )
+    effective = original_contract(records[0], previous=previous,
+                                  continuing=parent_message is not None)
+    if effective is None or effective.errors:
+        return None
     temporal = intent.temporal_contract
     if temporal is not None:
-        linked_runs = {prior_message.run_id}
-        cursor, state = parent_message, parent_intent
-        seen = set(visited)
-        while cursor is not None and state is not None and cursor.message_id not in seen:
-            seen.add(cursor.message_id)
-            linked_runs.add(cursor.run_id)
-            parents = [m for m in messages if m.message_id == state.inherited_from_turn
-                       and m.role == "assistant" and m.status == "completed"
-                       and m.conversation_id == prior_message.conversation_id]
-            cursor = parents[0] if len(parents) == 1 else None
-            try:
-                state = TurnIntent.from_dict(cursor.turn_intent) if cursor else None
-            except ValueError:
-                state = None
+        proven_sources = [effective.cutoff_source]
+        if effective.market_target is not None:
+            proven_sources.append(effective.market_target.source)
+        if previous is not None:
+            proven_sources.append(previous.cutoff_source)
+            if previous.market_target is not None:
+                proven_sources.append(previous.market_target.source)
         sources = [temporal.cutoff_source]
         if temporal.market_target is not None:
             sources.append(temporal.market_target.source)
         for source in sources:
             if source is None:
                 continue
-            matching = [m for m in users if m.message_id == source.message_id
-                        and m.run_id in linked_runs]
+            if source not in proven_sources:
+                return None
+            matching = [m for m in users if m.message_id == source.message_id]
             if (len(matching) != 1 or matching[0].content != source.excerpt
                     or message_digest(matching[0].content) != source.message_sha256):
                 return None
-            original = original_contract(matching[0])
+            if source == temporal.cutoff_source:
+                original = (
+                    effective if source == effective.cutoff_source
+                    else previous if previous is not None and source == previous.cutoff_source
+                    else original_contract(matching[0])
+                )
+            else:
+                original = (
+                    effective if effective.market_target is not None and source == effective.market_target.source
+                    else original_contract(matching[0])
+                )
             if original is None or original.errors:
                 return None
             if source == temporal.cutoff_source and (
@@ -1765,21 +1799,18 @@ def _recover_temporal_authority(
                 != (temporal.market_target.start, temporal.market_target.end)
             ):
                 return None
-        if temporal.cutoff_origin == "none":
-            previous = _recover_temporal_authority(parent_intent, parent_message, messages,
-                                                   today=today, visited=visited)
-            original = original_contract(records[0], previous=previous,
-                                         continuing=intent.inherited_from_turn is not None)
-            if original is None or original.errors or original.information_cutoff is not None:
-                return None
+        if temporal.cutoff_origin == "none" and effective.information_cutoff is not None:
+            return None
+        # Membership in the chain proves provenance, not that an older permit
+        # is still effective. Replay each complete user in order so a newer
+        # tightening or relaxation supersedes the ancestor it refers to.
+        if (temporal.information_cutoff != effective.information_cutoff
+                or temporal.cutoff_source != effective.cutoff_source
+                or temporal.relative_anchor_sha256 != effective.relative_anchor_sha256
+                or temporal.market_target != effective.market_target):
+            return effective
         return temporal
-    previous = _recover_temporal_authority(parent_intent, parent_message, messages,
-                                           today=today, visited=visited)
-    restored = original_contract(records[0], previous=previous,
-                                 continuing=intent.inherited_from_turn is not None)
-    if restored is None or restored.errors:
-        return None
-    return replace(restored, cutoff_origin="legacy_user") if restored.information_cutoff else restored
+    return replace(effective, cutoff_origin="legacy_user") if effective.information_cutoff else effective
 
 
 def contextualize_follow_up_query(
@@ -2186,9 +2217,20 @@ class TurnOrchestrator:
                                       and inherited_message.run_id == current_run.parent_run_id)
             previous_temporal = None if prior_temporal_invalid or not prior_run_verified else _recover_temporal_authority(
                 inherited_intent, inherited_message, context.material_messages or (), today=runtime_today,
+                run_store=self.run_store,
             )
             if inherited_intent is not None:
                 inherited_intent = replace(inherited_intent, temporal_contract=previous_temporal)
+            current_continuing = is_contextual_follow_up(
+                query, understand_query(query, today=runtime_today, temporal_contract=current_temporal),
+                inherited_intent,
+            )
+            if (len(current_users) == 1 and current_users[0].content == query
+                    and current_run.session_id == conversation_id):
+                current_temporal = compile_temporal_contract(
+                    query, today=runtime_today, message_id=current_users[0].message_id,
+                    previous=previous_temporal, continuing=current_continuing,
+                )
             inherited_turn_id = (
                 inherited_message.message_id if inherited_message is not None else None
             )
@@ -2398,7 +2440,7 @@ class TurnOrchestrator:
                 query, today=runtime_today,
                 message_id=current_users[0].message_id if len(current_users) == 1 else None,
                 previous=previous_temporal if previous_verified else None, continuing=continuing,
-            ) if not current_temporal.errors else current_temporal
+            ) if not current_temporal.errors and continuing != current_continuing else current_temporal
             task_frame = pin_temporal_contract(task_frame, temporal)
             raw_envelope = project_task_frame(task_frame, raw_envelope)
             turn_intent = replace(

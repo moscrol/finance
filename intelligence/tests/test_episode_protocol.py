@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import os
 from unittest import mock
@@ -65,6 +66,36 @@ def _frame() -> TaskFrame:
         evidence_policy="current_market_scenarios",
         confidence=0.95,
     )
+
+
+def test_absent_temporal_contract_first_model_messages_keep_exact_base_bytes(monkeypatch) -> None:
+    import socket
+
+    from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("legacy byte positive must not send network requests")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    captured = []
+
+    class BoundaryStop(BaseException):
+        pass
+
+    class BoundaryModel:
+        def complete(self, **kwargs):
+            captured.extend(dict(message) for message in kwargs["messages"])
+            raise BoundaryStop("first model input captured offline")
+
+    frame = _frame()
+    assert frame.temporal_contract is None
+    with pytest.raises(BoundaryStop):
+        ContinuousAgentEpisode(BoundaryModel()).run(task_frame=frame, context=_context(frame), registry=_registry())
+    encoded = json.dumps(captured, ensure_ascii=False, separators=(",", ":")).encode()
+    # Actual first model messages captured twice before changing the exact
+    # b4a1e80ebf4949ddf0049fc0216fb2da710d0f05 protocol source.
+    assert hashlib.sha256(encoded).hexdigest() == "a412664e7d52aedb67df336ab914a32d010464457d41be738a22362e4afa8da5"
 
 
 def _context(frame: TaskFrame) -> ResearchRunContext:
