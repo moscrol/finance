@@ -139,6 +139,9 @@ wait_for_unload() {
 
 restore_previous() {
   local rollback_bootout_rc rollback_link_rc rollback_ledger_rc rollback_bootstrap_rc rollback_wait_rc
+  # Compensation is bounded by the same unload/retry limits. A second signal
+  # must not re-enter it or stop accounting halfway through recovery.
+  trap '' INT TERM HUP
   echo "$(date '+%F %T') rollback to $PREV_LINK" >> "$LOG"
   launchctl bootout "$DOMAIN/$LABEL" >> "$LOG" 2>&1
   rollback_bootout_rc=$?
@@ -183,7 +186,29 @@ abort_after_bootout() {
   exit 7
 }
 
+SWITCH_IN_FLIGHT=0
+on_interruption() {
+  local signal_name signal_exit
+  signal_name=$1
+  signal_exit=$2
+  trap '' INT TERM HUP
+  echo "ABORT signal=$signal_name" | tee -a "$LOG" >&2
+  if [ "$SWITCH_IN_FLIGHT" -eq 1 ]; then
+    if ! restore_previous; then
+      echo "ROLLBACK_FAILED after signal=$signal_name" >> "$LOG"
+      exit 7
+    fi
+  fi
+  exit "$signal_exit"
+}
+trap 'on_interruption INT 130' INT
+trap 'on_interruption TERM 143' TERM
+trap 'on_interruption HUP 129' HUP
+
 echo "$(date '+%F %T') bootout $DOMAIN/$LABEL" >> "$LOG"
+# Mark before issuing the command: an interrupted bootout may already have
+# stopped the service even if the shell never receives its exit status.
+SWITCH_IN_FLIGHT=1
 launchctl bootout "$DOMAIN/$LABEL" >> "$LOG" 2>&1
 bootout_rc=$?
 [ "$bootout_rc" -eq 0 ] || abort_after_bootout "bootout failed with rc=$bootout_rc" 4
@@ -208,6 +233,7 @@ fi
 bootstrap_runtime
 bootstrap_rc=$?
 if [ "$bootstrap_rc" -eq 0 ]; then
+  SWITCH_IN_FLIGHT=0
   echo "SWITCH_BOOTSTRAP_DONE rc=0 post_checks=required $(date '+%F %T')" >> "$LOG"
   exit 0
 fi

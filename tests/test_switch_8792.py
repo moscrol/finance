@@ -7,7 +7,9 @@
 
 from pathlib import Path
 import shutil
+import signal
 import subprocess
+import time
 
 import pytest
 
@@ -63,6 +65,10 @@ def box(tmp_path: Path):
     _tool(fakebin / "launchctl", '''
 echo "launchctl $*" >> "$EFFECTS"
 if [ "$1" = print ]; then
+  if [ -n "${INTERRUPT_WAIT:-}" ]; then
+    stops=$(cat "$BOOTOUT_COUNT_FILE" 2>/dev/null || echo 0)
+    [ "$stops" -eq 1 ] && exit 0
+  fi
   boots=$(cat "${BOOTSTRAP_COUNT_FILE:-/dev/null}" 2>/dev/null || echo 0)
   if [ -n "${ROLLBACK_PRINTS_REQUIRED:-}" ] && [ "$boots" -ge 3 ]; then
     prints=$(cat "$AFTER_BOOTSTRAP_PRINT_FILE" 2>/dev/null || echo 0)
@@ -84,6 +90,10 @@ if [ "$1" = bootstrap ]; then
   fi
 fi
 if [ "$1" = bootout ]; then
+  if [ -n "${BOOTOUT_COUNT_FILE:-}" ]; then
+    stops=$(cat "$BOOTOUT_COUNT_FILE" 2>/dev/null || echo 0)
+    echo "$((stops + 1))" > "$BOOTOUT_COUNT_FILE"
+  fi
   exit "${BOOTOUT_RC:-0}"
 fi
 exit 0
@@ -108,17 +118,32 @@ fi
 exec /bin/ln "$@"
 ''')
 
-    def run(revision: str, *, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    def run(revision: str, *, extra_env: dict[str, str] | None = None,
+            interrupt: int | None = None) -> subprocess.CompletedProcess:
         env = {
             "HOME": str(home), "PATH": f"{fakebin}:/usr/bin:/bin", "EFFECTS": str(effects),
             "PREVIOUS_PYTHON": str(old / ".venv-workbench/bin/python"),
             "LSOF_COUNT_FILE": str(tmp_path / "lsof-count"),
             "FINANCE_WS": str(tmp_path / "ws"), **(extra_env or {}),
         }
-        return subprocess.run(
-            [BASH, str(SCRIPT), revision, str(record)],
-            env=env, capture_output=True, text=True, timeout=60,
-        )
+        command = [BASH, str(SCRIPT), revision, str(record)]
+        if interrupt is None:
+            return subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
+        with subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True) as process:
+            try:
+                deadline = time.monotonic() + 10
+                while "launchctl print " not in effects.read_text():
+                    assert process.poll() is None, "script exited before the interrupt point"
+                    assert time.monotonic() < deadline, "script never reached the unload wait"
+                    time.sleep(0.01)
+                process.send_signal(interrupt)
+                stdout, stderr = process.communicate(timeout=20)
+                return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+                    process.communicate(timeout=5)
 
     return {
         "sha": sha, "old_sha": old_sha, "snap": snap, "old": old, "link": link, "effects": effects,
@@ -194,6 +219,40 @@ def test_service_that_never_unloads_keeps_the_old_link(box) -> None:
     assert box["link"].resolve() == box["old"].resolve()
     assert "bootstrap" not in box["effects"].read_text()
     assert "ROLLBACK_WAIT_FAILED" in (box["record"] / "switch.log").read_text()
+
+
+@pytest.mark.parametrize("interrupt,exit_code", [
+    (signal.SIGINT, 130), (signal.SIGTERM, 143), (signal.SIGHUP, 129),
+], ids=["INT", "TERM", "HUP"])
+def test_interrupt_after_bootout_restores_previous_runtime_once(box, tmp_path, interrupt, exit_code):
+    _add_venv(box["snap"])
+    result = box["run"](box["sha"], interrupt=interrupt, extra_env={
+        "INTERRUPT_WAIT": "1", "BOOTOUT_COUNT_FILE": str(tmp_path / "bootout-count"),
+        "WORKBENCH_UNLOAD_WAIT_SECONDS": "5",
+    })
+    log = (box["record"] / "switch.log").read_text()
+    effects = box["effects"].read_text().splitlines()
+    assert result.returncode == exit_code, result.stderr
+    assert box["link"].resolve() == box["old"].resolve()
+    assert sum(line.startswith("launchctl bootout ") for line in effects) == 2
+    assert any(line.startswith("python ") and f"--rev {box['old_sha']}" in line for line in effects)
+    assert sum(line.startswith("launchctl bootstrap ") for line in effects) == 1
+    assert "ROLLBACK_DONE rc=0" in log and "ABORT signal=" in log
+    assert "SWITCH_BOOTSTRAP_DONE" not in log
+
+
+def test_interrupt_with_incomplete_rollback_reports_exit_seven(box, tmp_path):
+    _add_venv(box["snap"])
+    result = box["run"](box["sha"], interrupt=signal.SIGTERM, extra_env={
+        "INTERRUPT_WAIT": "1", "BOOTOUT_COUNT_FILE": str(tmp_path / "bootout-count"),
+        "WORKBENCH_UNLOAD_WAIT_SECONDS": "5", "ROLLBACK_LEDGER_RC": "9",
+    })
+    log = (box["record"] / "switch.log").read_text()
+    assert result.returncode == 7, result.stderr
+    assert box["link"].resolve() == box["old"].resolve()
+    assert "launchctl bootstrap " in box["effects"].read_text()
+    assert "ROLLBACK_FAILED after signal=TERM" in log
+    assert "ROLLBACK_DONE" not in log and "SWITCH_BOOTSTRAP_DONE" not in log
 
 
 def test_macos_missing_service_exit_113_allows_the_switch(box) -> None:

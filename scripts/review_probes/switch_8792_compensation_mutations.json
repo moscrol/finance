@@ -3,7 +3,7 @@
   "pytest": "tests/test_switch_8792.py",
   "pytest_args": [
     "-k",
-    "unreadable_git_index or lsof_diagnostic or rollback_waits or relative_previous or failed_rollback_accounting"
+    "unreadable_git_index or lsof_diagnostic or rollback_waits or relative_previous or failed_rollback_accounting or interrupt"
   ],
   "mutants": [
     {
@@ -52,6 +52,14 @@
       "new": "  echo \"ROLLBACK_DONE",
       "expected_red": [
         "test_failed_rollback_accounting_is_reported_even_if_previous_service_starts"
+      ]
+    },
+    {
+      "name": "TERM bypasses compensation after bootout",
+      "old": "trap 'on_interruption TERM 143' TERM",
+      "new": "",
+      "expected_red": [
+        "test_interrupt_after_bootout_restores_previous_runtime_once[TERM]"
       ]
     }
   ]

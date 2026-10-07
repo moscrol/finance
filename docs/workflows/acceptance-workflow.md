@@ -101,6 +101,7 @@ bash ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/switch_8792.sh "$s
 # 卸载且 8792 端口空出，再用新快照里的解释器记录 --port 8792 并 bootstrap；账本失败、
 # 链接失败或三次 bootstrap 失败会尝试恢复旧链接、旧版本账本和服务；回滚同样等待卸载与端口释放。
 # 回滚不完整退出 7，读 switch.log 定位。退出 0 / SWITCH_BOOTSTRAP_DONE 只说明切换命令成功，仍须切后验证。
+# INT / TERM / HUP 会触发一次补偿；恢复期间忽略重复信号。SIGKILL、断电或机器故障无法由脚本捕获。
 # 脚本不负责上面的 fetch / worktree / venv 软链，也不替代下面的 readiness、health、grounded 探针。
 ```
 
