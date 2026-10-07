@@ -7,7 +7,8 @@ import pytest
 
 from intelligence.services.honesty_gates import calendar_disclosure, with_calendar_disclosure
 from intelligence.services.lane_generation import deterministic_lane_answer
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, build_task_frame
+from intelligence.services.query_understanding import QueryEnvelope
 from intelligence.services.turn_controller import TurnDecision, decide_turn
 from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
 from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
@@ -77,15 +78,23 @@ def test_workbench_dispatches_the_frozen_company_task_to_its_research_owner(tmp_
     assert "休市" in answer
 
 
-@pytest.mark.parametrize("query", [
-    "截至2026年10月7日，存储涨价如何传导到公司利润？",
-    "截至2026年10月7日，长电科技今年利润同比多少？",
-    "截至2026年10月7日，长电科技估值贵不贵？",
-    "截至2026年10月7日，长电科技近期公告对产业链有什么影响？",
+@pytest.mark.parametrize(("query", "kind", "subject_kind", "subject"), [
+    ("截至2026年10月7日，存储涨价如何传导到公司利润？", "theme_analysis", "theme", "存储芯片"),
+    ("截至2026年10月7日，长电科技今年利润同比多少？", "financial_analysis", "company", "长电科技"),
+    ("截至2026年10月7日，长电科技估值贵不贵？", "valuation_estimate", "company", "长电科技"),
+    ("截至2026年10月7日，长电科技近期公告对产业链有什么影响？", "news_impact", "company", "长电科技"),
 ])
-def test_nonmarket_evidence_duties_continue_when_the_exchange_is_closed(query: str) -> None:
-    decision = decide_turn(query)
-    assert calendar_disclosure(decision.task_frame)
+def test_nonmarket_evidence_duties_continue_when_the_exchange_is_closed(
+    query: str, kind: str, subject_kind: str, subject: str,
+) -> None:
+    # This seam receives already-confirmed semantics. Entity discovery is a
+    # separate consumer and must not depend on a developer's private KB here.
+    envelope = QueryEnvelope(kind, subject_kind, subject, query, "2026-10-07", "explicit", 1.0)
+    frame = build_task_frame(query, envelope)
+    assert frame.question_type == kind
+    decision = TurnDecision(lane="research", needs_retrieval=True,
+        needs_memory=True, needs_template=True, question_type=kind, task_frame=frame)
+    assert calendar_disclosure(frame)
     assert deterministic_lane_answer(query, decision) is None
 
 
