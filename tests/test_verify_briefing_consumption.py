@@ -34,7 +34,8 @@ def inputs(tmp_path: Path, monkeypatch) -> Namespace:
         con.execute(
             "CREATE TABLE history_teaching_labels ("
             "trade_date DATE, entity_type VARCHAR, entity_id VARCHAR, label VARCHAR, value_num DOUBLE, "
-            "value_text VARCHAR, framework_version VARCHAR, status VARCHAR, computed_at TIMESTAMP)"
+            "value_text VARCHAR, framework_version VARCHAR, status VARCHAR, computed_at TIMESTAMP, "
+            "first_known_at TIMESTAMP)"
         )
     monkeypatch.setattr("sys.argv", ["verify", "--db-path", str(db), "--labels-db", str(labels),
                                     "--kb-wiki", str(wiki), "--briefing-date", "2026-09-18", "--entity", "test"])
@@ -60,14 +61,17 @@ def _add_briefing_labels(
         "tf.briefing_lag_days": 2.0,
     }
     rows = [
-        (label, value, "2026-09-20 08:00:00" if label == early_label else "2026-09-22 08:00:00")
+        (label, value, stamp, stamp)
         for label, value in values.items()
+        for stamp in ["2026-09-20 08:00:00" if label == early_label else "2026-09-22 08:00:00"]
     ]
     with duckdb.connect(str(inputs.labels)) as con:
         con.executemany(
             "INSERT INTO history_teaching_labels "
-            "(trade_date, entity_type, entity_id, label, value_num, framework_version, status, computed_at) "
-            "VALUES ('2026-09-19', 'market', 'market', ?, ?, 'tf-test', 'ok', ?)",
+            "(trade_date, entity_type, entity_id, label, value_num, framework_version, status, computed_at, first_known_at) "
+            # tf.briefing_* 不在 KNOWABLE_AT_CLOSE 里 ⇒ 走 carry-forward，first_known_at = computed_at。
+            # 留 NULL 会让对象被 PIT 闸 fail-closed 滤掉，测的就不是本意那条路径了。
+            "VALUES ('2026-09-19', 'market', 'market', ?, ?, 'tf-test', 'ok', ?, ?)",
             rows,
         )
 

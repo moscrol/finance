@@ -2909,7 +2909,9 @@ def grounded_claim_registry_block(
     *,
     query: str = "",
     max_chars: int | None = None,
+    required_claim_ids: tuple[str, ...] = (),
 ) -> str:
+    """Bounded registry; explicitly required rows are atomic, never silently omitted."""
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     # 反证与缺口是「不许过度宣称」的材料：它们被预算挤掉，模型就只剩支持性事实，
     # 越界解读没有对手方。实测 2026-08-26 披露扫描：68 条 claim / 12k 预算只装下
@@ -2920,7 +2922,13 @@ def grounded_claim_registry_block(
         for claim in (*answer_spec.counter_evidence, *answer_spec.gaps)
     }
     rows: list[tuple[bool, float, int, str]] = []
+    required_ids = set(required_claim_ids)
+    required_indexes: set[int] = set()
+    found_ids: set[str] = set()
     for index, claim in enumerate(_all_answer_claims(answer_spec)):
+        if claim.claim_id in required_ids:
+            required_indexes.add(index)
+            found_ids.add(claim.claim_id)
         claim_atoms = tuple(
             atom
             for atom in atoms
@@ -2947,6 +2955,8 @@ def grounded_claim_registry_block(
                 line,
             )
         )
+    if found_ids != required_ids:
+        raise ValueError("required registry claims are unavailable")
     if max_chars is None or max_chars <= 0:
         return "\n".join(line for _keep, _score, _index, line in rows)
     # P4/P6: rank first, then enforce one global prompt budget.  Skipped rows
@@ -2955,14 +2965,25 @@ def grounded_claim_registry_block(
     selected: list[str] = []
     taken: set[int] = set()
     used_chars = 0
+    # 调用者显式指定的不可拆上下文先占位；不够就拒绝，不能只留下脱离边界的读数。
+    for position, (_keep, _score, index, line) in enumerate(rows):
+        if index not in required_indexes:
+            continue
+        cost = len(line) + (1 if selected else 0)
+        if used_chars + cost > max_chars:
+            raise ValueError("required registry claims exceed budget")
+        selected.append(line)
+        taken.add(position)
+        used_chars += cost
+    required_count = len(selected)
     # 保留席位：反证与缺口先在 max_chars//4 里挑，挑不下的回到公共池按分数竞争。
     # 为什么是「有上限的席位」而不是绝对优先——绝对优先在预算紧到只够一行时会让
     # registry 里只剩一条 gap、一条硬事实都没有（test_grounded_registry_window_
     # is_hard_bounded_and_hardness_ranked 抓的就是这个）。四分之一的依据：生产
     # 披露包里反证 + 缺口合计约 950 字符，12k 的四分之一是 3000，够放且吃不掉主体。
-    reserve = max_chars // 4
+    reserve = min(max_chars, used_chars + max_chars // 4)
     for position, (keep, _score, _index, line) in enumerate(rows):
-        if not keep:
+        if not keep or position in taken:
             continue
         cost = len(line) + (1 if selected else 0)
         if used_chars + cost > reserve:
@@ -2995,7 +3016,7 @@ def grounded_claim_registry_block(
         # 告知行本身也要进预算，否则一边写预算一边超预算。挤不下就再让出
         # 一条最低分的 claim——但**绝不动最后一条**：证据才是目的，告知是元数据，
         # 预算紧到二选一时留证据。放不下就整条不写，退回今天的静默截断。
-        while len(selected) > 1 and used_chars + len(note) + 1 > max_chars:
+        while len(selected) > max(1, required_count) and used_chars + len(note) + 1 > max_chars:
             used_chars -= len(selected.pop()) + 1
             dropped += 1
             note = (

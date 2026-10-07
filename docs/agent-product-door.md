@@ -134,6 +134,26 @@ Controller 首次调用与一次纠错共享剩余研究截止；过期不再发
 也不证明排名、资金因果或全文质量。设计与验收见
 [证据与修订保真设计](superpowers/specs/2026-10-07-answer-evidence-quality-design.md)。
 
+### 市场历史比较镜头（2026-10-08，PR75候选）
+
+`market_history_context.market_history_blocks` 是共享只读取数接缝，不新增产品门：
+A 的 `episode_tools → asof_prefetch` 开场证据与 B 的 `ask.answer_query` D10 provider 共用。
+保留市场情绪类比的历史后续事实，另送 river 的当前窗、拟合范围、逐维水平/趋势/贡献、
+来源、缺维及上游 PIT 标记。两套候选独立，不按名次嫁接后续收益；交易日截断和上游
+`strict` 不证明每个历史日当时已知，标准化含当前窗也不构成训练/留出检验。
+
+A 在历史读取前检查市场能力许可、材料范围与剩余截止；共享接缝在两块之间再次检查
+同一截止。这是启动前守卫，不中断已运行的 DuckDB 查询，也不是所有预取的统一权限门。
+B 显式日期优先、否则解析问句日；普通快查不启动镜头，禁用 D10 不读本块。
+历史整块作为 `INFERRED` 上下文进入 AnswerSpec，不升成已核验事实；默认 grounded
+合成及缺项修订给它保留完整 registry 席位，超出既有预算时拒绝合成、保留确定性降级，
+不把读数和共同限制拆散。非 D10 的 registry 排序合同不变。
+
+离线测试到 A 连续循环的首次模型请求、B 默认/旧合成的模型接口替身，另有只读真库探针；
+不证明模型实际利用、回答质量或生产已消费。B 的 generic owner 早退分支不走本 D10，
+教学 `tf.*`、用户判断台账、环境剧本命名/持久化/回检尚未接入镜头。
+详见[迁移验收](verification/2026-10-08-vidio-finance-transfer-qc.md)。
+
 ### 评测专用目录视图（非生产入口）
 
 `intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，

@@ -8,6 +8,7 @@ import duckdb
 import pytest
 
 from intelligence.services.teaching_framework.params import load_params
+from intelligence.services.methodology_backtest.store import open_labels_db
 from scripts.teaching_framework import main, parser
 
 DAYS = ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09",
@@ -152,8 +153,8 @@ def params_file(tmp_path: Path) -> Path:
     return path
 
 
-def _run(capsys, *argv: str) -> dict:
-    assert main(list(argv)) == 0, capsys.readouterr().err
+def _run(capsys, *argv: str, expect_rc: int = 0) -> dict:
+    assert main(list(argv)) == expect_rc, capsys.readouterr().err
     return json.loads(capsys.readouterr().out)
 
 
@@ -432,10 +433,12 @@ def test_build_structure_writes_sector_and_stock_divergence_events_and_screen_li
     side = duckdb.connect(str(sidecar))
     try:
         side.executemany(
-            "INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [("sector", "S1", DAYS[6], "tf.macd_bottom_div_observe", 1.0, DAYS[4], "v-test", "tf-test", "ok", "甲", "2026-09-08 00:00:00"),
-             ("stock", "X", DAYS[6], "tf.macd_bottom_div_confirm", 1.0, DAYS[4], "v-test", "tf-test", "ok", "x", "2026-09-08 00:00:00"),
-             ("sector", "S1", DAYS[6], "tf.role_volume_top3", 1.0, None, "v-test", "tf-test", "ok", None, "2026-09-08 00:00:00")],
+            "INSERT INTO history_teaching_labels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            # 末列 first_known_at：前两条是有前缀一致性证据的结构事件 → 盖事件当日收盘；
+            # tf.role_volume_top3 还没提交证据 → 盖构建时刻（历史切片上看不见，fail-closed）。
+            [("sector", "S1", DAYS[6], "tf.macd_bottom_div_observe", 1.0, DAYS[4], "v-test", "tf-test", "ok", "甲", "2026-09-08 00:00:00", f"{DAYS[6]} 07:00:00"),
+             ("stock", "X", DAYS[6], "tf.macd_bottom_div_confirm", 1.0, DAYS[4], "v-test", "tf-test", "ok", "x", "2026-09-08 00:00:00", f"{DAYS[6]} 07:00:00"),
+             ("sector", "S1", DAYS[6], "tf.role_volume_top3", 1.0, None, "v-test", "tf-test", "ok", None, "2026-09-08 00:00:00", "2026-09-08 00:00:00")],
         )
     finally:
         side.close()
@@ -662,3 +665,73 @@ def test_build_labels_twice_same_hash_on_hithink_overlay(capsys, tmp_path, sourc
     assert len(first["canonical_hash"]) == 64
     assert roles_a["readouts"]["teaching_sources"]["new_high"] == "fact_stock_daily_hithink"
     assert roles_a["canonical_hash"] == roles_b["canonical_hash"]
+
+
+def test_reset_teaching_rebuilds_only_teaching_tables(tmp_path, capsys) -> None:
+    """schema 变更后的出路：重建 10 张教学表，legacy 表一行不动。
+
+    原来的提示是「旁路库可删可重建，请删除后重跑」。但同一个文件里还住着 legacy 的
+    history_calendar / history_labels（真库实测 273 MB），删文件会把它们一起删掉，
+    而那些**不是**重算得回来的。教学表才是可丢弃的。
+    """
+
+    sidecar = tmp_path / "side.duckdb"
+    con = duckdb.connect(str(sidecar))
+    # 旧 schema：没有 first_known_at
+    con.execute(
+        "CREATE TABLE history_teaching_labels (entity_type VARCHAR NOT NULL, entity_id VARCHAR NOT NULL,"
+        " trade_date DATE NOT NULL, label VARCHAR NOT NULL, value_num DOUBLE, value_text VARCHAR,"
+        " label_version VARCHAR NOT NULL, framework_version VARCHAR NOT NULL,"
+        " status VARCHAR NOT NULL DEFAULT 'ok', status_reason VARCHAR, computed_at TIMESTAMP NOT NULL,"
+        " PRIMARY KEY (entity_type, entity_id, trade_date, label))"
+    )
+    con.execute("CREATE TABLE history_calendar (idx INTEGER, trade_date DATE)")
+    con.execute("INSERT INTO history_calendar VALUES (1, DATE '2026-01-05'), (2, DATE '2026-01-06')")
+    con.close()
+
+    # 改之前：构建 fail-closed，而且提示要指向新命令、警告别删文件
+    from scripts.teaching_framework import _open_sidecar_for_write
+
+    with pytest.raises(RuntimeError) as err:
+        _open_sidecar_for_write(sidecar)
+    assert "first_known_at" in str(err.value)
+    assert "reset-teaching" in str(err.value), "提示必须指向保留 legacy 的那条路"
+    assert "不要删整个旁路库文件" in str(err.value)
+
+    out = _run(capsys, "reset-teaching", "--labels-db", str(sidecar), "--yes")
+    assert out["status"] == "ok"
+    assert out["legacy_untouched"] is True
+    assert out["legacy_rows_before"]["history_calendar"] == 2
+    assert out["legacy_rows_after"]["history_calendar"] == 2
+    assert out["remaining_schema_problems"] == []
+
+    # 改之后：构建开得起来
+    con = _open_sidecar_for_write(sidecar)
+    try:
+        cols = [r[1] for r in con.execute("PRAGMA table_info('history_teaching_labels')").fetchall()]
+        assert "first_known_at" in cols
+        assert con.execute("SELECT count(*) FROM history_calendar").fetchone()[0] == 2
+    finally:
+        con.close()
+
+
+def test_reset_teaching_refuses_to_drop_rows_without_yes(tmp_path, capsys) -> None:
+    """教学表里有行时不给 --yes 就拒绝——重算得回来不等于可以不吭声地丢。"""
+
+    sidecar = tmp_path / "side2.duckdb"
+    con = open_labels_db(sidecar, read_only=False)
+    con.execute(
+        "INSERT INTO history_teaching_labels VALUES ('market','market',DATE '2026-01-05','tf.x',1,NULL,"
+        "'v','fw','ok',NULL,TIMESTAMP '2026-01-06', TIMESTAMP '2026-01-05 07:00:00')"
+    )
+    con.close()
+
+    out = _run(capsys, "reset-teaching", "--labels-db", str(sidecar), expect_rc=1)
+    assert out["status"] == "refused"
+    assert out["teaching_rows"]["history_teaching_labels"] == 1
+
+    con = duckdb.connect(str(sidecar), read_only=True)
+    try:
+        assert con.execute("SELECT count(*) FROM history_teaching_labels").fetchone()[0] == 1, "拒绝了却还是删了"
+    finally:
+        con.close()

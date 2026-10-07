@@ -111,7 +111,13 @@ def verify(args: argparse.Namespace) -> dict:
             for field, value in values.items():
                 require((field not in obj.payload) if value is None else obj.payload.get(field) == value,
                         f"River payload mismatch: {day} {field}")
-            require(bool(obj.recorded_at) and obj.recorded_at[:10] >= str(source_recorded_at)[:10], "Backdated computed_at")
+            # recorded_at 自 PIT 身份那一刀起不再是 computed_at，而是 max(first_known_at)。
+            # 两条分开报：缺 PIT 证据（fail-closed 滤掉）和真的时间倒挂是两回事，
+            # 合成一条会让前者顶着 "Backdated computed_at" 的名字出现，指向错的字段。
+            require(bool(obj.recorded_at),
+                    "River object has no first_known_at (PIT fail-closed): "
+                    "某条成分标签的 first_known_at 是 NULL，整个对象被滤掉。不是时间倒挂。")
+            require(obj.recorded_at[:10] >= str(source_recorded_at)[:10], "Backdated first_known_at")
             common = {"db_path": args.db_path, "checkpoints_path": Path(temp) / "absent-checkpoints.jsonl"}
             plain = slice_river(day, args.entity, **common).to_dict()
             off = slice_river(day, args.entity, teaching_labels_db=None, **common).to_dict()
