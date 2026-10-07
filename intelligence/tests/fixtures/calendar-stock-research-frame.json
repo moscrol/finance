@@ -1,0 +1,57 @@
+{
+  "source_revision": "c8b87ee5bd222b35adc12ee1b76b16b9bc3bddef",
+  "source_event": "turn_controller",
+  "task_frame": {
+    "raw_question": "截至2026年10月7日，长电科技的先进封装受益逻辑，最硬的证据是什么，最容易误判哪一点？请区分已兑现的公司事实、客户线索和市场叙事，指出关键证据缺口，并标明行情数据实际截止日。",
+    "user_goal": "对长电科技先进封装受益逻辑形成条件化判断：找出最硬证据、最易误判点、关键证据缺口，并明确行情数据实际截止日",
+    "question_type": "stock_deep_dive",
+    "subject": "长电科技",
+    "subject_kind": "company",
+    "market_scope": "A股",
+    "timeframe": "2026-10-07",
+    "required_outputs": [
+      "direct_assessment",
+      "supporting_evidence",
+      "counterpoint",
+      "relation_map"
+    ],
+    "assumptions": [
+      "用户未明确市场范围，按A股市场理解",
+      "2026-10-07 为交易所公告休市日，A股休市，该日无行情数据；回答须先说明该日休市，如引用行情须明确标注为前一交易日 2026-09-30 的数据，不得称为当日行情",
+      "主体为A股上市公司长电科技（600584）",
+      "证据分层要求：区分已兑现的公司事实、客户线索、市场叙事三层，并逐层标注证据强度与缺口",
+      "advanced packaging 语境下可关联的客户/产业线索须以可核验披露为准，不得以叙事替代事实"
+    ],
+    "ambiguities": [
+      "用户未指定重点封装品类（如2.5D/3D、Chiplet、Fan-out等），回答中可分层覆盖但可提示如需聚焦单一品类可进一步确认",
+      "用户未指定对比基准（如同业封测公司），默认不做同业横向比较，仅围绕长电科技自身逻辑"
+    ],
+    "clarification_question": null,
+    "evidence_policy": "company_multi_layer_evidence",
+    "confidence": 1.0,
+    "required_output_additions": [
+      "relation_map"
+    ],
+    "task_frame_hash": "03d16c26d8c31fc4ab090677735d86fc03d851ad67c5f78ec2dadc81fc4e9c10"
+  },
+  "decision": {
+    "lane": "research",
+    "needs_retrieval": true,
+    "needs_memory": true,
+    "needs_template": true,
+    "question_type": "stock_deep_dive",
+    "subject": "长电科技",
+    "timeframe": "2026-10-07",
+    "confidence": 0.97,
+    "reason": "路由表命中 stock_deep_dive：针对具体公司长电科技的先进封装受益逻辑做深度研究，要求区分已兑现的公司事实、客户线索与市场叙事三层证据，并评估最易误判点与证据缺口，属于带条件化判断的公司深挖，TaskFrame 也已锁定题型为 stock_deep_dive；非单一数值快查（quick_fact），也非核验某个具体传闻的说法（fact_check），而是整体投资逻辑的证据分层与判断。；TaskFrame 证据政策禁止零检索执行",
+    "capabilities": [
+      "memory",
+      "market_quote",
+      "graph",
+      "financials",
+      "web_search"
+    ],
+    "clarification_questions": [],
+    "task_frame_hash": "03d16c26d8c31fc4ab090677735d86fc03d851ad67c5f78ec2dadc81fc4e9c10"
+  }
+}
