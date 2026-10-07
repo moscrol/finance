@@ -2,10 +2,10 @@
 
 ## 结论与适用范围
 
-代码迁入独立候选分支，已修本轮可复现的边界问题。**尚非全仓验收、生产部署或日常 agent 能力验收**。
+代码迁入独立候选分支，已修可复现的边界问题；后续接线已验证到 A 首次模型请求及 B 默认/旧合成接口替身。**模型接口收到不等于模型实际利用、金融质量通过或生产已部署**。
 源包不是 finance main 的一部分；审交付必须检出补丁树，干净 main 只作回归对照。
 
-已推公开代码提交 `31fc76f957412ee7f53ea709e4cff5eba8b878e2`，草稿 [PR #75](https://github.com/moscrol/finance/pull/75)。最终本地收据与公开历史隔离过程见 [交接快照](../handoffs/2026-10-08-vidio-finance-transfer-public.md)；接手看 [本分支在途状态](../handoffs/inflight/feat-vidio-finance-transfer-public.md)。
+迁移代码 `31fc76f957412ee7f53ea709e4cff5eba8b878e2`；消费接线代码 `7389549bcd20ada12f1f78f0ea4a91a178df551e`，均已推草稿 [PR #75](https://github.com/moscrol/finance/pull/75)。公开隔离见[迁移快照](../handoffs/2026-10-08-vidio-finance-transfer-public.md)，接线决策/证据见[消费快照](../handoffs/2026-10-08-river-history-consumption.md)；接手看[本分支在途状态](../handoffs/inflight/feat-vidio-finance-transfer-public.md)。
 
 - 来源：vidio `arena/0ee406fa-vidio@7d47cc7`，`archive/finance-transfer/ALL-TWENTY-merged.patch`（20 连）；另有同目录导出与诊断脚本。
 - finance 基线：`82de3fb730a4175170b4e6ba472e130e5ef87ab7`。原作者使用的 `148a09ec` 与本次基线不同。
@@ -22,7 +22,7 @@
 4. 多维镜头：展示逐维均值/趋势差、相关组和候选距离分布；环境剧本纯函数完成训练簇、留出诊断、历史后续事实和匹配。
 5. 离线工具：视角映射/拆分/字段投影、教学数据包导出/还原及只读诊断。
 
-这些是可调用积木，不等于金融问答已自动消费新镜头与环境剧本。
+迁移阶段只提供上述积木；`7389549bc` 另将镜头接入下述两条问答路径，环境剧本仍未自动消费。
 
 ## 本轮反例 → 修复
 
@@ -73,12 +73,47 @@
 
 实现期候选日志来自未提交的独占树，且早于最后一次公开内容复查，不能用日志文件名中的基线 SHA 冒充最终版本。最终 `public-clean` 绑定干净 `31fc76f95`：拆分测试的四个私人快照跳过项已由合成样本替代并实际执行，因此较实现期增加 4 passed、减少 4 skipped；不表示已测私人画像。收据为 `~/.finance-runtime/test-receipts/20261007T192253Z-31fc76f9-b43b863edf49.json`，revision、解释器、依赖及基座漂移 0 均核对通过；后续文档提交不自动继承此 revision 身份。
 
+## 日常历史比较接线（`7389549bc`）
+
+`market_history_context.market_history_blocks()` 统一只读库路径、显式站立日和父截止，分别保留旧 D10 后续事实与 river 多维镜头。单块失败局部降级，不泄漏私人路径；镜头缺候选时仍携带来源/PIT（时点可知性）与缺口。两套特征/候选独立，不能按名次嫁接后续收益。
+
+- **A / Episode**：历史自动预取前检查市场能力、材料范围和剩余截止；实际 `ContinuousAgentEpisode.run()` 首次模型调用由离线替身截获，完整镜头、来源、日期、缺维和限制到达。证据账本另验 hash、日期与 E 序号。未跑完整 `TurnOrchestrator.run_turn`。
+- **B / ask compose 的 D10 provider**：问句日期在规划/快照读取之前冻结，显式日期优先；保留整块 `data:D10:context` 为 `INFERRED`，不升已核验事实，直接构造 Claim 避免展示清洗抹掉表/列名。
+- **默认 grounded 合成**：有来源的短推断摘要解决 D10-only 准入；完整上下文通过 `required_claim_ids` 原子占位，不能被其他长资料挤掉。既有 12K registry 装不下时不发模型请求，走确定性降级；缺项修订共用此规则。未指定必需行的调用保留原预算/排序行为。
+- **边界随读数送达**：当前窗、实际标准化拟合范围、上游 PIT 日行标记、来源规则、逐维水平/趋势/贡献、共有维分母、暂停/缺失维均显示。上游 `strict` 相对本次 cutoff，不等于每个历史交易日收盘时已知；拟合含当前窗，不是训练/留出检验。
+
+### 新收据与覆盖范围
+
+解释器仍为本树 `.venv-workbench/bin/python`（锁定 Python 3.12.13）。新原件根 `~/.finance-runtime/reviews/river-consumption-20261008/`，仅本地保存。
+
+| 证据 | 读数 / 支持的断言 |
+|---|---|
+| 修前 `before-corrected.*` | 6F/3P：预取/缺口/来源/PIT/账本送达断点；夹具初错另留 |
+| `delivery-before.*`、`grounded-corrected-before.*` | prepared 之外再复现默认合成准入与拥挤 registry 遗失；夹具错误与产品错误分账 |
+| 新消费测试文件 | 33 个参数化实例；A 实际循环首发截获，B 默认/旧合成 × 拥挤/不拥挤接口替身、D10-only、超预算拒发等 |
+| 干净 `7389549bc` 的 `fixed-code.log/xml` | **1785 passed / 44 skipped / 19229 deselected**，1 条 TestClient 弃用 warning；不是全仓 pytest |
+| `fixed-code-receipt.json` / `fixed-code-receipt-check.log` | revision、解释器、依赖、净树、基座漂移 0 对账；明确保留关键词收窄 |
+| `fixed-code-ruff.log` / `code-commit.log` | 全仓 Ruff、实际提交门通过；不是前端/端到端验收 |
+| `fixed-code-map-*` | 结构索引 ready，vault unavailable、doors/narrative missing、召回未验 |
+| 只读真库探针 | 两块可出数，行情库 mtime/size 未变；详细输出和覆盖审计仅留私有原件，非性能或金融质量实验 |
+
+```bash
+FWP_TEST_RECEIPT_PATH=<本轮独占收据路径> \
+.venv-workbench/bin/python -m pytest -q intelligence/tests/ tests/ \
+  -k 'river or teaching or lens or analog or regime or perspective_river or perspective_export or split_monolithic or profile_boundary or verify_briefing_consumption or label_binding or scenario_tree or methodology or judgment_maintenance or research_evolution or ask_compose or ask_clarify_planner or ask_planner or episode_tools or prefetch or answer_model or ask_claim or registry_truncation or grounded or decision_brief or material_quote_recovery'
+.venv-workbench/bin/python -m ruff check .
+```
+
+旧 `545fb854b` 的五项 GitHub 检查已成功，但不覆盖新接线。2026-10-08 05:37 CST 对 `7389549bc` 的观察：registry/frontend 成功，python/e2e 仍在运行。新 workbench run `37689283789`，registry run `37689283765`；最新 head 和终态需从 PR Checks 回读，后续文档提交也有独立身份。
+
 ## 未验证 / 不成立的结论
 
-- 本机未跑完整 pytest、前端、E2E、注册表集成门；PR 创建后远端检查另行运行。阶段观察及 run ID 见交接快照，最新状态须按 PR head 回读，不能称完整验收齐绿或可合并。
+- 本机未跑本轮完整 pytest、前端/E2E 与注册表组合门；远端阶段观察不能改称完整本机验收或合并许可。
 - 未连生产库做教学 build/reset/export，未发布任何数据包，未重启服务、切换部署或运行真实模型问题。
 - `regime_script` 是探索性函数：检查同 ID 隔离不等于日期区间/后续事实区间无重叠；标准化拟合范围、时间顺序、PIT、序列自相关仍要调用方提供证据。逐窗口置换不是时序预测有效性证明，不能把过闸写成“已找到行情规律”。
-- 镜头已有独立 CLI，现有问答仍调用 `regime_block_for_llm`。新环境剧本尚无日常问答消费链；不自动改变产品入口。
+- A 开场与 B compose 的 D10 已接镜头，但 B 的 generic owner 早退分支不走 D 块；不能称所有问答路径覆盖。教学 `tf.*`、用户判断台账、环境剧本自动命名/持久化及回检尚未接入新镜头。
+- 只读核验不等于数据修复：教学缺数和旧 schema 仍在；历史日逐日 strict 交集与 river 单 cutoff 的 strict 日行计数不是同一分母。未执行教学升级/构建/回填，完整修订历史仍未验证。
+- 截止仅在读取前及两块之间检查，不硬取消已运行 DuckDB 查询；这是历史预取局部权限门，不代表所有预取/工具统一受控。`local_only` 自动播种关闭不等于禁止已经授权的本地工具。
 - `guided_reading.py`/CLI 的观察剧本入口原本存在，缺的是每日产物接线，不再报成“观察剧本未落地”。
 - `KNOWABLE_AT_CLOSE` 与 `SLICE_EVALUABLE_LABELS` 含义不同，本次保留两套集合；标签数不是质量指标。
 - `first_known_at` 保留依赖旧值/文本相同，不构成多版本历史库，也不证明供应商后续修订在历史当日已经可知。
@@ -86,6 +121,6 @@
 
 ## 后续
 
-1. 固定代码的定向复验、收据回读和草稿 PR 已完成；接续最新 PR head 的 Actions 与本机完整工程验收。合并仍须用户确认。
-2. 另做只读真库研究与用户题对照，验证 agent 是否真正利用时间演变、多维分歧与后续事实。
-3. 环境剧本接线前补日期区间、标准化/结果可知性的输入合同及时间相关零假设；保留“不命名”的合法空结果。
+1. 回读最新 PR head 的 Actions，另补本机完整工程验收；固定代码与文档收据不移签。草稿状态保留，合并须用户确认。
+2. 在明确授权范围内验证完整 Workbench 入口及模型实际利用；本轮只读真库和接口替身不代替真实研究质量。
+3. 先补教学特征版本/PIT、环境剧本时间合同与概念持久化，再接观察/回检；保留“不命名”的合法空结果。生产写入、部署和真实/付费模型验证分别授权。

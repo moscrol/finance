@@ -1,25 +1,25 @@
 ## 这个分支做什么
-审 vidio 20 连交付，修边界并安全迁回 finance；停在草稿 PR，不合并、不部署、不写生产。
+完整交付树审 vidio 20 连并安全迁回 finance；再接日常历史镜头。停在草稿 PR #75，不合并/部署/写生产。
 
 ## 决策与被否方案
-| 选了什么 | 否了什么 | 为什么 |
-|---|---|---|
-| 补丁树审实现、干净 main 对照 | 只搜 main 判缺失 | 新能力尚未合入 |
-| 从 main 重建公开净差异 | 推原历史再删私人候选 | 删除不能清除历史材料 |
-| 剧本是探索诊断；字段投影待人工审阅 | 过闸即预测有效、白名单即披露许可 | 时序独立与散文内容未被证明 |
-展开：`docs/handoffs/2026-10-08-vidio-finance-transfer-public.md`。
+| 选用 | 否决 / 原因 |
+|---|---|
+| 补丁树审、main对照、公开净差异 | 搜main判缺失或推私人历史，均不成立 |
+| 旧D10与river并列 | 不按名次嫁接不同窗口的后续收益 |
+| 整块INFERRED原子占位 | 拆表丢限制、升事实凑准入；12K装不下就降级 |
+展开：`docs/handoffs/2026-10-08-river-history-consumption.md`；公开隔离见同日`vidio-finance-transfer-public`快照。
 
 ## 当前状态
-代码 `31fc76f957412ee7f53ea709e4cff5eba8b878e2` 已推 GitHub 草稿 PR #75。基线 `82de3fb73`。本树 `~/fwp-wt-vidio-finance-public` 承接所有后期修复；接手先核 HEAD/status。后续文档提交与代码收据分账。2026-10-08 03:43 CST 观察该代码的 Actions：frontend/e2e/registry 通过，python 仍运行；不是最终全绿。
+本树`~/fwp-wt-vidio-finance-public`继续发布。代码`7389549bc`已推，基线`82de3fb73`；后续文档提交单独记账，接手核HEAD/status。A预取/B compose D10共享只读接缝，来源、日期、逐维数与限制到模型接口；不等于模型利用。05:37 CST观察代码CI：registry/frontend过，python/e2e仍运行。最新HEAD以PR回读为准，旧545fb全绿不移签。
 
 ## 已验证
-本树 `.venv-workbench/bin/python` → locked-20261007，Python3.12.13。干净代码定向1093P/44S/19888未选，同范围main912P/44S；全仓Ruff通过。收据 `20261007T192253Z-31fc76f9-b43b863edf49.json` 经revision/依赖/净树/漂移0校验，非全仓。证据根 `~/.finance-runtime/reviews/vidio-transfer-20261008/`；质量报告在 `docs/verification/2026-10-08-vidio-finance-transfer-qc.md`。
+`.venv-workbench/bin/python`3.12.13净树代码：1785P/44S/19229未选、Ruff/提交门过。`~/.finance-runtime/reviews/river-consumption-20261008/fixed-code-receipt.json`经revision/依赖/净树/漂移0校验；非全仓。33例覆盖A真实loop首发截获、B默认/旧合成及拥挤/超预算。只读真库两块可出；原件仅本地。地图结构ready，召回未验。
 
 ## 未验证 / 已知边界
-本机完整pytest/前端/E2E/registry组合门未跑，真实行情与用户题效果未验。问答仍用旧 `regime_block_for_llm`；新镜头有CLI、剧本是纯函数，未接日常消费。窗口不同ID不证日期/后续区间独立，标准化拟合/PIT/自相关仍需合同。地图structure ready，但vault unavailable、doors/narrative missing、召回未验。
+本机完整pytest/前端/E2E组合门未跑；完整TurnOrchestrator、B generic owner、真实模型利用/答案质量未验。教学缺数/旧schema未修，tf特征、用户判断及剧本命名持久化/回检未接镜头。逐日strict与单cutoff标记不同；拟合含当前窗，非训练留出检验。deadline只守启动，不硬取消DuckDB；历史许可门非全工具授权修复。
 
 ## 下一步
-回读 #75 最新head的Actions；完成完整工程验收后请求合并确认。另验只读行情和真实入口，先补剧本时间合同，允许“不命名”。本单不自动扩大到生产或付费模型。
+回读最新HEAD CI与文档收据，补工程/完整入口验收。先定教学版本/PIT及剧本时间/持久化合同，再接观察回检；允许无剧本。真实/付费模型、生产升级/构建/回填及部署分别授权。
 
 ## 踩过的坑
-只推此公开分支。`feat/vidio-finance-transfer-qc` 和 `local/vidio-transfer-pre-public-scrub` 仅本地，不推全分支/标签。回完整导入树会漏后期修复。导出嵌套白名单也不保证正文无隐私；还原不覆盖已有库。`first_known_at` 不是版本库；两套标签集合不同义。旧dirty-tree/435e4收据不可移签；关键词回归不是全仓验收。
+只推公开分支；禁推完整导入与清理前本地引用。别回导入树发布，后期修复在本树。prepared不等于发过请求；读取失败不是无相似行情。collect-only的0执行收据、dirty日志和旧CI都不能代签；来源投影不授披露权，真库原件不公开。
