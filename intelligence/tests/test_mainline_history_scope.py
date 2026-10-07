@@ -110,6 +110,31 @@ def test_snapshot_freshness_retained_and_scope_survives_evidence_projection(scop
     assert card.content_hash
 
 
+@pytest.mark.parametrize(('limit_up_count', 'expected_label'), [
+    (None, '涨停未提供'),
+    (0, '涨停0'),
+    (7, '涨停7'),
+])
+def test_current_sector_limit_up_count_preserves_missing_and_observed_values(
+    scope_db, limit_up_count, expected_label,
+):
+    with duckdb.connect(str(scope_db)) as con:
+        con.execute('''update fact_mainline_sector_daily set limit_up_count = ?
+          where trade_date = '2026-07-10' ''', [limit_up_count])
+
+    block = render(scope_db)
+    items, _ = block_lines_to_evidence('mainline_context', block, 'fixture',
+                                      limit=12, detail_chars=1000, source_date='2026-07-10')
+    for theme_name in ('现甲', '现乙'):
+        line = next(line for line in block.splitlines()
+                    if line.startswith(f'- {theme_name}核心板块：'))
+        assert f'亿，{expected_label}，' in line
+        card = next(item for item in items
+                    if item.detail.startswith(f'{theme_name}核心板块：'))
+        assert card.detail == line.removeprefix('- ')
+        assert f'亿，{expected_label}，' in card.detail
+
+
 def test_existing_current_sector_facts_remain(scope_db):
     block = render(scope_db)
     assert '现甲核心板块：' in block
