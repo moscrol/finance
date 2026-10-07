@@ -48,6 +48,50 @@ def test_workbench_trace_admits_only_response_reported_identity(tmp_path, direct
     assert results[0].source == str(path)
 
 
+@pytest.mark.parametrize("directory", (False, True), ids=("file", "directory"))
+def test_plain_progress_text_is_not_model_identity_or_broken_payload(tmp_path, directory):
+    path = _trace(tmp_path,
+        {"name": "planning", "output_summary": "已完成取证，model=wrong-model只是展示文字"},
+        _step([_record()]),
+    )
+    results, code = _check(tmp_path if directory else path)
+    assert code == 0
+    assert results[0].served == {MODEL: 1}
+    assert not results[0].unexpected
+
+
+def test_progress_text_does_not_hide_unreported_failed_attempts(tmp_path):
+    path = _trace(tmp_path,
+        {"name": "research", "output_summary": "已取到知识库资料"},
+        _step([_record(), _record(attempt_id="timeout-attempt", status="failed",
+            reported_model=None, identity_state="unreported")]),
+    )
+    results, code = _check(path)
+    assert code == 2
+    assert results[0].unreported == 1
+    assert "解码失败" not in results[0].reason
+
+
+@pytest.mark.parametrize("name,summary", (
+    ("llm_call_ledger", "普通文字不能代签台账"),
+    ("sub_research", "子分支完成但无结构化记录"),
+    ("branch_failed", "子分支失败但调用账不明"),
+    ("research", '{"episode_ref":'),
+))
+def test_progress_support_keeps_identity_payload_fail_closed(tmp_path, name, summary):
+    path = _trace(tmp_path, {"name": name, "output_summary": summary}, _step([_record()]))
+    assert _check(path)[1] == 2
+
+
+def test_progress_text_keeps_encoded_child_reference_enforcement(tmp_path):
+    path = _trace(tmp_path,
+        {"name": "planning", "output_summary": "研究进行中"},
+        _step([_record()]),
+        {"name": "sub_research", "output_summary": json.dumps({"episode_ref": {"episode_id": "missing"}})},
+    )
+    assert _check(path)[1] == 2
+
+
 def test_wrong_response_model_overrides_matching_request(tmp_path):
     path = _trace(tmp_path, _step([_record(
         reported_model="wrong-model", model=MODEL, requested_model=MODEL,

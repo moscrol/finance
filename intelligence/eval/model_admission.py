@@ -281,13 +281,22 @@ def _is_workbench_trace(document: object) -> bool:
 
 
 def _trace_payload(step: object) -> Mapping:
-    """调用台账与子分支遍历共用解码，JSON 字符串不能藏住 episode_ref。"""
+    """Decode identity payloads; readable progress is never identity evidence."""
 
     if not isinstance(step, Mapping) or not isinstance(step.get("name"), str):
         raise ValueError("workbench trace 缺少合法步骤名")
     payload = step.get("output_summary")
     if isinstance(payload, str):
-        payload = json.loads(payload)
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            identity_step = step["name"] in (
+                _BRANCH_KINDS | {"llm_call_ledger", "sub_research"}
+            )
+            structured = payload.lstrip("\ufeff \t\r\n").startswith(("{", "[", '"'))
+            if identity_step or structured:
+                raise
+            return {}
     if not isinstance(payload, Mapping):
         raise ValueError("workbench trace output_summary 不是对象")
     return payload
