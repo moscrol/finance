@@ -688,6 +688,12 @@ def rebase_task_frame(
     return replace(
         frame,
         question_type=question_type,
+        user_goal=(
+            _user_goal(question_type, frame.raw_question, frame.user_goal)
+            if question_type_changed and question_type == "dated_market_review"
+            and frame.user_goal in _GENERIC_GOALS
+            else frame.user_goal
+        ),
         subject=_safe_subject(subject, frame.raw_question),
         subject_kind=subject_kind or frame.subject_kind,
         timeframe=timeframe if timeframe is not None else frame.timeframe,

@@ -159,6 +159,38 @@ def test_empty_additions_do_not_change_legacy_frame_shape():
     assert restored.task_frame_hash == frame.task_frame_hash
 
 
+def test_type_rebase_replaces_only_generic_goal_with_original_ask():
+    question = "2026-07-22 高标股的晋级情况如何，有没有出现空档"
+    frame = _frame(question)
+    assert frame.question_type == "general_finance_qa"
+    assert frame.user_goal == "形成条件化判断"
+    rebased = rebase_task_frame(frame, question_type="dated_market_review", subject=frame.subject)
+    assert rebased.user_goal == question
+    meaningful = replace(frame, user_goal="延续用户此前明确的梯队研究目标")
+    assert rebase_task_frame(
+        meaningful, question_type="dated_market_review", subject=meaningful.subject,
+    ).user_goal == meaningful.user_goal
+
+
+def test_legacy_controller_route_keeps_original_goal_and_optional_dimensions(contexts):
+    question = "2026-07-22 高标股的晋级情况如何，有没有出现空档"
+    reply = json.dumps({
+        "route_id": "dated_market_review", "subject": None, "timeframe": "2026-07-22",
+        "confidence": 0.9, "reason": "指定日期的连板梯队复盘",
+    })
+    frame = TurnControlCore().control(
+        question, llm_complete=lambda *_args, **_kwargs: (reply, object(), ""),
+    ).task_frame
+    assert frame.question_type == "dated_market_review"
+    assert frame.user_goal == question
+    assert frame.timeframe == "2026-07-22"
+    context = contexts(frame)
+    assert {item.output_id for item in context.contract.required_outputs if item.required} == {
+        "direct_assessment", "evidence_boundary",
+    }
+    assert {item["output_id"] for item in _payload(frame, context)["research_contract"]["research_dimensions"]} == DIMENSIONS
+
+
 def test_multiday_comparison_requirements_keep_priority(contexts):
     question = "2026-07-16 到 07-22 这几天，成交量和涨停家数的变化说明了什么"
     required = derive_required_outputs("dated_market_review", question)
