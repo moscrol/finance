@@ -429,6 +429,16 @@ export interface BoardCalendarGroup {
   stocks: BoardCalendarStock[];
 }
 
+/** A ≥5-board stock that stopped being sealed at close — its 断板日 (break day). */
+export interface BoardCalendarHighBoardBreak {
+  date: string;
+  stock_ts_code: string;
+  stock_name: string;
+  /** 断板前一日的连板数（即这只高标断于几板）。 */
+  height_at_break: number;
+  theme: string | null;
+}
+
 export type BoardCalendarStatus =
   | "trading"
   | "closed"
@@ -449,6 +459,7 @@ export interface BoardCalendarDay {
     | "calendar_unknown";
   board_groups: BoardCalendarGroup[];
   stock_count: number;
+  high_board_breaks?: BoardCalendarHighBoardBreak[];
 }
 
 export interface BoardCalendar {
@@ -462,6 +473,8 @@ export interface BoardCalendar {
   board_data_cutoff: string | null;
   calendar_days: BoardCalendarDay[];
   trading_days: BoardCalendarDay[];
+  high_board_breaks?: BoardCalendarHighBoardBreak[];
+  high_board_min?: number;
 }
 
 export type WorkbenchSection =

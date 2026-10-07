@@ -251,3 +251,217 @@ def test_maximum_date_does_not_overflow(tmp_path: Path) -> None:
 
     assert len(payload["calendar_days"]) == 31
     assert payload["calendar_days"][-1]["date"] == "9999-12-31"
+
+
+def _break_db(path: Path, market: list[str], boards: list[tuple]) -> None:
+    """A minimal market + limit-advance DB for 断板 (high-board break) cases."""
+    con = duckdb.connect(str(path))
+    con.execute("CREATE TABLE fact_market_daily (trade_date DATE)")
+    con.executemany(
+        "INSERT INTO fact_market_daily VALUES (?)", [(value,) for value in market]
+    )
+    con.execute(
+        """
+        CREATE TABLE fact_limit_advance_daily (
+            trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR,
+            boards INTEGER, theme VARCHAR, pct_chg DOUBLE
+        )
+        """
+    )
+    con.executemany(
+        "INSERT INTO fact_limit_advance_daily VALUES (?, ?, ?, ?, ?, ?)", boards
+    )
+    con.close()
+
+
+def test_high_board_break_is_recorded_on_the_day_it_stops_sealing(tmp_path: Path) -> None:
+    db = tmp_path / "break.duckdb"
+    _break_db(
+        db,
+        ["2026-09-22", "2026-09-23", "2026-09-24"],
+        [
+            ("2026-09-22", "A", "高标甲", 5, "题材", 10.0),
+            ("2026-09-22", "B", "高标乙", 4, None, None),
+            ("2026-09-23", "A", "高标甲", 6, "题材", 10.0),  # A 5→6 继续，不断
+            ("2026-09-23", "B", "高标乙", 5, None, None),  # B 4→5 继续
+            ("2026-09-24", "B", "高标乙", 6, None, None),  # A 缺席 → A 断板于 6
+        ],
+    )
+
+    payload = build_board_calendar(db, month="2026-09", min_boards=3)
+
+    assert payload["high_board_min"] == 5
+    assert _day(payload, "2026-09-22")["high_board_breaks"] == []
+    assert _day(payload, "2026-09-23")["high_board_breaks"] == []
+    assert _day(payload, "2026-09-24")["high_board_breaks"] == [
+        {
+            "date": "2026-09-24",
+            "stock_ts_code": "A",
+            "stock_name": "高标甲",
+            "height_at_break": 6,
+            "theme": "题材",
+        }
+    ]
+    assert payload["high_board_breaks"] == _day(payload, "2026-09-24")["high_board_breaks"]
+
+
+def test_break_below_the_high_board_threshold_is_not_recorded(tmp_path: Path) -> None:
+    db = tmp_path / "below.duckdb"
+    _break_db(
+        db,
+        ["2026-09-22", "2026-09-23"],
+        [
+            ("2026-09-22", "C", "低标丙", 4, None, None),  # 4 板 < 5，不算高标
+            ("2026-09-23", "D", "填充丁", 2, None, None),  # 09-23 有数据，C 不在
+        ],
+    )
+
+    payload = build_board_calendar(db, month="2026-09", min_boards=2)
+
+    assert _day(payload, "2026-09-23")["high_board_breaks"] == []
+    assert payload["high_board_breaks"] == []
+
+
+def test_missing_day_data_prevents_claiming_a_break(tmp_path: Path) -> None:
+    db = tmp_path / "missing.duckdb"
+    _break_db(
+        db,
+        ["2026-09-22", "2026-09-23", "2026-09-24"],
+        [
+            ("2026-09-22", "E", "高标戊", 6, None, None),
+            ("2026-09-24", "F", "填充己", 3, None, None),  # 09-23 无任何连板行
+        ],
+    )
+
+    payload = build_board_calendar(db, month="2026-09", min_boards=2)
+
+    assert _day(payload, "2026-09-23")["data_status"] == "board_data_missing"
+    # 09-23 缺数据：既不能断定 E（09-22 的 6 板）在 09-23 断板，
+    # 也不能用缺数据的 09-23 去判断 09-24 —— 两边都 fail closed。
+    assert _day(payload, "2026-09-23")["high_board_breaks"] == []
+    assert _day(payload, "2026-09-24")["high_board_breaks"] == []
+    assert payload["high_board_breaks"] == []
+
+
+def test_break_on_first_day_of_range_uses_the_day_before_start(tmp_path: Path) -> None:
+    db = tmp_path / "boundary.duckdb"
+    _break_db(
+        db,
+        ["2026-09-21", "2026-09-22", "2026-09-23"],
+        [
+            ("2026-09-21", "F", "高标F", 5, None, None),
+            ("2026-09-22", "G", "填充G", 3, None, None),  # F 09-22 缺席 → 范围首日断板
+            ("2026-09-23", "G", "填充G", 4, None, None),
+        ],
+    )
+
+    payload = build_board_calendar(
+        db, start_date="2026-09-22", end_date="2026-09-22", min_boards=2
+    )
+
+    assert _day(payload, "2026-09-22")["high_board_breaks"] == [
+        {
+            "date": "2026-09-22",
+            "stock_ts_code": "F",
+            "stock_name": "高标F",
+            "height_at_break": 5,
+            "theme": None,
+        }
+    ]
+    assert payload["high_board_breaks"][0]["date"] == "2026-09-22"
+
+
+def test_custom_high_board_min_filters_breaks(tmp_path: Path) -> None:
+    db = tmp_path / "threshold.duckdb"
+    _break_db(
+        db,
+        ["2026-09-22", "2026-09-23"],
+        [
+            ("2026-09-22", "A", "高标甲", 6, None, None),
+            ("2026-09-23", "B", "填充乙", 2, None, None),  # A 09-23 缺席
+        ],
+    )
+
+    default_payload = build_board_calendar(db, month="2026-09", min_boards=2)
+    raised_payload = build_board_calendar(
+        db, month="2026-09", min_boards=2, high_board_min=7
+    )
+
+    # 默认门槛 5：断于 6 板算；门槛提到 7：断于 6 板不算
+    assert len(default_payload["high_board_breaks"]) == 1
+    assert raised_payload["high_board_breaks"] == []
+    assert raised_payload["high_board_min"] == 7
+
+
+def test_invalid_high_board_min_fails_before_database_access(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        build_board_calendar(
+            tmp_path / "missing.duckdb", month="2026-09", high_board_min=0
+        )
+
+
+def test_break_height_reads_from_board_only_day_missing_from_market_table(tmp_path: Path) -> None:
+    """QC 回归 #1：行情表缺 09-23（连板表有 09-23 的 6 板），断板日 09-24 的高度应读 09-23=6，而非 09-22 的 5。"""
+    db = tmp_path / "break.duckdb"
+    _break_db(
+        db,
+        ["2026-09-22", "2026-09-24"],  # 09-23 无行情日
+        [
+            ("2026-09-22", "A", "甲", 5, None, None),
+            ("2026-09-22", "B", "乙", 3, None, None),
+            ("2026-09-23", "A", "甲", 6, None, None),  # 连板表有 09-23
+            ("2026-09-24", "B", "乙", 4, None, None),  # A 缺席 → 断板；B 在使当日有数据
+        ],
+    )
+
+    payload = build_board_calendar(db, month="2026-09")
+
+    events = _day(payload, "2026-09-24")["high_board_breaks"]
+    (a,) = [e for e in events if e["stock_ts_code"] == "A"]
+    assert a["height_at_break"] == 6
+
+
+def test_null_board_row_counts_as_present_not_broken(tmp_path: Path) -> None:
+    """QC 回归 #2：09-24 若残留 boards 为 NULL 的行，应视为「当日在板」（不判断板），不误报断板。"""
+    db = tmp_path / "break.duckdb"
+    _break_db(
+        db,
+        ["2026-09-22", "2026-09-23", "2026-09-24"],
+        [
+            ("2026-09-22", "A", "甲", 5, None, None),
+            ("2026-09-23", "A", "甲", 6, None, None),
+            ("2026-09-24", "A", "甲", None, None, None),  # 当日在板但无连续板数
+        ],
+    )
+
+    payload = build_board_calendar(db, month="2026-09")
+
+    events = _day(payload, "2026-09-24")["high_board_breaks"]
+    assert not any(e["stock_ts_code"] == "A" for e in events)
+
+
+def test_flattened_breaks_follow_per_day_order(tmp_path: Path) -> None:
+    """QC 回归 #3：顶层 high_board_breaks 的展开顺序应与按日分组（降序）一致，而非插入顺序。"""
+    db = tmp_path / "break.duckdb"
+    _break_db(
+        db,
+        ["2026-09-22", "2026-09-23"],
+        [
+            # 09-22：A=5 板、B=6 板（名字 n1<n2，插入序 A 先于 B），D=3 板陪跑
+            ("2026-09-22", "A", "n1", 5, None, None),
+            ("2026-09-22", "B", "n2", 6, None, None),
+            ("2026-09-22", "D", "z0", 3, None, None),
+            ("2026-09-23", "D", "z0", 4, None, None),  # D 续板；A、B 缺席 → 均断板
+        ],
+    )
+
+    payload = build_board_calendar(db, month="2026-09")
+
+    per_day_expanded = [
+        event for day in payload["trading_days"] for event in day["high_board_breaks"]
+    ]
+    assert payload["high_board_breaks"] == per_day_expanded
+    heights = [
+        (e["stock_ts_code"], e["height_at_break"]) for e in payload["high_board_breaks"]
+    ]
+    assert heights == [("B", 6), ("A", 5)]

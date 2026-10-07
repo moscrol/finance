@@ -3710,8 +3710,9 @@ def create_app(
         start_date: str | None = None,
         end_date: str | None = None,
         min_boards: int | None = Query(default=None, ge=2, le=20),
+        high_board_min: int | None = Query(default=None, ge=1, le=20),
     ) -> dict[str, object]:
-        """交易日历与连板个股的只读投影。"""
+        """交易日历与连板个股的只读投影。``high_board_min`` 是「高标断板」的连板门槛（默认 5）。"""
         try:
             return build_board_calendar(
                 default_market_db_path(),
@@ -3719,6 +3720,7 @@ def create_app(
                 start_date=start_date,
                 end_date=end_date,
                 min_boards=min_boards,
+                high_board_min=high_board_min,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
