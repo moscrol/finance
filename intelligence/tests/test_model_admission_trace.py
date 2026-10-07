@@ -92,6 +92,15 @@ def test_progress_text_keeps_encoded_child_reference_enforcement(tmp_path):
     assert _check(path)[1] == 2
 
 
+@pytest.mark.parametrize("leading", ("\u00a0", "\u3000", "\v", "\f", "\ufeff \u3000\ufeff\t"))
+@pytest.mark.parametrize("directory", (False, True), ids=("file", "directory"))
+def test_structured_progress_with_unicode_whitespace_keeps_bad_refs_rejected(tmp_path, leading, directory):
+    path = _trace(tmp_path, _step([_record()]),
+        {"name": "research", "output_summary": leading + '{"episode_ref":'},
+    )
+    assert _check(tmp_path if directory else path)[1] == 2
+
+
 def test_wrong_response_model_overrides_matching_request(tmp_path):
     path = _trace(tmp_path, _step([_record(
         reported_model="wrong-model", model=MODEL, requested_model=MODEL,

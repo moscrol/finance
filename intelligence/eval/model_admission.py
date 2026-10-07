@@ -293,7 +293,11 @@ def _trace_payload(step: object) -> Mapping:
             identity_step = step["name"] in (
                 _BRANCH_KINDS | {"llm_call_ledger", "sub_research"}
             )
-            structured = payload.lstrip("\ufeff \t\r\n").startswith(("{", "[", '"'))
+            first = next(
+                (char for char in payload if not (char.isspace() or char == "\ufeff")),
+                "",
+            )
+            structured = first in ("{", "[", '"')
             if identity_step or structured:
                 raise
             return {}
