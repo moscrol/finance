@@ -250,7 +250,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
           <p>
             标签按当日连板数展示。休市、未来日期、市场缺口和连板数据缺口分开标记；无明细不等于当日没有连板股。
             超过 5 板的个股以 <span className="board-calendar-high-swatch">高标</span> 紫色单独标注；
-            某只 ≥5 板个股收盘不再涨停，就在当天用 <span className="board-calendar-stock board-calendar-stock--break board-calendar-legend-swatch">断板</span> 标出。
+            某只 ≥{calendar?.high_board_min ?? 5}板 个股收盘不再涨停，就在当天用 <span className="board-calendar-stock board-calendar-stock--break board-calendar-legend-swatch">断板</span> 标出。
           </p>
         </div>
         <div className="board-calendar-controls">
