@@ -276,9 +276,33 @@ def test_historical_count_keeps_its_evidence_unit_but_forward_window_stays_unsup
     "07-20曾达999家（E3），但这是历史读数，不是未来必须达到的风险阈值。",
     "07-20曾达212家（E1），但这是历史读数，不是未来必须达到的风险阈值。",
     "07-20曾持续212天（E3），但这是历史读数，不是未来必须达到的风险阈值。",
+    "07-20曾涨停212家（E3），这是历史读数。",
+    "07-22曾跌停212家（E3），这是历史读数。",
+    "2025-07-20曾跌停212家（E3），这是历史读数。",
+    "历史跌停212家出现在07-22（E3）。",
+    "07-20曾跌停212家，但07-22曾涨停212家（E3）。",
 ])
 def test_historical_wording_still_requires_the_cited_field_and_unit(claim):
-    _, verified = _case("**风险信号与观察条件**\n" + claim)
+    _, verified = _case("**条件**\n" + claim)
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
+
+
+@pytest.mark.parametrize("patch", [
+    {"ok": False}, {"task_frame_hash": "another-task"}, {"tool": "memory_lookup"},
+    {"query_basis": None}, {"evidence": []}, {"evidence_hashes": []},
+    {"query_basis": {"dataset": "market_daily", "group_by": ["trade_date"],
+                     "metrics": ["limit_up", "limit_down"]}},
+    {"query_basis": {"dataset": "market_daily", "group_by": [], "metrics": ["limit_up"]}},
+])
+def test_historical_count_needs_the_matching_successful_query_event(patch):
+    _, verified = _case("**条件**\n07-20曾跌停212家（E3），这是历史读数。")
+    event = verified.outcome.events[-1]
+    outcome = replace(verified.outcome, events=(
+        *verified.outcome.events[:-1], replace(event, payload={**event.payload, **patch}),
+    ))
+    verified = verify_episode_outcome(verified.contract, outcome)
     assert verifier._novel_numeric_condition_tokens(
         verifier._numbered_sentences(verified.outcome.draft), verified,
     )
@@ -287,9 +311,11 @@ def test_historical_wording_still_requires_the_cited_field_and_unit(claim):
 PROVENANCE = "热度查询筛选涨停家数至少2家，按家数降序返回50条记录，未统计候选全集。"
 
 
-def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=None):
+def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=None,
+                     heterogeneous_bindings=False):
     _, verified = _case(draft)
     event = verified.outcome.events[-1]
+    market = verified.outcome.evidence[0]
     row = replace(verified.outcome.evidence[0],
                   independent_key="duckdb:theme_limit_heat_daily:2026-07-22",
                   detail="板块名称=甲；涨停家数=6")
@@ -307,8 +333,11 @@ def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=
     }
     verified = replace(verified, outcome=replace(
         verified.outcome,
-        evidence=(row,),
-        bindings=tuple(replace(binding, evidence_hashes=(row.content_hash,))
+        evidence=(row, market) if heterogeneous_bindings else (row,),
+        bindings=tuple(replace(binding, evidence_hashes=(market.content_hash,)
+                               if heterogeneous_bindings and binding.output_id == "risk_signals"
+                               else (row.content_hash, market.content_hash)
+                               if heterogeneous_bindings else (row.content_hash,))
                        for binding in verified.outcome.bindings),
         events=(*verified.outcome.events[:-1], replace(
             event, payload={**event.payload, "query_basis": basis,
@@ -317,6 +346,29 @@ def _provenance_case(draft=PROVENANCE, *, basis_override=None, payload_override=
         )),
     ))
     return verified
+
+
+def test_query_provenance_uses_shared_analysis_bindings_with_separate_risk_evidence():
+    # D4 binds heat + market to its analysis, but only market to risk_signals.
+    # A task query's provenance is not a newly proposed market risk threshold.
+    verified = _provenance_case(heterogeneous_bindings=True)
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    ) == {}
+
+
+@pytest.mark.parametrize("output_id", ["direct_assessment", "supporting_evidence"])
+def test_query_provenance_cannot_borrow_a_row_absent_from_an_analysis_binding(output_id):
+    verified = _provenance_case(heterogeneous_bindings=True)
+    market = verified.outcome.evidence[1]
+    verified = replace(verified, outcome=replace(verified.outcome, bindings=tuple(
+        replace(binding, evidence_hashes=(market.content_hash,))
+        if binding.output_id == output_id else binding
+        for binding in verified.outcome.bindings
+    )))
+    assert verifier._novel_numeric_condition_tokens(
+        verifier._numbered_sentences(verified.outcome.draft), verified,
+    )
 
 
 def test_query_provenance_filter_and_limit_are_not_new_risk_thresholds():

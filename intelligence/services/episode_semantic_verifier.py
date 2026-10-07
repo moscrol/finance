@@ -5899,6 +5899,13 @@ _HISTORICAL_OBSERVATION_RE = re.compile(
 _FORWARD_CONDITION_PREFIX_RE = re.compile(
     r"若|如果|持续|延续|改判|触发|跌破|站稳|至少|超过|低于|高于"
 )
+_HISTORICAL_COUNT_DATE_RE = re.compile(
+    r"(?<!\d)(?:(?P<year>20\d{2})[-/年])?"
+    r"(?P<month>0?[1-9]|1[0-2])[-/月](?P<day>0?[1-9]|[12]\d|3[01])日?(?!\d)"
+)
+_MARKET_COUNT_METRICS = {
+    "涨停": "limit_up", "跌停": "limit_down", "上涨": "advancers", "下跌": "decliners",
+}
 
 
 def _cited_historical_count_supported(
@@ -5911,31 +5918,59 @@ def _cited_historical_count_supported(
     parsed = _parse_quantity(_normalize_quantity(quantity))
     if parsed is None or parsed[1] != "家" or len(parsed[0]) != 1:
         return False
-    compact_quantity = re.sub(r"\s+", "", str(quantity))
-    position = sentence.find(compact_quantity)
-    if position < 0:
-        position = sentence.find(str(quantity).strip())
-    prefix = sentence[:position] if position >= 0 else sentence
-    if _FORWARD_CONDITION_PREFIX_RE.search(prefix):
+    occurrences = tuple(match for match in re.finditer(r"([+-]?\d+(?:\.\d+)?)\s*家", sentence)
+                        if float(match[1]) == parsed[0][0])
+    if not occurrences:
         return False
     allowed = _shared_required_evidence_hashes(verified, sentence)
-    by_id = _evidence_by_ordinal(verified.outcome)
-    return any(
-        row is not None and row.content_hash in allowed
-        and row.tool == "finance_query" and row.independent_key.startswith("duckdb:market_daily:")
-        and row.content_hash == evidence_content_hash(row)
-        and any(float(match[1]) == parsed[0][0] for match in re.finditer(
-            r"(?:^|[；;])(?:涨停|跌停|上涨|下跌)家数=(\d+)(?=$|[；;])", row.detail,
-        ))
-        for ordinal in cited_evidence_ordinals(sentence)
-        for row in (by_id.get(ordinal),)
-    )
+    rows = _trusted_query_evidence_rows(verified, allowed, "market_daily")
+    for occurrence in occurrences:
+        prefix = sentence[:occurrence.start()]
+        if _FORWARD_CONDITION_PREFIX_RE.search(prefix):
+            return False
+        start = max((match.end() for match in re.finditer(r"[，,；;。]|\d+\s*家", prefix)), default=0)
+        end_match = re.search(r"[，,；;。]", sentence[occurrence.end():])
+        end = occurrence.end() + end_match.start() if end_match else len(sentence)
+        local = sentence[start:end]
+        fields = set(re.findall(r"涨停|跌停|上涨|下跌", local))
+        if len(fields) > 1:
+            return False
+        # The last preceding date also covers "07-20，跌停曾达212家".
+        dates = tuple(_HISTORICAL_COUNT_DATE_RE.finditer(prefix))[-1:]
+        dates += tuple(_HISTORICAL_COUNT_DATE_RE.finditer(sentence[occurrence.end():end]))
+        supported = False
+        for row, basis in rows:
+            try:
+                day = date.fromisoformat(row.source_date)
+            except (TypeError, ValueError):
+                continue
+            if f"交易日={day.isoformat()}" not in row.detail.split("；"):
+                continue
+            if any(int(match["month"]) != day.month or int(match["day"]) != day.day
+                   or (match["year"] is not None and int(match["year"]) != day.year)
+                   for match in dates):
+                continue
+            metrics = basis.get("metrics")
+            if not isinstance(metrics, (list, tuple)):
+                continue
+            matching_fields = {
+                match[1] for match in re.finditer(
+                    r"(?:^|[；;])(涨停|跌停|上涨|下跌)家数=(\d+)(?=$|[；;])", row.detail,
+                ) if float(match[2]) == parsed[0][0] and _MARKET_COUNT_METRICS[match[1]] in metrics
+            }
+            if (fields and fields.issubset(matching_fields)) or (not fields and len(matching_fields) == 1):
+                supported = True
+                break
+        if not supported:
+            return False
+    return True
 
 
 def _shared_required_evidence_hashes(
     verified: VerifiedEpisodeOutcome, text: str,
+    *, output_ids: frozenset[str] | None = None,
 ) -> set[str]:
-    """Metadata exemptions require all mandatory evidence slots to bind the row."""
+    """Intersect the selected mandatory evidence bindings; never union slots."""
 
     if verified.contract is None:
         return set()
@@ -5945,6 +5980,7 @@ def _shared_required_evidence_hashes(
         and not binding.gap and binding.basis == "evidence" else set()
         for spec in verified.contract.required_outputs
         if spec.required and spec.grounding_mode == "evidence"
+        and (output_ids is None or spec.output_id in output_ids)
     ]
     if not pools:
         return set()
@@ -5956,6 +5992,45 @@ def _shared_required_evidence_hashes(
     if cited:
         allowed.intersection_update(by_id[ordinal].content_hash for ordinal in cited)
     return allowed
+
+
+def _trusted_query_evidence_rows(
+    verified: VerifiedEpisodeOutcome, allowed: set[str], dataset: str,
+) -> tuple[tuple[AgentEvidence, Mapping[str, object]], ...]:
+    """Match canonical bound cards to a successful same-task query event."""
+
+    outcome = verified.outcome
+    if verified.contract is None or outcome.task_frame_hash != verified.contract.task_frame_hash:
+        return ()
+    identity = ("tool", "title", "detail", "source", "source_date", "independent_key")
+    actual = {
+        row.content_hash: row for row in outcome.evidence
+        if row.content_hash in allowed and row.tool == "finance_query"
+        and all(isinstance(getattr(row, key), str) for key in identity)
+        and row.independent_key.startswith(f"duckdb:{dataset}:")
+        and row.content_hash == evidence_content_hash(row)
+    }
+    rows = []
+    for event in outcome.events:
+        payload = event.payload
+        basis = payload.get("query_basis")
+        if not (event.kind == "tool_result" and payload.get("ok") is True
+                and payload.get("tool") == "finance_query"
+                and payload.get("task_frame_hash") == outcome.task_frame_hash
+                and isinstance(basis, Mapping) and basis.get("dataset") == dataset
+                and basis.get("group_by") in ([], ())
+                and isinstance(payload.get("evidence"), (list, tuple))
+                and isinstance(payload.get("evidence_hashes"), (list, tuple))):
+            continue
+        for emitted in payload["evidence"]:
+            if not isinstance(emitted, Mapping) or not isinstance(emitted.get("content_hash"), str):
+                continue
+            row = actual.get(emitted["content_hash"])
+            if row is not None and row.content_hash in payload["evidence_hashes"] and all(
+                emitted.get(key) == getattr(row, key) for key in identity
+            ):
+                rows.append((row, basis))
+    return tuple(rows)
 
 
 _MARKET_RATIO_EXPLANATION_RE = re.compile(
@@ -5990,41 +6065,21 @@ def _bound_query_provenance_pairs(
     narrowly shaped provenance sentence below.
     """
 
-    outcome = verified.outcome
     values: set[tuple[str, str]] = set()
-    allowed = _shared_required_evidence_hashes(verified, text)
-    identity = ("tool", "title", "detail", "source", "source_date", "independent_key")
-    actual = {row.content_hash: row for row in outcome.evidence
-              if row.content_hash in allowed and row.tool == "finance_query"
-              and row.independent_key.startswith("duckdb:theme_limit_heat_daily:")
-              and row.content_hash == evidence_content_hash(row)}
-    for event in outcome.events:
-        payload = event.payload
-        basis = payload.get("query_basis")
+    # Query-origin prose belongs to the signed analysis, not the risk slot's
+    # threshold authority. D4 has different risk bindings. Retain intersection
+    # across its analysis bindings rather than broadening to all bound cards.
+    allowed = _shared_required_evidence_hashes(
+        verified, text, output_ids=frozenset({"direct_assessment", "supporting_evidence"}),
+    )
+    for _row, basis in _trusted_query_evidence_rows(verified, allowed, "theme_limit_heat_daily"):
         if not (
-            event.kind == "tool_result"
-            and payload.get("ok") is True
-            and payload.get("tool") == "finance_query"
-            and payload.get("task_frame_hash") == outcome.task_frame_hash
-            and isinstance(basis, Mapping)
-            and basis.get("dataset") == "theme_limit_heat_daily"
-            and isinstance(basis.get("filters"), (list, tuple))
-            and basis.get("group_by") in ([], ())
+            isinstance(basis.get("filters"), (list, tuple))
             and isinstance(basis.get("order_by"), (list, tuple))
             and len(basis["order_by"]) == 1
             and isinstance(basis["order_by"][0], Mapping)
             and basis["order_by"][0].get("field") == "limit_up_count"
             and basis["order_by"][0].get("direction") == "desc"
-            and isinstance(payload.get("evidence"), (list, tuple))
-            and isinstance(payload.get("evidence_hashes"), (list, tuple))
-        ):
-            continue
-        if not any(
-            isinstance(emitted, Mapping) and isinstance(emitted.get("content_hash"), str)
-            and (row := actual.get(emitted["content_hash"])) is not None
-            and row.content_hash in payload["evidence_hashes"]
-            and all(emitted.get(key) == getattr(row, key) for key in identity)
-            for emitted in payload["evidence"]
         ):
             continue
         returned = basis.get("returned_row_count")
