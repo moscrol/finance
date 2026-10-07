@@ -170,6 +170,12 @@ def _high_board_breaks(
     ordered) and a flattened list in the same day-then-height order for the
     month view.
 
+    A break whose *break day* is missing from the market table (but present in
+    the board table) is not reported: that day is not a reportable trading day,
+    so the event has no cell to land in.  This is the intended fail-closed
+    stance — the cell is instead marked ``market_data_missing``, so the gap
+    stays visible rather than a break being guessed across a hole.
+
     This is the **per-stock high-board break** (the 连板日历 day-cell mark).  It
     is NOT the ``LeaderSuccession`` break/birth event — an 事件锚点 in the
     event-reaction pipeline (``intelligence/services/teaching_framework/

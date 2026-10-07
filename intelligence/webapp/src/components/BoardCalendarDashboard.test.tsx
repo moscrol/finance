@@ -121,6 +121,25 @@ describe("BoardCalendarDashboard", () => {
     expect(screen.getByText(/次 ≥5板 高标断板/)).toBeInTheDocument();
   });
 
+  it("legend break threshold follows payload.high_board_min (not a hardcoded 5)", async () => {
+    const payload = calendarFor(currentMonth(), 3);
+    payload.high_board_min = 6;
+    mockedGetBoardCalendar.mockResolvedValue(payload);
+    render(<BoardCalendarDashboard />);
+    await screen.findByText(/某只 ≥6板个股收盘不再涨停/);
+  });
+
+  it("break chip keeps the WCAG-AA muted grey (#6f6a61) for its 9px text", async () => {
+    const css = (await import("../styles.css?raw")).default as string;
+    const start = css.indexOf(".board-calendar-stock--break");
+    const block = css.slice(start, css.indexOf("}", start));
+    const colorDecl = block
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.startsWith("color:"));
+    expect(colorDecl).toContain("#6f6a61");
+  });
+
   it("keeps the selected threshold when navigating between months", async () => {
     const user = userEvent.setup();
     render(<BoardCalendarDashboard />);
