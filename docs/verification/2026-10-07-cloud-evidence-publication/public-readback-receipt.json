@@ -1,0 +1,391 @@
+{
+  "verified_at": "2026-10-07T14:39:14.625576+00:00",
+  "revision": "52ea094cfe0c2628043dbfec54f064ad00849ada",
+  "authentication": "none; curl -q, no token, Authorization or Cookie; HTTPS raw GitHub",
+  "requested_files": 53,
+  "http_200_and_byte_match": 53,
+  "payload_files": 51,
+  "offline_check_on_downloaded_tree": {
+    "status": "PASS",
+    "files_hashed": 51,
+    "verbatim_excerpts": 15,
+    "exact_copies": 8,
+    "public_snapshot_hash_matches": 435,
+    "ledger_fields": 38,
+    "local_links_checked": 70,
+    "limits": "File integrity and stated structural checks only; not a semantic approval or full source/DB algorithm test."
+  },
+  "files": [
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/manifest.json",
+      "http_status": 200,
+      "bytes": 10210,
+      "sha256": "5bcf36446c939d03b673ce0a648c80fbcf69122778ce2a5a11873c3bceb753a2",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/README.md",
+      "http_status": 200,
+      "bytes": 10153,
+      "sha256": "bd7cf92810701496800abc109575390d92b45f48da80e3f6f5a9842873499a1b",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/FIELD_LEDGER.md",
+      "http_status": 200,
+      "bytes": 11713,
+      "sha256": "679c9929ec89ef5a8e6a06c1c4b9f21225fd79dc297a938e99c1a6439b5d859e",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/FINDINGS.md",
+      "http_status": 200,
+      "bytes": 11973,
+      "sha256": "c193e0dec1e62cc9dcde9e6fa1363cd17567c6c641993c56e7f0259297eef53d",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/PUBLICATION.md",
+      "http_status": 200,
+      "bytes": 3074,
+      "sha256": "55ae24f64244ae52e716cca865f87edb4062ec996c212644780f3c27dfda2034",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/README.md",
+      "http_status": 200,
+      "bytes": 5025,
+      "sha256": "6fe3f61f2bcd99bb5007679503f470e62748563f42d9e3dacca4bf29201f72c1",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/capital.sql",
+      "http_status": 200,
+      "bytes": 3079,
+      "sha256": "6be3b40dbed885602493e4468ff83f0e4d109acf9ab44dfdd082e1c60fd109e3",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/dynasties.py",
+      "http_status": 200,
+      "bytes": 26391,
+      "sha256": "62599adf7e59c984c019696da36a320e863d62f210e9f1731b6dbd3edaaab288",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/ma-episode-source.md",
+      "http_status": 200,
+      "bytes": 5284,
+      "sha256": "90d2a4f1336a603468854d99d4d2d18454e74b653dfb075d4177c52155097e98",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/range_leaders.py",
+      "http_status": 200,
+      "bytes": 14213,
+      "sha256": "63ed0fbf0f433b7e6a15fcaf271a457fef8ea2cb236c93e8517c448f2bd3ccee",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/range_query.py",
+      "http_status": 200,
+      "bytes": 2934,
+      "sha256": "13ec4edc127a6ba5fd5863c7872cea64b978a4f6de832de26c9b6b7d366156c7",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/selected_params.json",
+      "http_status": 200,
+      "bytes": 1036,
+      "sha256": "21614b607c8cc0e9987cbc09d8f725beac4491ed052eba8a80567f7901618e1a",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/source_views.py",
+      "http_status": 200,
+      "bytes": 14245,
+      "sha256": "6a683b8e74ed88aaedcd5d19482a883960076c599baca44b4653114d8ed47f12",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/structure-score-source.md",
+      "http_status": 200,
+      "bytes": 1884,
+      "sha256": "cb7ba3916c0521071ccd8a61b502dad470aad9f48dcd54b0940f27328c729f9f",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/code/structure.py",
+      "http_status": 200,
+      "bytes": 22164,
+      "sha256": "df94a84f58e006c39d9f09c39e192d4df9fd6a46065df36652e08b2d5cd74d38",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/adapted_source_samples.json",
+      "http_status": 200,
+      "bytes": 1606,
+      "sha256": "ce81bc0eae86da82cdb65ca18c46aaa65c1f7d7cb96e7cf82ab3ee165870b4a3",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/capital_recomputed.json",
+      "http_status": 200,
+      "bytes": 7920,
+      "sha256": "138d68972f0f000db77f4c624f4c37f4ddf03ba5db013509e3d713e574842001",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/input_group_audit.json",
+      "http_status": 200,
+      "bytes": 1598,
+      "sha256": "6d69ffa113a17fe7e90b23645cdfb2e65dae7afbf362d47ffa8447220efabfa5",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/query_log.json",
+      "http_status": 200,
+      "bytes": 31949,
+      "sha256": "6722ffa2a8f0b651560d41c0034d35f9db6533ac0ef755791e9eca7d958235f6",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/range_query_20d.sql",
+      "http_status": 200,
+      "bytes": 1997,
+      "sha256": "71f7410e3621b8a15441063628193da3fe36de816ec461c60c9484210aa7dc8a",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/range_sample_20d.json",
+      "http_status": 200,
+      "bytes": 2907,
+      "sha256": "9bd1094b6c5d6c93475994743c76fc850edeaf99e25b32b4b26bbd6017604af8",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/run_receipt.json",
+      "http_status": 200,
+      "bytes": 1424,
+      "sha256": "cf870858444f0300d38ae4901db9e5a4f9b1999240d77532a5ab6b15c61244e5",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/sidecar_audit.json",
+      "http_status": 200,
+      "bytes": 755,
+      "sha256": "7ca5633d557a8ef8635fa0feb3a11afc3354964c8f090f5f04520ef31b66d3e5",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/source_coverage.json",
+      "http_status": 200,
+      "bytes": 6998,
+      "sha256": "4a3564d6832910a9da9251b41b281b4bbd55410d9ee855a669539b82f8117779",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/source_samples.json",
+      "http_status": 200,
+      "bytes": 9641,
+      "sha256": "4b2bc2584d8da6dc3614aa018536d3d7ed12e2f9d7d6be658f2098a81c738436",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/source_schemas.json",
+      "http_status": 200,
+      "bytes": 31699,
+      "sha256": "949fa42ef1f7f61aae62f79657b979744b6de21c048865c52e33a0f111871408",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/structure_prefix_check.json",
+      "http_status": 200,
+      "bytes": 5323,
+      "sha256": "6d729baf170fcc565362886c3c92be386359a5cb6ce438ab0cd0badad456227d",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/structure_recomputed.json",
+      "http_status": 200,
+      "bytes": 25808,
+      "sha256": "45d4d8347a29c987e119cecd29f685e23044d94224377c70f0968bf4f5e2c249",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/data/validation_receipt.json",
+      "http_status": 200,
+      "bytes": 897,
+      "sha256": "3e56ab31f9cf166fa5b9b4dc3b3644e18c1fefd42df493c7f027c5a93290338c",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/articles/2026-16-context-of-rejected-patch.md",
+      "http_status": 200,
+      "bytes": 1644,
+      "sha256": "f4a2afb44b8a58ac0c1573309e1e460558eef2bfe120d6bb8477f832fe111b57",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/articles/2026-21-range-gain-usage.md",
+      "http_status": 200,
+      "bytes": 1213,
+      "sha256": "e20721c99484d2a634c0f4ec4bc00ff71d2788a903031d625ddec85705ff8b41",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/articles/2026-23-context-of-rejected-patch.md",
+      "http_status": 200,
+      "bytes": 2066,
+      "sha256": "160abe8ef57a7a4876a7aa9ea0a691a967f611cf7f1e97ba70d7263fe84b561a",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/articles/2026-29-watchlist-context.md",
+      "http_status": 200,
+      "bytes": 1067,
+      "sha256": "2817bd0be9c5de351c0f72ad2655c2dafb911bc6d9dba3423e99b0537e3c5780",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/articles/2026-30-alternative-structure.md",
+      "http_status": 200,
+      "bytes": 2678,
+      "sha256": "9d561104e86135ddf304218bf5bfb1ea5bda851fc064a77fbe05bd6effa1c561",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/articles/2026-34-ai-and-metals.md",
+      "http_status": 200,
+      "bytes": 1905,
+      "sha256": "a1a2243cf67947fd43413f57a57016d20474fa54b5b55d3c2a59bcc30ddff716",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/articles/2026-34-breakout-and-counterexample.md",
+      "http_status": 200,
+      "bytes": 2880,
+      "sha256": "2c2899fe00936dd6db93de8a7d6b6b129197fdd26eec37b83a1dd785fe267fd0",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/bounded-search.json",
+      "http_status": 200,
+      "bytes": 27622,
+      "sha256": "f6d542ea6484483e76c84bb9c81a45a88f76bacf36da576fd68467df3bbb6099",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/corrections-selected.json",
+      "http_status": 200,
+      "bytes": 2116,
+      "sha256": "46b8cb29c5c151ca7a33ca3e909b9343566e50e34eac93a84f392d10de0c3fc7",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/discussions/capital-judgment-gap.md",
+      "http_status": 200,
+      "bytes": 1795,
+      "sha256": "71e0344db852c2caaed3ccfdf3bd5c99ab937703d5970aa3141c4f0be3ef619b",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/discussions/dynasties-and-capital.md",
+      "http_status": 200,
+      "bytes": 10365,
+      "sha256": "86922ca8881e0c486bc546dd1a96d0348c5614b64b69d4dd1e7c69418fc6d0fb",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/discussions/macd-and-chan.md",
+      "http_status": 200,
+      "bytes": 7294,
+      "sha256": "1264c8af5cbc9e718b1ae64f5b7eb1807b0ee08a7114ef1030216036bdf7e914",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/discussions/questionnaire-layer8.md",
+      "http_status": 200,
+      "bytes": 4221,
+      "sha256": "e1b5257c7fb2234cdc1e7782b48a7e3b45bc09208759125fa7099ec0b9dd40f0",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/discussions/range-leader-and-top10.md",
+      "http_status": 200,
+      "bytes": 5086,
+      "sha256": "ef5790a6a945057de97c78355c3e0012a591e2c57e06c08951abba58a6b8c2b1",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/discussions/same-side-leg-and-method.md",
+      "http_status": 200,
+      "bytes": 7958,
+      "sha256": "4f518609695bc8accbdf6ca8158ed253497db20246572a8fe35e99686e403fed",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/index.json",
+      "http_status": 200,
+      "bytes": 14789,
+      "sha256": "80943bfe125bcc35e423262ce705dee96448191bd9a386d23d619b33f61d3ad9",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/patches/pp-29bbc4c1f691.json",
+      "http_status": 200,
+      "bytes": 793,
+      "sha256": "3e00391aeea6909e1090aa0b6b23a45440568b22bde9f9cef01999a3f4ff0ec4",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/patches/pp-440977d4ea38.json",
+      "http_status": 200,
+      "bytes": 658,
+      "sha256": "7c8de748d8e1792c852d80e4a033caa8c88bddebc5bf66b14ddcfbd43dd6e971",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/patches/pp-484bf87f4f2d.json",
+      "http_status": 200,
+      "bytes": 692,
+      "sha256": "fa8d5f2567c0a50cba38e2295309d2be1290afcf63ef914704134895205e13a1",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/patches/pp-f6f6d3c0b166.json",
+      "http_status": 200,
+      "bytes": 736,
+      "sha256": "144b2e225ab8e9eb91798285976cccfce0526e37e5a3214bf7927d025763f08b",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/sources/public-snapshot-integrity.json",
+      "http_status": 200,
+      "bytes": 126357,
+      "sha256": "1b096de4de41562856e1b00e36c2556a89ae464761031abbaf236a4a8be9c732",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/tools/collect_data.py",
+      "http_status": 200,
+      "bytes": 13775,
+      "sha256": "f9e5975c5b77e3c2838eb3102847a6f9f3bb26e8cee75a2b22a7c24a62d7bb06",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/tools/collect_sources.py",
+      "http_status": 200,
+      "bytes": 11914,
+      "sha256": "4a51c795f2e00a8f847ecffa2867ddafdbd0ded786f2026cf9585b191d3e86cd",
+      "matches_local": true
+    },
+    {
+      "path": "docs/cloud-research-context/supplements/2026-10-07-evidence/tools/verify_bundle.py",
+      "http_status": 200,
+      "bytes": 4102,
+      "sha256": "8d9e9c0a8a12c8c63fee053aebc7b5305ebf46f778e9314c9a35b212d32c94fc",
+      "matches_local": true
+    }
+  ]
+}
