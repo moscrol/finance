@@ -1567,7 +1567,7 @@ def decide_turn(
             subject=intent.primary_subject,
             subject_kind=inherited_kind,
             timeframe=intent.timeframe,
-            required_outputs=intent.required_outputs,
+            inherited_required_outputs=intent.required_outputs,
         )
         envelope = project_task_frame(task_frame, envelope)
         resolution = replace(resolution, envelope=envelope)

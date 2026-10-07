@@ -191,6 +191,24 @@ def test_legacy_controller_route_keeps_original_goal_and_optional_dimensions(con
     assert {item["output_id"] for item in _payload(frame, context)["research_contract"]["research_dimensions"]} == DIMENSIONS
 
 
+def test_explicit_followup_overrides_inherited_report_but_keeps_new_caller_requirement():
+    frame = _frame("那它什么时候算失效")
+    assert frame.required_outputs == ("invalidation_conditions", "supporting_evidence")
+    original_report = ("current_baseline", "duration_assessment", "continuation_conditions", "evidence_boundary")
+    narrow = rebase_task_frame(
+        frame, question_type="market_forecast", subject="A股市场",
+        inherited_required_outputs=original_report,
+    )
+    assert narrow.required_outputs == frame.required_outputs
+    assert narrow.required_output_additions == ()
+    explicit = rebase_task_frame(
+        frame, question_type="market_forecast", subject="A股市场",
+        inherited_required_outputs=original_report, required_outputs=("risk_signals",),
+    )
+    assert explicit.required_outputs == (*frame.required_outputs, "risk_signals")
+    assert explicit.required_output_additions == ("risk_signals",)
+
+
 def test_multiday_comparison_requirements_keep_priority(contexts):
     question = "2026-07-16 到 07-22 这几天，成交量和涨停家数的变化说明了什么"
     required = derive_required_outputs("dated_market_review", question)

@@ -632,6 +632,7 @@ def rebase_task_frame(
     subject_kind: str | None = None,
     timeframe: str | None = None,
     required_outputs: tuple[str, ...] = (),
+    inherited_required_outputs: tuple[str, ...] = (),
 ) -> TaskFrame:
     """Apply validated conversation inheritance before downstream projection."""
 
@@ -655,7 +656,11 @@ def rebase_task_frame(
         required_outputs = frame.required_outputs
 
     explicit_outputs = _explicit_required_outputs(frame.raw_question)
-    additions = _clean_outputs(frame.required_output_additions, required_outputs)
+    additions = _clean_outputs(
+        frame.required_output_additions,
+        required_outputs,
+        inherited_required_outputs if not explicit_outputs else (),
+    )
     question_type_changed = question_type != frame.question_type
     canonical_outputs = (
         _default_required_outputs(question_type, frame.raw_question)
