@@ -39,7 +39,12 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.material_permissions import restrict_read_capabilities
 from intelligence.services.personal_memory_recall import QUESTION_TYPE as PERSONAL_MEMORY_RECALL, references_personal_prior
-from intelligence.services.task_frame import TaskFrame, is_counterfactual_assessment, task_frame_requires_retrieval
+from intelligence.services.task_frame import (
+    TaskFrame,
+    is_counterfactual_assessment,
+    research_dimensions_for,
+    task_frame_requires_retrieval,
+)
 from intelligence.services.premise_financial_calculation import calculation_for_frame
 from intelligence.services.user_task import (
     MaterialRef,
@@ -415,7 +420,7 @@ def _required_output_ids(frame: TaskFrame) -> tuple[str, ...]:
         return ("prior_recall",)
     if _has_owned_premise_calculation(frame):
         return ("direct_answer", "evidence_boundary")
-    outputs = frame.required_outputs
+    outputs = tuple(dict.fromkeys((*frame.required_outputs, *research_dimensions_for(frame))))
     if frame.question_type == "comparison_analog":
         outputs = tuple(dict.fromkeys((*outputs, *_COMPARISON_ANALOG_OUTPUT_IDS)))
     if frame.question_type == "valuation_estimate":
@@ -729,6 +734,7 @@ def build_episode_context(
 
     material = frame.material_contract
     material_only = _material_restricted(material)
+    research_dimensions = research_dimensions_for(frame)
     output_ids = _required_output_ids(frame)
     grounding_modes = tuple(
         _grounding_mode(frame, output_id) for output_id in output_ids
@@ -877,6 +883,7 @@ def build_episode_context(
                 required=(
                     (frame.question_type == PERSONAL_MEMORY_RECALL or output_id not in _ADVISORY_OUTPUT_IDS)
                     and output_id not in forward_slots
+                    and (output_id not in research_dimensions or output_id in frame.required_outputs)
                 ),
                 # 同理直接给 model_reasoning，不进 `_grounding_mode`——那个函数
                 # 按题型/问句判签法，让它再去感知「这个槽是不是本次挂上来的」

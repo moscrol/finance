@@ -40,7 +40,7 @@ from intelligence.services.research_contract import (
 from intelligence.services.research_tool_registry import ResearchToolRegistry
 from intelligence.services.research_workflow_guidance import workflow_guidance
 from intelligence.services.research_reasoning import guidance as reasoning_guidance
-from intelligence.services.task_frame import TaskFrame
+from intelligence.services.task_frame import TaskFrame, research_dimensions_for
 from intelligence.services.prior_evidence import PriorTurnEvidence
 from intelligence.services.degraded_fallback import (
     episode_rule as degraded_episode_rule,
@@ -481,6 +481,17 @@ def build_episode_input(
     contract_for_model = {
         key: value for key, value in context.contract.to_dict().items() if key != "task_id"
     }
+    dimension_ids = research_dimensions_for(task_frame)
+    dimensions = [
+        output for output in contract_for_model["required_outputs"]
+        if output["output_id"] in dimension_ids and not output["required"]
+    ]
+    if dimensions:
+        contract_for_model["required_outputs"] = [
+            output for output in contract_for_model["required_outputs"]
+            if output not in dimensions
+        ]
+        contract_for_model["research_dimensions"] = dimensions
     date_context = runtime_date_context(context)
     payload: dict[str, object] = {
         "task_frame": task_frame.to_dict(),
@@ -503,6 +514,16 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    if dimensions:
+        payload["research_dimensions_rule"] = (
+            "research_dimensions 是内部研究自检，不是必填章节。围绕完整用户原问，"
+            "检查这些维度是否提供能改变核心判断的证据、反证、竞争解释或重要遗漏；"
+            "相关且有依据的内容应保留，可合并进直接回答，无关维度不强凑或另写缺口。"
+            "用户原问明确要求的内容仍须覆盖，不能因为它属于某个研究维度就省略。"
+            "展开的事实仍须绑定本轮证据，若使用维度 output_id 则沿用同一 binding 校验；"
+            "推断保留条件和失效边界，影响核心结论的数据缺失须如实说明。"
+            "研究维度未单独绑定不影响结构完成，结构完成不能自证全文质量。"
+        )
     from intelligence.services.adaptive_research import (
         adaptive_research_enabled,
         adaptive_research_instructions,

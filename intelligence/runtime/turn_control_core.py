@@ -88,6 +88,18 @@ def project_turn_decision(
 ) -> TurnControlResult:
     """Project one already-made decision without invoking understanding again."""
 
+    effective_intent = turn_intent if turn_intent is not None else decision.turn_intent
+    if effective_intent is not None and (
+        effective_intent.required_outputs != task_frame.required_outputs
+        or effective_intent.task_frame_hash != task_frame.task_frame_hash
+    ):
+        # Persist the canonical contract, including legacy adapters that rebuilt
+        # a narrower frame. The next turn must not revive the old report.
+        effective_intent = replace(
+            effective_intent,
+            required_outputs=task_frame.required_outputs,
+            task_frame_hash=task_frame.task_frame_hash,
+        )
     clarification_questions = tuple(decision.clarification_questions)
     if not clarification_questions and task_frame.clarification_question:
         clarification_questions = (task_frame.clarification_question,)
@@ -144,7 +156,7 @@ def project_turn_decision(
         ),
         capabilities=capabilities,
         contract_required=terminal_kind == "research",
-        turn_intent=turn_intent if turn_intent is not None else decision.turn_intent,
+        turn_intent=effective_intent,
         clarification_questions=clarification_questions,
         conversation_context=str(conversation_context or "").strip(),
         perspective_context=str(perspective_context or "").strip(),
@@ -293,7 +305,6 @@ class TurnControlCore:
             timeframe=intent.timeframe,
             matched_by="explicit" if intent.primary_subject is not None else "generic",
             confidence=confidence,
-            required_outputs=intent.required_outputs,
         )
         frame = build_task_frame(
             query, envelope, conversation_context=context if context else None
@@ -306,7 +317,7 @@ class TurnControlCore:
             subject=intent.primary_subject,
             subject_kind=subject_kind,
             timeframe=intent.timeframe,
-            required_outputs=intent.required_outputs,
+            inherited_required_outputs=intent.required_outputs,
         )
 
     @staticmethod
