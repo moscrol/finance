@@ -2182,6 +2182,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     preloaded_trace_items: list[ProviderTrace] = []
     preloaded_gaps: list[ResearchGap] = []
     preloaded_observations: list[str] = []
+    preloaded_query_basis: list[agent_research.ToolQueryBasis] = []
     disabled_tool_names: list[str] = []
     if contract.presentation_profile == "mainline_current" and {
         "market_data",
@@ -2217,6 +2218,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 preloaded_items.extend(observation.evidence)
                 preloaded_trace_items.append(observation.trace)
                 preloaded_observations.append(observation.observation)
+                if observation.query_basis:
+                    preloaded_query_basis.append((tool_name, observation.query_basis))
                 disabled_tool_names.append(tool_name)
                 if not observation.evidence:
                     preloaded_gaps.append(
@@ -2268,6 +2271,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             preloaded_trace_items.append(observation.trace)
             preloaded_observations.append(observation.observation)
             disabled_tool_names.append("mainline_context")
+            if observation.query_basis:
+                preloaded_query_basis.append(("mainline_context", observation.query_basis))
             if not observation.evidence:
                 preloaded_gaps.append(
                     ResearchGap(
@@ -2444,6 +2449,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             preloaded_traces=preloaded_traces,
             preloaded_gaps=tuple(preloaded_gaps),
             preloaded_observation=preloaded_observation,
+            preloaded_query_basis=tuple(preloaded_query_basis),
             disabled_tools=disabled_tools,
             task_plan=task_plan,
         )

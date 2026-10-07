@@ -1016,3 +1016,26 @@ provider finish 超时若再出现，保失败和首稿原件，交独立provide
 | factory/adapter实际消费、目标/许可分别守界 | B6、B7.3 |
 | 真未来资料不交内容、提前已知未来事件保留 | B7.1–B7.2 |
 | 独立审查、准确全量scope、原件保留、新首答有限QA | V1–V3 |
+
+## Task A 独立 Spec 实证补接缝（2026-10-08）
+
+`c2ea27b73` 的独立复核为21P/3F：真实 `complete` 请求表明，两种主线预取及动态调用
+都在 registry 之后丢失 `query_basis`；只在 typed runner 边界验收不足以证明模型实际收到。
+原提交、RED、报告与历史设计保持原件；这一接缝补足 A 的两个真实消费者合同，不进入 B 的时间任务。
+
+只传 registry 已批准的公共结构元数据，不从 prose 重建、不追加事实/E号/日期/floor，
+不加编排、状态机、持久化字段或预算。预取与动态结果汇入同一个 loop-owned 通道并深拷贝；
+非空时每次模型请求单独投影 JSON 消息，空时原消息及旧三元 runner/序列化行为保留。
+
+| 文件责任 | 最小动作与验证 |
+| --- | --- |
+| `intelligence/services/ask.py` | 两种 D4 预取保存原 `query_basis`，与事实和指导分开传递 |
+| `intelligence/services/generic_research_owner.py` | 转交预取元数据；动态 wrapper 保留 typed metadata，不降为仅 prose tuple |
+| `intelligence/services/agent_research.py` | 兼容旧 runner；同一 loop 取得元数据副本并在每次请求独立投影，不修改 AgentStep/AgentLoopResult 持久化合同 |
+| `intelligence/tests/test_generic_research_owner.py` | 实际模型入口验证两种预取、一次动态 D4 后两个步骤仍有全组/非空/历史/信号；原4000/240裁剪对照，禁止网络与真模型 |
+| `intelligence/tests/test_agent_research.py` | 空元数据完整消息字节/旧 tuple/序列化兼容，嵌套元数据 owned-copy，不授予新证据 |
+| `docs/agent-product-door.md` | 同提交记录模型透传与现有预算、方法和资格边界 |
+
+修复收据另存 `task-A/fix-model-context-1008/`，复用独立脚本的三项实际模型 RED→GREEN，
+不覆写 `spec-c2ea27b73`。随后定向相关回归、ruff、diff-check、自审与 pathspec 提交，
+再交同一 Spec 独立复验及 Standards；工程与结构通过均不替代首答语义质量结论。

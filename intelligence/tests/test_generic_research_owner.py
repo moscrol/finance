@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import socket
 from dataclasses import replace
 from pathlib import Path
 
@@ -15,9 +16,11 @@ from intelligence.services import (
     ask_blocks,
     evidence_registry,
     generic_research_owner,
+    llm_refine,
     query_ledger,
+    reading_baseline,
 )
-from intelligence.tests.test_market_context_contract import _database
+from intelligence.tests.test_market_context_contract import _database, _registry as _d4_registry
 from intelligence.runtime import conversation_orchestrator
 from intelligence.runtime.conversation_orchestrator import TurnOrchestrator
 from intelligence.services.conversation_store import ConversationStore
@@ -42,6 +45,151 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.run_store import RunStore
 from intelligence.services.turn_controller import decide_turn
+
+
+@pytest.fixture
+def model_context_offline(monkeypatch, tmp_path):
+    from intelligence import userspace
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("model-context controls forbid network and live models")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr(socket.socket, "connect_ex", forbidden)
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    monkeypatch.setattr(llm_refine, "detect_provider", lambda *_a, **_kw: None)
+    for name in ("synthesize", "synthesize_messages", "synthesize_messages_stream"):
+        monkeypatch.setattr(llm_refine, name, forbidden)
+    monkeypatch.setenv("FINANCE_READING_BASELINE", "1")
+    monkeypatch.setenv("ENTITY_ANCHOR_SECURITIES_DB", "0")
+    monkeypatch.setenv("FORESIGHT_USERS_DIR", str(tmp_path / "users"))
+    monkeypatch.setattr(userspace, "USERS_DIR", tmp_path / "users")
+
+
+def _model_mainline_bases(messages):
+    entries = []
+    for message in messages:
+        if message["content"].startswith("{"):
+            entries.extend(json.loads(message["content"]).get("tool_query_basis", ()))
+    return [entry["query_basis"] for entry in entries if entry["tool"] == "mainline_context"]
+
+
+def _assert_full_mainline_model_basis(basis):
+    assert basis["schema"] == "d4_mainline_snapshot_v1"
+    assert basis["scope"] == "current_table_all_themes"
+    assert basis["theme_names"] == ["AAA", "ZZZ"] and basis["total_rows"] == 32
+    assert basis["snapshot_date"] == "2026-10-01"
+    first, last = basis["groups"]
+    assert (first["total_rows"], first["preview_rows"], first["omitted_rows"]) == (31, 8, 23)
+    assert (last["total_rows"], last["preview_rows"], last["omitted_rows"]) == (1, 1, 0)
+    assert set(first["non_null_counts"]) == {
+        "today_pct", "limit_up_count", "net_inflow_1d", "amount", "cycle_status",
+        "cycle_level", "sector_pct", "diff_ratio", "sector_amount", "sw_l1",
+    }
+    assert set(first["non_null_counts"].values()) == {31}
+    assert basis["history_window"] == {
+        "start": "2026-09-11", "end": "2026-10-01", "lookback_days": 20,
+        "unit": "calendar_days", "inclusive_start": True, "inclusive_end": True,
+    }
+    assert len(basis["history"]) == 2 and basis["metric_semantics"]
+    assert len(basis["price_volume_signals"]) == 9
+    assert all(signal["strict_double_red"] is True for signal in basis["price_volume_signals"])
+    serialized = json.dumps(basis, ensure_ascii=False)
+    assert "SELECT " not in serialized and ".duckdb" not in serialized
+    assert "guidance" not in basis and "trace" not in basis
+
+
+@pytest.mark.parametrize("question", [
+    "你觉得目前市场的主线是什么，给我你的判断依据", "什么是双红，现在哪些板块双红",
+])
+def test_mainline_prefetch_reaches_actual_model_with_full_metadata(
+    tmp_path, monkeypatch, model_context_offline, question,
+):
+    rows = [("AAA", f"A{i:02}", f"AAA板块{i:02}", i) for i in range(31)]
+    path = _database(tmp_path, [*rows, ("ZZZ", "Z0", "ZZZ板块", 1)])
+    contract = conversation_orchestrator._build_generic_research_contract(
+        question, task_id="model-prefetch", turn_intent=conversation_orchestrator.TurnIntent(
+            primary_subject="双红" if "双红" in question else None, secondary_topics=(),
+            question_type="concept_definition" if "双红" in question else "general_finance_qa",
+            answer_owner=None, comparison_entities=(), inherited_from_turn=None,
+        ),
+    )
+    requests = []
+
+    def complete(messages, **_kwargs):
+        requests.append(messages)
+        return None, None, "offline model boundary capture"
+
+    monkeypatch.setattr(llm_refine, "complete", complete)
+    result = ask._answer_generic_owner(ask.AskOptions(
+        query=question, kb_wiki=tmp_path / "wiki", market_db_path=path,
+        research_task_contract=contract, use_llm=False, compose=False,
+    ))
+    (tmp_path / "model-requests.json").write_text(json.dumps(requests, ensure_ascii=False, indent=2))
+    assert len(requests) == 1 and len(requests[0]) == 3
+    (basis,) = _model_mainline_bases(requests[0])
+    _assert_full_mainline_model_basis(basis)
+    assert "d4_mainline_snapshot_v1" not in requests[0][1]["content"]
+    assert all(rule.source in requests[0][1]["content"] for rule in reading_baseline.block_rules("mainline_context"))
+    assert not any("判读[" in citation.detail for citation in result.citations)
+
+
+def test_dynamic_mainline_metadata_survives_two_later_steps_and_prose_clipping(
+    tmp_path, model_context_offline,
+):
+    rows = [("AAA", f"A{i:02}", f"AAA板块{i:02}", i) for i in range(31)]
+    path = _database(tmp_path, [*rows, ("ZZZ", "Z0", "ZZZ板块", 1)])
+    episode_registry, context = _d4_registry(path)
+    mainline = episode_registry.resolve("mainline_context")
+
+    def mainline_runner(arguments, context):
+        original = mainline.runner(arguments, context)
+        return replace(original, observation=original.observation + "x" * 5000 + "裁剪尾标")
+
+    def followup_runner(query, _context):
+        return [agent_research.AgentEvidence(
+            tool="kb_search", title=query, detail=f"后续文档 {query}", source="fixture/followup.md",
+        )], "后续观察" + "y" * 5000, ProviderTrace(
+            provider="fixture:kb", capability="kb_search", status="success", result_count=1,
+        )
+
+    registry = ResearchToolRegistry((
+        replace(mainline, runner=mainline_runner),
+        ToolSpec("kb_search", "kb_search", "离线后续检索", "local", "current", followup_runner),
+    ))
+    context = replace(context, contract=replace(
+        context.contract, allowed_capabilities=(*context.contract.allowed_capabilities, "mainline_context", "kb_search"),
+    ))
+    actions = [
+        {"tool": "mainline_context", "args": {"query": "当前市场主线"}},
+        {"tool": "kb_search", "args": {"query": "后续一"}},
+        {"tool": "kb_search", "args": {"query": "后续二"}},
+    ]
+    requests = []
+
+    def complete(messages, **_kwargs):
+        requests.append(messages)
+        if len(requests) <= len(actions):
+            return json.dumps(actions[len(requests) - 1]), "offline-script", ""
+        return None, None, "offline model boundary capture"
+
+    result = generic_research_owner.run_generic_research(
+        context.contract, context=context, registry=registry,
+        run_id="model-dynamic", complete_fn=complete,
+    )
+    (tmp_path / "model-requests.json").write_text(json.dumps(requests, ensure_ascii=False, indent=2))
+    assert len(requests) == 4 and _model_mainline_bases(requests[0]) == []
+    assert [step.hit_count for step in result.loop.steps] == [9, 1, 1]
+    assert all(len(step.observation) == 4000 for step in result.loop.steps)
+    (first_basis,) = _model_mainline_bases(requests[1])
+    for request in requests[1:]:
+        (basis,) = _model_mainline_bases(request)
+        _assert_full_mainline_model_basis(basis)
+        assert basis == first_basis
+        assert "d4_mainline_snapshot_v1" not in request[1]["content"]
+        assert "裁剪尾标" not in request[1]["content"]
+    assert "mainline_context(" not in requests[-1][1]["content"]
+    assert len(result.evidence) == 11 and not any("判读[" in item.detail for item in result.evidence)
 
 
 def _contract(*, required_direct: bool = True) -> ResearchTaskContract:
