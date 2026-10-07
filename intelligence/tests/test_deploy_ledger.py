@@ -259,17 +259,21 @@ def test_cli_record_switch_from_health_json(
 
 
 def test_deploy_script_and_chain_cut_docs_call_record_cli() -> None:
-    """接线必须存在：脚本/文档写了但不调用 = 失败形状还会再来一次。"""
+    """Docs use the tested switch entrypoint; both runtime scripts retain ledger wiring.
+
+    Switch ordering and compensation are exercised in test_switch_8792 rather
+    than requiring a second, manual link/ledger sequence in the workflow.
+    """
 
     deploy = (REPO / "scripts" / "deploy_workbench_runtime.sh").read_text(encoding="utf-8")
+    switch = (REPO / "scripts" / "switch_8792.sh").read_text(encoding="utf-8")
     workflow = (REPO / "docs" / "workflows" / "acceptance-workflow.md").read_text(
         encoding="utf-8"
     )
     assert "audit_deploy_ledger.py" in deploy
     assert "--action switch" in deploy
-    ln_index = workflow.index("ln -sfh")
-    record_index = workflow.index("audit_deploy_ledger.py")
-    assert record_index > ln_index
+    assert 'audit_deploy_ledger.py" record' in switch
+    assert 'bash ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/switch_8792.sh "$sha"' in workflow
     assert "kickstart" in deploy
 
 
