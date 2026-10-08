@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from intelligence.services import ask_synthesis, llm_refine, task_fulfillment
+from intelligence.services import answer_model, ask_synthesis, llm_refine, task_fulfillment
 from intelligence.services.task_fulfillment import (
     FulfillmentItem,
     FulfillmentVerdict,
@@ -61,7 +61,12 @@ def _repair(**overrides):
     kwargs = {
         "question": "明天怎么走",
         "answer_text": "上一版正文。",
-        "answer_spec": object(),
+        # 合法的最小输入；registry 可以替身化，AnswerSpec 的数据合同不能省略。
+        "answer_spec": answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile("明天怎么走", profile="general"),
+            summary=(), verified_facts=(), company_table=(), counter_evidence=(),
+            gaps=(), triggers=(), next_actions=(), sources=(), system_notices=(),
+        ),
         "verdict": _verdict("invalidation"),
         "required_outputs": (_Output("invalidation"),),
         "timeout": 30,

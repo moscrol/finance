@@ -52,7 +52,6 @@ def test_frozen_d10_keeps_endpoint_values_and_labels_each_trading_window(monkeyp
         if item["title"] == "市场情绪环境类比 [D10]"
     )
     analogs = []
-    old_cells = []
     for line in original.splitlines():
         if not line.startswith("| 2025-"):
             continue
@@ -67,7 +66,6 @@ def test_frozen_d10_keeps_endpoint_values_and_labels_each_trading_window(monkeyp
                 "max_boards": float(parts[2].removeprefix("最高").removesuffix("板")),
                 "avg_double_red_themes": float(parts[3].removeprefix("日均双红").removesuffix("个")),
             }
-            old_cells.append((horizon, cell))
         analogs.append({
             "start_date": start, "end_date": end, "distance": float(cells[1]),
             "raw_summary": {}, "forwards": forwards,
@@ -84,15 +82,16 @@ def test_frozen_d10_keeps_endpoint_values_and_labels_each_trading_window(monkeyp
     block = regime_block_for_llm(None)
 
     assert artifact.to_payload() == before
-    for horizon, old in old_cells:
-        old_return, *other_metrics = old.split("/")
-        expected = (
-            f"上证指数累计终点收益{old_return.removeprefix('指数')}（后续{horizon}交易日）/"
-            + "/".join(other_metrics)
-        )
-        assert expected in block
-    assert "终点收益不描述区间内的涨跌路径" in block[:240]
-    assert "判断先涨、先跌或中途回调需逐日路径证据" in block
+    rendered = json.loads(block.split("```json\n")[1].split("\n```")[0])
+    assert rendered == artifact.model_payload()
+    rows = [dict(zip(rendered["forwards"]["columns"], row, strict=True)) for row in rendered["forwards"]["rows"]]
+    for analog in analogs:
+        ref = next(k for k, dates in rendered["windows"].items() if dates == [analog["start_date"], analog["end_date"]])
+        for horizon, facts in analog["forwards"].items():
+            row = next(r for r in rows if (r["window_id"], r["horizon"]) == (ref, horizon))
+            assert {k: row[k] for k in facts} == facts
+            assert row["index_days"] is None  # 冻结旧材料不带覆盖，不能补造
+    assert "终点收益不描述区间内的涨跌路径" in block
 
 
 def test_forward_missing_values_remain_unknown():
@@ -348,7 +347,10 @@ class LoaderAndBlockTests(unittest.TestCase):
             self._make_db(db)
             block = regime_block_for_llm(db)
         self.assertIn("[D10]", block)
-        self.assertIn("当前情绪环境", block)
+        payload = json.loads(block.split("```json\n")[1].split("\n```")[0])
+        self.assertTrue(payload["signatures"]["windows"]["current"])
+        self.assertIn("current", payload["raw_summaries"]["windows"])
+        self.assertEqual(payload["signatures"]["path_evidence"], "not_provided")
         self.assertIn("后续5交易日", block)
         self.assertIn("不是概率预测", block)
 
@@ -361,8 +363,18 @@ class LoaderAndBlockTests(unittest.TestCase):
         self.assertTrue(artifact.available)
         for feat in ("max_boards", "double_red_theme_count", "top1_theme_share", "new_high_count"):
             self.assertIn(feat, artifact.missing_features)
-        self.assertIn("数据缺口", block)
-        self.assertIn("已按覆盖率降权", block)
+        payload = json.loads(block.split("```json\n")[1].split("\n```")[0])
+        table = payload["feature_observations"]
+        observations = {payload["feature_keys"][label]: {
+                            **table["defaults"], **dict(zip(table["columns"], row, strict=True)),
+                            **{k: overrides[label] for k, overrides in table["overrides"].items() if label in overrides},
+                        } for label, row in table["features"].items()}
+        for feature in artifact.query_failed_features:
+            self.assertEqual(observations[feature]["comparison_status"], "query_failed")
+            self.assertEqual(observations[feature]["read_status"], "query_failed")
+        self.assertIn("查询失败", block)
+        self.assertIn("全局退出不进分母", block)
+        self.assertNotIn("对应表无数据", block)
 
     def test_short_history_declares_degrade(self) -> None:
         with TemporaryDirectory() as tmp:

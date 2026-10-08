@@ -182,6 +182,19 @@ def _claims_from_data_block(
         # Untyped producer prose cannot mint structured market facts or method
         # claims. Formal D4 providers supply the same immutable read product.
         return []
+    # D10 是有共同口径/限制的历史比较上下文，不是可以逐行拆出的已核验事实。
+    # 保持一个有来源的推断对象，避免把表行送达却把 PIT/候选集边界截丢。
+    if tag == "D10" and block.strip():
+        # make_claim 的展示清洗会抹掉表/列名；原始来源在模型输入必须保留。
+        return [answer_model.Claim(
+            claim_id="data:D10:context",
+            text=f"{label}：\n{block.strip()}",
+            claim_type="market_data",
+            theme=theme,
+            status=answer_model.ClaimStatus.INFERRED,
+            evidence_tier="market_data",
+            evidence_ids=(tag,),
+        )]
     claims: list[answer_model.Claim] = []
     for index, raw in enumerate(block.splitlines(), start=1):
         line = raw.strip().lstrip("-").strip()
@@ -581,6 +594,21 @@ def _build_answer_spec_for_result(
         if claim.status == answer_model.ClaimStatus.CANDIDATE
         and claim.claim_id not in company_claim_ids
     )[:24]
+    # 非确认通道保留 D10 整块（内部 top-K 已有界），状态仍为 INFERRED。
+    # 不能为进 registry 将其提升 VERIFIED，也不能让通用 24 行帽剪掉限制语。
+    history_contexts = tuple(claim for claim in claims if claim.claim_id == "data:D10:context")
+    candidate_facts += history_contexts
+    if history_contexts:
+        # 默认 grounded 入口需有来源的摘要；这是对比较口径的推断摘要，不伪造硬事实。
+        # 完整读数仍只住在 context，避免 DecisionBrief 再复制整张表。
+        summary.append(answer_model.Claim(
+            claim_id="summary:D10:scope",
+            text="历史比较按两套独立候选集阅读，后续事实不可嫁接；"
+                 "逐维距离仅作探索，时间可知性与缺数限制须随读数保留，不构成预测或已验证剧本。",
+            claim_type="summary", theme=research_spec.theme,
+            status=answer_model.ClaimStatus.INFERRED,
+            evidence_tier="market_data", evidence_ids=("D10",),
+        ))
     spec = answer_model.AnswerSpec(
         research_spec=research_spec,
         summary=tuple(summary),
@@ -1868,6 +1896,17 @@ def ensure_track_contract_visible(
     )
 
 
+def _grounded_registry_for_synthesis(answer_spec: answer_model.AnswerSpec, query: str) -> str:
+    """有共同边界的历史表整体进窗；装不下就 fail closed，不送残表或偷升事实等级。"""
+    return answer_model.grounded_claim_registry_block(
+        answer_spec, query=query, max_chars=12_000,
+        required_claim_ids=tuple(
+            claim.claim_id for claim in answer_spec.candidate_facts
+            if claim.claim_id == "data:D10:context"
+        ),
+    )
+
+
 def _shadow_support_claims(
     answer_spec: answer_model.AnswerSpec,
 ) -> tuple[answer_model.Claim, ...]:
@@ -1960,11 +1999,10 @@ def repair_unfulfilled_answer(
     )
     if not missing:
         return None
-    registry_block = answer_model.grounded_claim_registry_block(
-        answer_spec,
-        query=question,
-        max_chars=12_000,
-    )
+    try:
+        registry_block = _grounded_registry_for_synthesis(answer_spec, question)
+    except ValueError:
+        return None
     if not registry_block.strip():
         return None
     perspective_block = (
@@ -2136,11 +2174,14 @@ def synthesize_shadow_grounded_answer(
         )
         return result
     deadline = _shadow_deadline(options)
-    registry_block = answer_model.grounded_claim_registry_block(
-        result.answer_spec,
-        query=options.query,
-        max_chars=12_000,
-    )
+    try:
+        registry_block = _grounded_registry_for_synthesis(result.answer_spec, options.query)
+    except ValueError:
+        result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
+            status="ineligible_evidence", failure_reason="required_context_exceeds_registry_budget",
+            elapsed_ms=round((time.monotonic() - started) * 1000),
+        )
+        return result
     # 本轮的验收标准。空元组保持旧行为（专项 owner 之外的调用方尚未提供契约）。
     required_outputs_block = tuple(result.answer_spec.prompt_constraints)
     brief_started = time.monotonic()

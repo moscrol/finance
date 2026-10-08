@@ -39,7 +39,8 @@ from typing import Any, Callable
 
 from intelligence.services import checkpoints as checkpoints_svc
 from intelligence.services import compliance_gate, observation_script, river_projection
-from intelligence.services.methodology_backtest.rules import LABEL_KINDS, OPS_BY_KIND
+from intelligence.services import river_teaching_bridge as teaching_bridge
+from intelligence.services.methodology_backtest.rules import LABEL_KINDS, OPS_BY_KIND, text_domain_error
 from intelligence.services.river_derive import SLICE_EVALUABLE_LABELS, LabelNotSliceEvaluable, bind
 
 OBJECT_TYPE = "scenario_tree"
@@ -201,16 +202,38 @@ def compile_condition(raw: Any, *, where: str) -> tuple[tuple[Predicate, ...] | 
             errs.append(Rejection(E_CONDITION_INVALID, w, "谓词必须是对象"))
             continue
         label, op, value = p.get("label"), p.get("op"), p.get("value")
-        if label not in LABEL_KINDS:
+        # 教学命名空间（``tf.*``）走桥，不并进 ALL_LABELS —— 2026-09-06 56d1f5fa88d9
+        # 「教学标签必须与供应商标签严格分离」。桥见 river_teaching_bridge。
+        if teaching_bridge.is_teaching_label(label):
+            try:
+                kind = teaching_bridge.teaching_kind(str(label))
+            except teaching_bridge.TeachingLabelNotBridged as exc:
+                errs.append(Rejection(E_LABEL_NOT_SLICE_EVALUABLE, w, str(exc)))
+                continue
+        elif label not in LABEL_KINDS:
             errs.append(Rejection(E_CONDITION_INVALID, w, f"label {label!r} 不是注册标签（ALL_LABELS）"))
             continue
-        if label not in SLICE_EVALUABLE_LABELS:
+        elif label not in SLICE_EVALUABLE_LABELS:
             errs.append(Rejection(E_LABEL_NOT_SLICE_EVALUABLE, w, f"label {label!r} 需要历史或个股级原料，单日切片判不了；v0 拒绝（等 #35 派生对象）"))
             continue
-        _entity, kind = LABEL_KINDS[label]
+        else:
+            _entity, kind = LABEL_KINDS[label]
         if op not in OPS_BY_KIND[kind]:
             errs.append(Rejection(E_CONDITION_INVALID, w, f"op {op!r} 对 {kind} 标签不合法（允许 {OPS_BY_KIND[kind]}）"))
             continue
+        # 取值域：文本标签写错一个词，条件永远不命中而全程零报错（「从未成立」与
+        # 「今天没成立」在读数上长得一样）。词表检查落在 rules.text_domain_error，
+        # 与规则 DSL 共用一套判据，不在这里抄第二份。
+        if kind == "text":
+            cand = value if isinstance(value, (list, tuple)) else [value]
+            bad = [
+                (v, text_domain_error(label, v))
+                for v in cand
+                if isinstance(v, str) and text_domain_error(label, v) is not None
+            ]
+            if bad:
+                errs.append(Rejection(E_CONDITION_INVALID, w, bad[0][1]))
+                continue
         if op in ("in", "not_in"):
             if not isinstance(value, (list, tuple)) or not value:
                 errs.append(Rejection(E_CONDITION_INVALID, w, f"{op} 的 value 要非空列表"))
@@ -232,7 +255,14 @@ def compile_condition(raw: Any, *, where: str) -> tuple[tuple[Predicate, ...] | 
 
 
 def _domain(label: str, siblings: list[tuple[Predicate, ...]]) -> list[Any]:
-    kind = LABEL_KINDS[label][1]
+    # 教学标签刻意不在 LABEL_KINDS 里（命名空间分离），直接下标会 KeyError。
+    # 兄弟节点互斥性检查对 tf.* 谓词同样要做——取不到 kind 就跳过检查，
+    # 等于让两个重叠的分枝条件都登记成功，树会同时走两条路。
+    kind = (
+        teaching_bridge.teaching_kind(label)
+        if teaching_bridge.is_teaching_label(label)
+        else LABEL_KINDS[label][1]
+    )
     if kind == "bool":
         return [True, False]
     if kind == "num":

@@ -24,6 +24,13 @@
 切片里放的是原料字段不是编译后的标签值，所以这里有一层「标签绑定」把注册标签落到 payload 上：
 只收单日切片能判的那些（``SLICE_EVALUABLE_LABELS``），阈值 ``from labels import``，不复制数字。
 需要历史的标签（``dual_red_streak / diff_ratio_turn_up / ma5_*``）由本模块的 streak / transition 派生表达，不做单日绑定。
+
+**白名单是整条河的表达力上限**：情景树的分枝条件、规则 DSL、研究演化的可判观测，
+三者都只认这张表里的名字（``scenario_trees.py`` 与 ``research_evolution.adapters``
+直接 import 它）。白名单有几个词，这条河就只能说出几种话——所以每新接一个**已注册**
+标签，不是加一列数据，是给判读多一个可用的概念。2026-10-07 从 4 个扩到 7 个：
+补上的 ``multi_period_resonance / opinion_stage / lifecycle_stage`` 全都是切片里
+**本来就算好了、只是没接线**的值，口径一个字没改，``LABEL_VERSION`` 不动。
 """
 
 from __future__ import annotations
@@ -69,6 +76,22 @@ def _num(v: Any) -> float | None:
         return None
 
 
+def _sector_quote(sl: RiverSlice) -> RiverObject | None:
+    """盘面轨里那条来自 ``fact_sector_daily`` 的量价行。
+
+    盘面轨同时发两个 ``object_type="label"``：量价行与涨停热度行（``source_view="limit_heat"``）。
+    按出现顺序取第一个在量价行存在时恰好对；但**量价行缺、热度行在**的那一天，
+    ``_first(..., "label")`` 取到的是热度行——它没有 ``pct_chg`` 等键，``.get`` 全返回 None，
+    于是结果「碰巧」仍是「缺原料」。碰巧对的代价是：热度表哪天多出一个同名列，绑定就会
+    静默读错一张表且不报错。这里按 ``sector_ts_code`` 存在与否显式选行，把巧合变成约定。
+    """
+    for o in track_objects(sl, "market"):
+        if o.object_type == "label" and o.payload.get("source_view") != "limit_heat":
+            if "sector_ts_code" in o.payload or "pct_chg" in o.payload:
+                return o
+    return None
+
+
 def _bind_dual_red_strict(sl: RiverSlice) -> tuple[bool | None, list[str]]:
     """与 ``labels.py`` 的 ``dual_red_strict`` **同一套三值逻辑**：任一已知条件为假即 False，
     只有「已知的都为真、却有输入缺失」才是 None。
@@ -78,7 +101,7 @@ def _bind_dual_red_strict(sl: RiverSlice) -> tuple[bool | None, list[str]]:
     两条路径上得到不同的真值，且没有任何地方会报错（09-12 复核抓到：pct=1 / diff=NULL /
     amount=100 时标签层判 0、这里判未知）。一致性由 ``test_river_derive_matches_labels_layer`` 钉住。
     """
-    o = _first(track_objects(sl, "market"), "label")
+    o = _sector_quote(sl)
     if o is None:
         return None, []
     p = o.payload
@@ -122,17 +145,113 @@ def _bind_limit_heat_rank(sl: RiverSlice) -> tuple[float | None, list[str]]:
     return None, []
 
 
+def _bind_multi_period_resonance(sl: RiverSlice) -> tuple[bool | None, list[str]]:
+    """``fact_sector_daily.multi_period_resonance`` 的直接投影。
+
+    标签层是 ``CASE WHEN multi_period_resonance IS NULL THEN NULL WHEN … THEN 1 ELSE 0 END``
+    （labels.py 的布尔列投影），没有阈值、没有派生，所以这里也只做三值映射：
+    缺列 / 缺行 / 列为 NULL → None，其余按 Python 真值判。
+
+    不写 ``bool(v)`` 兜底任意类型：该列在 schema 里是 BOOLEAN，真库若哪天变成 0/1 整数或
+    'Y'/'N' 字符串，``bool("N")`` 会判成 True 而且不报错。只认 bool，其余交给下面的显式分支。
+    """
+    o = _sector_quote(sl)
+    if o is None:
+        return None, []
+    v = o.payload.get("multi_period_resonance")
+    if v is None:
+        return None, [o.ref]
+    if isinstance(v, bool):
+        return v, [o.ref]
+    n = _num(v)
+    if n is not None:  # 整数 0/1 列：真库换型时仍可判，且口径与 SQL 的 CASE 一致
+        return bool(n != 0), [o.ref]
+    raise LabelNotSliceEvaluable(
+        f"multi_period_resonance 读到非布尔非数值的 {type(v).__name__} 值 {v!r}；"
+        " 上游列型变了，绑定层拒绝猜——改口径请同时改 labels.py 的投影并升 LABEL_VERSION"
+    )
+
+
+def _bind_opinion_stage(sl: RiverSlice) -> tuple[str | None, list[str]]:
+    """舆论生命周期段（萌芽 / 扩散 / 拥挤 / 退热 / 证伪 / unverifiable）。
+
+    切片的舆论轨已经调过 ``opinion_stage.derive_stage(hits, as_of, knowledge_cutoff=as_of)``
+    并把结果发成 ``object_type="stage"``；标签层 ``_build_opinion_stage_labels`` 调的是
+    **同一个函数、同一组参数**。所以这里不重算，只取那个对象的 ``stage`` ——重算等于把
+    同一口径实现两遍，正是 parity 测试要防的东西。
+
+    该板块名从未被研报 tag 命中的日子，舆论轨整条是 ``Gap("opinion","no_data")``，
+    这里返回 None，与标签层的「不落行 = NULL」对上。
+
+    ⚠ 一处**已知且故意保留**的不对称：标签层按 ``sector_ts_code`` 归并该代码历史上的
+    全部曾用名再取命中并集（实测 990380.FP 有两个名字），河这边只用当前切片的
+    ``entity_name`` 一个名字匹配。改过名的板块在改名前后会出现两层口径不同的日子。
+    不在这里偷偷补：河的实体归一走 ``resolve_entity`` / ``config_sector_alias``，
+    那才是该修的地方（实测该表 0 行，见质检 P2）。此处只把差异写明，避免下游以为两边恒等。
+    """
+    o = _first(track_objects(sl, "opinion"), "stage")
+    if o is None:
+        return None, []
+    v = o.payload.get("stage")
+    return (v if isinstance(v, str) and v else None), [o.ref]
+
+
+def _bind_lifecycle_stage(sl: RiverSlice) -> tuple[str | None, list[str]]:
+    """题材生命周期七段（酝酿 / 首发 / 发酵 / 主升 / 分歧 / 退潮 / 回流）的当日读数。
+
+    题材轨的 ``theme_lifecycle_stage_object`` 与标签层的 ``_build_lifecycle_stage_labels``
+    是同一台状态机（``theme_lifecycle_timeline.derive_stages`` 的 ``daily=`` 逐日态），
+    labels.py 的 docstring 已写明「随机抽 30 格两边逐字节相等（测试钉住）」。这里同样只取不算。
+
+    取的是 ``payload["stage"]``（站在当天的读数），**不是**
+    ``payload["segment_hindsight"]["stage"]`` —— 后者是段落表的事后视角（起点回溯、短段合并），
+    两者可以不同，而 PIT 下只有前者可用。段外（首个盘面信号之前 / 段间空档）题材轨不发
+    stage 对象，这里返回 None，对应标签层的 NULL；那是 gap，不是「酝酿」。
+    """
+    for o in track_objects(sl, "theme"):
+        if o.object_type == "stage" and o.payload.get("mapping_version"):
+            v = o.payload.get("stage")
+            return (v if isinstance(v, str) and v else None), [o.ref]
+    return None, []
+
+
 # 白名单：单日切片能判的注册标签 → 绑定函数。值域：bool（谓词）或标量（stage / rank，用于 transition）。
+#
+# 只收 ``ALL_LABELS`` 里已登记的名字（``bind`` 会先查），这里扩的是「已注册但还没接线」的那部分，
+# 不新造标签名、不动任何阈值、不升 ``LABEL_VERSION``——口径一个字没改，只是河这边原本能判却没判。
 SLICE_EVALUABLE_LABELS: dict[str, Callable[[RiverSlice], tuple[Any, list[str]]]] = {
     "dual_red_strict": _bind_dual_red_strict,
     "volume_surge": _bind_volume_surge,
     "market_stage": _bind_market_stage,
     "limit_heat_rank": _bind_limit_heat_rank,
+    "multi_period_resonance": _bind_multi_period_resonance,
+    "opinion_stage": _bind_opinion_stage,
+    "lifecycle_stage": _bind_lifecycle_stage,
 }
+
+# 为什么剩下 10 个注册标签仍然不在上面（写下来，省得下次有人重新判断一遍）：
+#   amount_rank_top10        切片只有本实体的 amount，没有当日 published 名单的横截面，排名算不出来
+#   mainline_flag            fact_mainline_sector_daily 不在六轨任何一轨的取数范围内
+#   limit_heat_rank_jump     要前一交易日的名次 → 用 derive_transitions(limit_heat_rank) 表达
+#   dual_red_streak          就是 derive_streak("dual_red_strict") 本身，重复绑定等于两处口径
+#   diff_ratio_turn_up       要相邻前一日 → 区间派生，不是单日
+#   ma5_peak_confirmed       SignalDetector 要全程 fact_market_daily 序列
+#   ma5_valley_confirmed     同上
+#   limit_up / first_board / new_high_1y
+#                            个股级标签。河的实体是板块，个股轨给的是成员列表；
+#                            在板块切片上「绑定」它们只能绑成某种聚合（几只涨停 / 占比），
+#                            而那是**另一个标签**，需要新名字 + LABEL_VERSION，踩 G-16 红线。
 
 
 def bind(label: str, sl: RiverSlice) -> tuple[Any, list[str]]:
-    """注册标签在一片切片上的值与所用对象 ref。不在白名单 → 抛错（不猜、不静默 None）。"""
+    """注册标签在一片切片上的值与所用对象 ref。不在白名单 → 抛错（不猜、不静默 None）。
+
+    ``tf.*`` 走教学桥（``river_teaching_bridge``）：命名空间不合并，缺旁路库返回 ``(None, [])`` → unknown。
+    """
+    from intelligence.services import river_teaching_bridge as _bridge
+
+    if _bridge.is_teaching_label(label):
+        return _bridge.bind_teaching(label, sl)
     if label not in ALL_LABELS:
         raise LabelNotSliceEvaluable(f"{label!r} 不是注册标签（ALL_LABELS @ {LABEL_VERSION}）")
     fn = SLICE_EVALUABLE_LABELS.get(label)
@@ -211,6 +330,32 @@ def _values(win: RiverWindow, label: str) -> list[DayValue]:
     return out
 
 
+def _require_boolean(label: str, vals: list[DayValue]) -> None:
+    """``streak`` 只对**布尔谓词**有意义；非布尔标签必须抛错，不得静默算成 0。
+
+    为什么要这道门：``derive_streak`` 的内层循环是 ``if d.value is True``，分类标签
+    （``market_stage`` 取 '震荡'/'主升'…）或数值标签（``limit_heat_rank``）永远走不进
+    这个分支，于是返回 ``longest=0, current=0`` 且 ``status="ok"``——**一个看着完全
+    正常的读数**，调用方没有任何线索知道它问错了问题。注册标签里只有少数是布尔，
+    传错的概率不低，而错了之后拿到的是假零不是异常，正是本仓反复强调的那类
+    「看起来完全合理、足以支撑一次错误归属分析」的数字。
+
+    连续段语义对分类标签不是没有，而是**另一个对象**：某个取值连续出现几天，
+    要先把标签投影成谓词（``market_stage == '主升'``）再数。那是调用方的建模决定，
+    本函数不替它猜一个取值。
+    """
+    bad = [d for d in vals if d.value is not None and not isinstance(d.value, bool)]
+    if not bad:
+        return
+    sample = bad[0]
+    kinds = sorted({type(d.value).__name__ for d in bad})
+    raise LabelNotSliceEvaluable(
+        f"streak 只接布尔谓词，{label!r} 在区间内取到 {kinds} 值"
+        f"（如 {sample.day}={sample.value!r}）。"
+        " 分类/数值标签请先投影成谓词再数连续段——直接传进来会得到 longest=0 的假零读数。"
+    )
+
+
 # --------------------------------------------------------------------------- #
 # streak：连续 N 日谓词为真
 # --------------------------------------------------------------------------- #
@@ -224,6 +369,7 @@ def derive_streak(win: RiverWindow, label: str, *, gap_policy: str = "unverifiab
     if gap_policy == "skip":
         raise ValueError("streak 是连续量：缺天跳过继续数等于把「不知道」当成「连着」，不接受 skip")
     vals = _values(win, label)
+    _require_boolean(label, vals)
     missing = [d.day for d in vals if d.value is None]
     refs = [r for d in vals for r in d.refs]
     rule = {"name": f"streak:{label}", "version": "v1"}

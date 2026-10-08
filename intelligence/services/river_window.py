@@ -66,16 +66,17 @@ class FeatureSpec:
     source: str  # 表.列，或表 + 聚合规则
     rule: str
     label: str
+    unit: str = "未声明"
 
 
 # 六个维度都要有代表特征。选取原则：能从库里确定性算出、且是该维度的一等量。
 FEATURES: tuple[FeatureSpec, ...] = (
     # 盘面
-    FeatureSpec("total_amount", "market", "fact_market_daily.total_amount", "当日原值", "成交额"),
-    FeatureSpec("advancers", "market", "fact_market_daily.advancers", "当日原值", "涨家数"),
-    FeatureSpec("limit_up", "market", "fact_market_daily.limit_up", "当日原值", "涨停家数"),
+    FeatureSpec("total_amount", "market", "fact_market_daily.total_amount", "当日原值", "成交额", "亿元"),
+    FeatureSpec("advancers", "market", "fact_market_daily.advancers", "当日原值", "涨家数", "家"),
+    FeatureSpec("limit_up", "market", "fact_market_daily.limit_up", "当日原值", "涨停家数", "家"),
     FeatureSpec(
-        "sh_deviation_pct", "market", "fact_market_daily.sh_deviation_pct", "当日原值", "偏离度"
+        "sh_deviation_pct", "market", "fact_market_daily.sh_deviation_pct", "当日原值", "偏离度", "%"
     ),
     # 题材
     FeatureSpec(
@@ -83,14 +84,14 @@ FEATURES: tuple[FeatureSpec, ...] = (
         "theme",
         "fact_sector_daily",
         f"COUNT({DOUBLE_RED_SQL})：阈值真源是 market_feature_store/signals.py",
-        "双红题材数",
+        "双红题材数", "个",
     ),
     FeatureSpec(
         "top1_limit_share",
         "theme",
         "fact_theme_limit_heat_daily.market_share",
         "当日 rank=1 的题材涨停份额",
-        "首题材份额",
+        "首题材份额", "源market_share尺度未核",
     ),
     # 舆论
     FeatureSpec(
@@ -98,7 +99,7 @@ FEATURES: tuple[FeatureSpec, ...] = (
         "opinion",
         "fact_research_report_catalog.report_date",
         "近 30 日研报条数（滚动）；累计数被回填批次污染，故用滚动窗",
-        "近30日研报",
+        "近30日研报", "条",
     ),
     # 资金
     FeatureSpec(
@@ -106,7 +107,7 @@ FEATURES: tuple[FeatureSpec, ...] = (
         "capital",
         "fact_theme_flow_daily.total_fund",
         "当日全题材净流入求和（DECIMAL 精确求和，避免并行浮点飘位）",
-        "题材净流入",
+        "题材净流入", "源total_fund单位未核",
     ),
     # 个股
     FeatureSpec(
@@ -114,7 +115,7 @@ FEATURES: tuple[FeatureSpec, ...] = (
         "stock",
         "fact_market_daily.stock_high_count_1y",
         "当日原值",
-        "一年新高家数",
+        "一年新高家数", "家",
     ),
     # 判断
     FeatureSpec(
@@ -122,7 +123,7 @@ FEATURES: tuple[FeatureSpec, ...] = (
         "judgment",
         "checkpoints.jsonl",
         "当日登记的可证伪点条数；用户态文件，未提供路径时该维整体缺失",
-        "登记判断数",
+        "登记判断数", "条",
     ),
 )
 

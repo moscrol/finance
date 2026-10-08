@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 from pathlib import Path
 
 import pytest
@@ -80,9 +81,11 @@ def test_regime_question_with_data_emits_real_d10_block(tmp_path: Path) -> None:
     )
     blob = _blob(items)
     assert "[D10]" in blob
-    assert "历史相似窗口" in blob
+    rendered = json.loads(blob.split("```json\n")[1].split("\n```")[0])
+    assert rendered["windows"] and rendered["candidates"]["windows"]
+    assert rendered["selection"]["comparable_count"] >= len(rendered["windows"])
     assert "后续5交易日" in blob
-    assert "上证指数累计终点收益" in blob
+    assert "sh_index_cum_pct" in rendered["forwards"]["columns"]
 
 
 @pytest.mark.skipif(duckdb is None, reason="duckdb 不可用")

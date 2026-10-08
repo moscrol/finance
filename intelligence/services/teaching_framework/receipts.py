@@ -50,14 +50,17 @@ def canonical_rows_hash(
     *,
     columns: Sequence[str] | None = None,
     primary_key: Sequence[str] | None = None,
-    exclude_columns: Sequence[str] = ("computed_at",),
+    exclude_columns: Sequence[str] = ("computed_at", "first_known_at"),
     table: str | None = None,
     where: str | None = None,
 ) -> str:
     """Hash rows in deterministic column/key order.
 
     ``computed_at`` is excluded by default because it records build time, not
-    the derived object.  Columns are hashed in name order, not physical order:
+    the derived object.  ``first_known_at`` is excluded for the same reason: it
+    is PIT provenance (when this reading could first be known), not content.
+    Including it would make two fresh builds of identical data hash differently,
+    because rows without prefix-stability evidence are stamped at build time.  Columns are hashed in name order, not physical order:
     a sidecar that gained a column through ``ALTER TABLE`` and a freshly created
     one must hash identical content to the same value.  A connection plus
     ``table`` is accepted for callers rebuilding a sidecar table; an iterable is

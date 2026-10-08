@@ -235,6 +235,49 @@ canonical `fact_sector_daily` published 视图，按本表当日主题统计完�
 这是结果交付的有限保证，发布状态仍以 health 与部署账本为准；原失败首答保留。
 设计及验收见 [结果文字所有权设计](superpowers/specs/2026-10-08-owned-result-delivery-design.md)。
 
+### 市场历史比较镜头（2026-10-08，PR75候选）
+
+`market_history_context.market_history_blocks` 是共享只读取数接缝，不新增产品门：
+A 的 `episode_tools → asof_prefetch` 开场证据与 B 的 `ask.answer_query` D10 provider 共用。
+保留市场情绪类比的历史后续事实，另送 river 的当前窗、拟合范围、逐维水平/趋势/贡献、
+来源、缺维及上游 PIT 标记。两套候选分开计算，不表示统计独立，不按名次嫁接后续收益；交易日截断和上游
+`strict` 不证明每个历史日当时已知，标准化含当前窗也不构成训练/留出检验。
+
+A 在历史读取前检查市场能力许可、材料范围与剩余截止；共享接缝在两块之间再次检查
+同一截止。这是启动前守卫，不中断已运行的 DuckDB 查询，也不是所有预取的统一权限门。
+B 显式日期优先、否则解析问句日；普通快查不启动镜头，禁用 D10 不读本块。
+历史整块作为 `INFERRED` 上下文进入 AnswerSpec，不升成已核验事实；默认 grounded
+合成及缺项修订给它保留完整 registry 席位，超出既有预算时拒绝合成、保留确定性降级，
+不把读数和共同限制拆散。非 D10 的 registry 排序合同不变。
+
+离线测试到 A 连续循环的首次模型请求、B 默认/旧合成的模型接口替身，另有只读真库探针；
+不证明模型实际利用、回答质量或生产已消费。B 的 generic owner 早退分支不走本 D10，
+教学 `tf.*`、用户判断台账、环境剧本命名/持久化/回检尚未接入镜头。
+详见[迁移验收](verification/2026-10-08-vidio-finance-transfer-qc.md)。
+
+外部 pi 消费候选见 [`integrations/pi`](../integrations/pi/README.md)：显式加载只读工具，
+经 Python JSON 传输复用同一接缝，不增加研究逻辑、不替代 Workbench 会话合同。
+新增离线测试从完整 Workbench HTTP 入口验到模型接口；pi 则走真实 CLI/工具执行与下一轮
+脚本 provider 收取；这两组离线测试本身不证明真实利用。
+后续用户授权不限预算，`8a29bcacd` 经真实 `zai-coding-cn/glm-5.3` 首发两组合成样本，
+4次请求/2次原生工具调用，完整结果进入后续模型请求，答卷实际使用逐维读数与候选差异。
+**该两例传输/利用通过，金融解释质量未过**，详见[原首发](handoffs/2026-10-08-river-glm-synthetic-trial.md)。
+后续 `094797ed6` 复用原取数修D10查询失败/无值/常量退出、当前覆盖及记录时间文案，原排名/收益不变；
+净树定向594P。同库/问题再各一次真实GLM首发，识别修正信息并区分终点频率与未来胜率，
+但全文仍有百分位/候选范围解释错误，不签金融质量。pi真库消费、Workbench真实作者/判官仍未验；
+与Codex的D4/日期合同窄修无路径交集，整枝既有合并冲突尚未处理，详见[修复与协作](handoffs/2026-10-08-d10-semantics-and-codex-coordination.md)。
+用户要求先查根因后，64624794a离线复现突出度小样本上限、距离接近/方向/路径混义及模型材料的定义/范围损失；
+诊断轮没有产品改动，见[根因诊断](handoffs/2026-10-08-river-root-cause-diagnosis.md)。
+随后实施[结果合同](superpowers/specs/2026-10-08-history-comparison-result-contract.md)：撤下未校准突出类别，
+分开贡献等级与首尾段方向；窗口身份/选择范围/来源状态/覆盖进入既有对象，模型块从同一对象投影为具名列表。
+局部引用须按本块`windows`回查日期，不能跨块同序号关联；模型摘要明确不含首尾各自水平均值与逐日路径。
+原距离/排序不改，完整期限收益要求日收益齐全；缺日收益修复单列，不解释原两份无缺日答卷。
+外层工具协议、48KB原子预算及B入口12K预算不变。净产品`d3df048ae`定向641P，原两例向量/排名/完整期限收益对账不变。
+第三轮各一次GLM5.3 high首发（4请求/2工具），完整投影送达并被使用；日期关系/终点频率等读到，
+但仍有unknown写成0、近零判反向、摘要写成路径，另有跨块来源归属含混，**全文金融质量未过**。
+原两例只算开发回归，不签泛化。下一步按命题核证据依赖，分清材料余缺与消费失真，不继续句子补丁；
+见[实施与第三轮回归](handoffs/2026-10-08-history-result-contract-and-glm-regression.md)。
+
 ### 评测专用目录视图（非生产入口）
 
 `intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，
