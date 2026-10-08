@@ -265,7 +265,7 @@ B 显式日期优先、否则解析问句日；普通快查不启动镜头，禁
 后续 `094797ed6` 复用原取数修D10查询失败/无值/常量退出、当前覆盖及记录时间文案，原排名/收益不变；
 净树定向594P。同库/问题再各一次真实GLM首发，识别修正信息并区分终点频率与未来胜率，
 但全文仍有百分位/候选范围解释错误，不签金融质量。pi真库消费、Workbench真实作者/判官仍未验；
-与Codex的D4/日期合同窄修无路径交集，整枝既有合并冲突尚未处理，详见[修复与协作](handoffs/2026-10-08-d10-semantics-and-codex-coordination.md)。
+当时与Codex的D4/日期合同窄修无路径交集，但整枝冲突尚未处理，详见[该阶段修复与协作](handoffs/2026-10-08-d10-semantics-and-codex-coordination.md)。
 用户要求先查根因后，64624794a离线复现突出度小样本上限、距离接近/方向/路径混义及模型材料的定义/范围损失；
 诊断轮没有产品改动，见[根因诊断](handoffs/2026-10-08-river-root-cause-diagnosis.md)。
 随后实施[结果合同](superpowers/specs/2026-10-08-history-comparison-result-contract.md)：撤下未校准突出类别，
@@ -277,6 +277,14 @@ B 显式日期优先、否则解析问句日；普通快查不启动镜头，禁
 但仍有unknown写成0、近零判反向、摘要写成路径，另有跨块来源归属含混，**全文金融质量未过**。
 原两例只算开发回归，不签泛化。下一步按命题核证据依赖，分清材料余缺与消费失真，不继续句子补丁；
 见[实施与第三轮回归](handoffs/2026-10-08-history-result-contract-and-glm-regression.md)。
+
+后续仅在隔离分支 `baseline/river-owned-joint-1008` 组合 `bd66de250` 与 `af1f64b9f`，
+两个冲突同时保留 D4 未类型化说明不铸事实、D10 整块推断的合同。固定 `642b45358`
+净树 68 文件 2084P/1F：普通 B 合成与原生 Episode 的同请求联合证人通过，但 grounded
+材料窗中本例 D10 占 11228 字符，反证/缺口占位后三条 D4 fact 全未送达；仍列出的 ID
+不等于事实送达。D4 query_basis 从 prepared 到 grounded 的丢失在干净 main 也复现。
+联合验收未过，不是已合流/可发布；12K/48KB不增、未改 owned 引擎、新模型0，旧金融质量不翻案。
+根因证据及接续见[联合消费者红灯](handoffs/2026-10-08-river-owned-joint-consumer.md)。
 
 ### 评测专用目录视图（非生产入口）
 
