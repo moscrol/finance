@@ -7,14 +7,15 @@ detached immutable products. It performs no IO and certifies no free prose.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from hashlib import sha256
 import json
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
 from intelligence.services.material_answer_authoring import (
-    MaterialAuthoringError, compile_material_author_finish, material_author_schema,
+    MATERIAL_AUTHOR_FORMAT, MaterialAuthoringError, compile_material_author_finish, material_author_schema,
 )
 from intelligence.services.material_grounding import (
     claim_finish_format, render_material_claims, split_claim_sentences,
@@ -24,6 +25,7 @@ from intelligence.services.owned_results import (
 )
 
 if TYPE_CHECKING:
+    from intelligence.services.agent_runtime import EpisodeEvent
     from intelligence.services.prior_evidence import PriorTurnEvidence
     from intelligence.services.research_contract import ResearchRunContext, ResearchTaskContract
 
@@ -225,6 +227,82 @@ def finish_author_contract(context: ResearchRunContext) -> FinishAuthorContract:
         cast(Mapping[str, object], _freeze(schema)),
         cast(Mapping[str, object] | None, _freeze(payload)),
     )
+
+
+def saved_finish_format(
+    events: Iterable[EpisodeEvent], *, context: ResearchRunContext,
+) -> dict[str, object] | None:
+    """Read the first native author description; absence keeps the old wire.
+
+    Repair/finalizer inputs cannot replace this identity. It describes a body,
+    never a grant: compilation still rechecks the current context and sources.
+    """
+    saved = tuple(events)
+    if any(event.kind == "prompt_assembled" and event.payload.get("source", "episode") not in {"episode", "finalizer"}
+           for event in saved):
+        raise FinishAuthoringError("bad_claim_binding", "saved author prompt source is unknown")
+    initial = next((event for event in saved if event.kind == "prompt_assembled"
+                    and event.payload.get("source", "episode") == "episode"), None)
+    if initial is None:
+        return None
+    raw = initial.payload.get("user")
+    if not isinstance(raw, str):
+        raise FinishAuthoringError("bad_claim_binding", "saved author input is unavailable")
+    for field in ("user", "system"):
+        digest = initial.payload.get(field + "_sha256")
+        text = initial.payload.get(field)
+        if digest is not None and (not isinstance(text, str) or digest != sha256(text.encode()).hexdigest()):
+            raise FinishAuthoringError("bad_claim_binding", "saved author input hash mismatch")
+    try:
+        # Historical research appends its context after the opening JSON.
+        payload, _ = json.JSONDecoder().raw_decode(raw.lstrip())
+    except ValueError as exc:
+        if raw.lstrip().startswith("{"):
+            raise FinishAuthoringError("bad_claim_binding", "saved author input is corrupt") from exc
+        return None  # Existing custom harnesses may use a plain-text opening.
+    if not isinstance(payload, dict):
+        return None
+    grounding = payload.get("material_grounding")
+    old_format = grounding.get("finish_format") if isinstance(grounding, dict) else None
+    description = payload.get("finish_format", old_format)
+    if description is None and "finish_format" not in payload:
+        return None
+    if (not isinstance(description, dict) or set(description) != {"format", "wire_template", "rule"}
+            or any(not isinstance(value, str) or not value for value in description.values())):
+        raise FinishAuthoringError("bad_claim_binding", "saved author format is corrupt")
+    if old_format is not None and old_format != description:
+        raise FinishAuthoringError("bad_claim_binding", "saved author format has conflicting sources")
+    current = finish_author_contract(context).prompt_payload()
+    if current is None or description["format"] != current["format"]:
+        raise FinishAuthoringError("bad_claim_binding", "saved author format is unknown or crosses the current owner")
+    try:
+        template = json.loads(description["wire_template"])
+    except ValueError as exc:
+        raise FinishAuthoringError("bad_claim_binding", "saved author template is corrupt") from exc
+    if description["format"] == ORDINARY_AUTHOR_FORMAT:
+        if template != json.loads(current["wire_template"]):
+            raise FinishAuthoringError("bad_claim_binding", "saved ordinary author template is corrupt")
+    elif description["format"] == MATERIAL_AUTHOR_FORMAT:
+        # Required-output downgrade may change the current example, but cannot
+        # replace the originally saved author shape or its material owner.
+        if (not isinstance(template, dict) or set(template) != {"format", "status", "answers"}
+                or template.get("format") != MATERIAL_AUTHOR_FORMAT or template.get("status") != "completed"
+                or not isinstance(template.get("answers"), list)
+                or any(not isinstance(item, dict) or set(item) != {"output_id", "claims"}
+                       or not isinstance(item["output_id"], str) or item["claims"] != []
+                       for item in template["answers"])):
+            raise FinishAuthoringError("bad_claim_binding", "saved material author template is corrupt")
+    else:
+        raise FinishAuthoringError("bad_claim_binding", "saved author format is unknown")
+    # Preserve saved wording even if a later default revises its guidance.
+    return cast(dict[str, object], _thaw(_freeze(description)))
+
+
+def describe_finish_format(message: str, finish_format: Mapping[str, object] | None) -> str:
+    """Repeat the selected description in an existing native model input."""
+    if finish_format is None:
+        return message
+    return message + "\n" + json.dumps({"finish_format": _thaw(_freeze(finish_format))}, ensure_ascii=False)
 
 
 def _normalize_natural_language_layout(value: str) -> str:

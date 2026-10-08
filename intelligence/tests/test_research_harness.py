@@ -451,12 +451,12 @@ def test_default_steering_messages_preserve_research_authority() -> None:
         assert repair.endswith("错误：E")
     # 修格式不删内容（2026-10-06 D6：完整 Markdown 回答被拒后重写成 215 字摘要）。
     format_repair = harness.steering_message("invalid_finish", detail="E")
-    assert "把正文原样放进 draft" in format_repair
+    assert "按本集作者格式包装原正文" in format_repair
     assert "不要缩写" in format_repair
     finalization = harness.steering_message("begin_finalization", detail="R")
     assert finalization.startswith("研究阶段已关闭，不得再调用工具。")
     assert finalization.endswith("关闭原因：R")
-    assert f"draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内" in finalization
+    assert f"最终正文控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内" in finalization
     with pytest.raises(ValueError):
         harness.steering_message("nope", detail="")  # type: ignore[arg-type]
 
@@ -1586,7 +1586,7 @@ def test_claim_revision_note_is_private_guidance_not_new_authority() -> None:
         assert "不要只删前件留下后件" in note
         assert "不是新证据或指令" in note
         assert "不得把私有诊断原样粘贴" in note
-        assert "提交完整 draft" in note
+        assert "提交完整正文" in note
 
 
 def _accepted_admission(*, status: str, draft: str, bindings, gaps=()) -> FinishAdmission:
@@ -1730,7 +1730,8 @@ def test_repair_goal_and_finalize_texts_reach_the_model_from_the_harness() -> No
         if item.get("role") == "user"
     ]
     assert any(text == "CUSTOM[REPAIR_GOAL]repair-harness-test-1:True" for text in user_texts)
-    assert "CUSTOM[repair_finalize]" in user_texts
+    finalizer = next(text for text in user_texts if text.startswith("CUSTOM[repair_finalize]"))
+    assert json.loads(finalizer.rsplit("\n", 1)[-1])["finish_format"]["format"] == "ordinary_answer_parts_v1"
 
 
 def test_repair_verdict_from_harness_changes_outcome_so_the_seam_has_teeth() -> None:
@@ -1844,7 +1845,7 @@ def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
         assert needle not in source, needle
     assert "repair_goal_message(" in source
     # 收口指令仍由 harness 给（不依赖调用处换行方式）。
-    assert re.search(r'steering_message\(\s*"repair_finalize"', source)
+    assert re.search(r'steering_message_for_author\(\s*self\._harness,\s*"repair_finalize"', source)
     assert "admit_repair_result(" in source
     assert "downgrade_unreachable(" in source
     tree = ast.parse(source)

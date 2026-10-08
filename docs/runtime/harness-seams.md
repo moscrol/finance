@@ -18,7 +18,7 @@ def assemble_prompt(self, task_frame: 'TaskFrame', context: 'ResearchRunContext'
 ## `steering_message`
 
 ```python
-def steering_message(self, kind: 'SteeringKind', *, detail: 'str') -> 'str'
+def steering_message(self, kind: 'SteeringKind', *, detail: 'str', finish_format: 'Mapping[str, object] | None' = None) -> 'str'
 ```
 
 loop 在驳回 / 关闭研究阶段时注入给模型的那段话（user 角色正文）。

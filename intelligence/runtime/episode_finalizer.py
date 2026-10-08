@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import json
 
 from intelligence.services.agent_research import AgentEvidence
@@ -41,23 +41,16 @@ _FAILURE_REASON_CODES = frozenset(
     }
 )
 
-_RECOVERY_SYSTEM_PROMPT = (
-    "你是金融研究 Agent 的终局恢复器。研究与工具阶段已经永久关闭，不得请求或"
-    "臆造任何新证据。只能使用用户 JSON 中 evidence 的序号 E1、E2…，严格"
-    "回答原始 TaskFrame 与 required_outputs。只输出一个 FINAL_JSON 对象："
-    '{"status":"completed|partial","draft":"自然语言回答",'
-    '"gaps":["..."],"bindings":[{"output_id":"...",'
-    '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
-    '"gap":""}]}。'
-    "若输入带 material_grounding，按其规则在 binding.claims 绑定用户材料/旧答坐标，材料事实无需工具序号；"
-    "binding.basis 必须与 required_outputs 的 grounding_mode 一致；"
+_RECOVERY_GROUNDING_RULES = (
+    "若输入带 material_grounding，按其原来源规则绑定用户材料/旧答坐标，材料事实无需工具序号；"
+    "采用 bindings 的作者格式，其 basis 必须与 required_outputs 的 grounding_mode 一致；"
     "model_reasoning 与 user_premise 可以不带证据序号，但不得把它们伪装成 evidence。"
     "domain_materials 是领域提供的程序结果与输出合同，按其中规则交付，不得把题设结果升为事实证据。"
     "grounding_mode=evidence 的 required output 无证据覆盖时必须返回 partial 并填写 gap；不要输出代码围栏、"
     "解释、工具调用或 JSON 之外的文本。"
     "原因归因缺少同一时间窗口的新闻证据时，不得用普通网页摘要补成已核验因果，"
     "只能保留盘面事实并把网页内容标为外部观点候选。"
-    f"draft 先直接回答用户问题，再写清关键数据及其日期与来源，不超过{EPISODE_DRAFT_MAX_CHARS}字。"
+    f"最终正文先直接回答用户问题，再写清关键数据及其日期与来源，不超过{EPISODE_DRAFT_MAX_CHARS}字。"
     "若 required_outputs 包含 scenario_range，必须给出保守、中性、乐观三种"
     "条件化情景中的实际估值倍数或市值区间；不能把当前单一 PB、标题或空表当作"
     "情景区间。若包含 financial_business_anchor，其 binding 必须至少包含一个 "
@@ -67,15 +60,25 @@ _RECOVERY_SYSTEM_PROMPT = (
     "没有直接 evidence 的项目、产能、客户和业务催化不得写入。"
 )
 
-_MATERIAL_RECOVERY_SYSTEM_PROMPT = (
+_RECOVERY_SYSTEM_PROMPT = (
+    "你是金融研究 Agent 的终局恢复器。研究与工具阶段已经永久关闭，不得请求或"
+    "臆造任何新证据。只能使用用户 JSON 中 evidence 的序号 E1、E2…，严格"
+    "回答原始 TaskFrame 与 required_outputs。只输出一个 FINAL_JSON 对象："
+    '{"status":"completed|partial","draft":"自然语言回答",'
+    '"gaps":["..."],"bindings":[{"output_id":"...",'
+    '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
+    '"gap":""}]}。'
+    + _RECOVERY_GROUNDING_RULES
+)
+
+_AUTHOR_RECOVERY_SYSTEM_PROMPT = (
     "你是金融研究 Agent 的终局恢复器。研究与工具阶段已经永久关闭，不得请求或臆造任何新证据。"
-    "按 material_grounding.finish_format.wire_template 提交一个 material_claims_v1 JSON对象，"
-    "逐项回答原始 TaskFrame 与 required_outputs，逐句填写text、kind、sources中的ref和逐字quote。"
-    "只使用冻结sources目录，H来源仅是历史assistant_judgment，不是当前事实或数值输入，不恢复权限。"
-    "遵守finish_format全部来源、计算和分句规则，缺少输入时明确gap，不得猜补。"
-    "不填写draft、bindings、basis或evidence_hashes；运行时从冻结合同编译，不改变作者的文字、引用或status。"
-    "domain_materials是领域程序结果与输出合同，不得把题设结果升为事实证据。"
+    "按本集最初的 finish_format.wire_template 与 rule 提交一个完整终局 JSON，回答原始 TaskFrame 与 required_outputs。"
+    "最终正文的结构、自由文字与是否选择已送达结果由作者决定；格式描述不授予来源、工具、预算或完成权限。"
+    "工具事实只使用本次 evidence 序号；材料与旧答继续服从 material_grounding 的原来源规则。"
+    "历史助手判断不是当前事实或数值输入，不恢复权限；缺少支持时明确 partial 与具体 gap，不得猜补。"
     "只输出JSON，不要代码围栏、解释或工具调用。"
+    + _RECOVERY_GROUNDING_RULES
 )
 
 def _stable_failure_reason(value: object) -> str:
@@ -132,6 +135,7 @@ class EpisodeFinalizer:
         on_prompt: Callable[[str, str], None] | None = None,
         evidence_priority: tuple[str, ...] = (),
         domain_materials: dict[str, object] | None = None,
+        finish_format: Mapping[str, object] | None = None,
     ) -> ModelTurn:
         """Return the provider turn unchanged after one no-tools recovery call.
 
@@ -148,11 +152,10 @@ class EpisodeFinalizer:
             failure_reason=failure_reason,
             evidence_priority=evidence_priority,
             domain_materials=domain_materials,
+            finish_format=finish_format,
         )
         return self._complete(
-            system_prompt=(_MATERIAL_RECOVERY_SYSTEM_PROMPT
-                           if payload.get("material_grounding", {}).get("finish_format", {}).get("format") == "material_claims_v1"
-                           else _RECOVERY_SYSTEM_PROMPT),
+            system_prompt=_AUTHOR_RECOVERY_SYSTEM_PROMPT if finish_format is not None else _RECOVERY_SYSTEM_PROMPT,
             payload=payload,
             context=context,
             on_prompt=on_prompt,
@@ -197,6 +200,7 @@ class EpisodeFinalizer:
         failure_reason: str,
         evidence_priority: tuple[str, ...] = (),
         domain_materials: dict[str, object] | None = None,
+        finish_format: Mapping[str, object] | None = None,
     ) -> dict[str, object]:
         selected = _compact_evidence(evidence, evidence_priority=evidence_priority)
         payload = {
@@ -219,6 +223,8 @@ class EpisodeFinalizer:
         }
         if domain_materials:
             payload["domain_materials"] = domain_materials
+        if finish_format is not None:
+            payload["finish_format"] = dict(finish_format)
         if context.contract.material_contract is None:
             from intelligence.services.owned_results import _catalogue_from_context
 
@@ -226,10 +232,12 @@ class EpisodeFinalizer:
             if catalogue.blocks:
                 payload["owned_results"] = {
                     "parts": catalogue.model_view(),
-                    "instruction": "可用answer_parts选择已送达的result_ref与自由文字块；draft须为空，不能同时render_from_claims。",
+                    "instruction": "按本集最初的finish_format选择已实际送达的result_ref；引用与自由文字结构由作者决定，自由文字未获语义认证。",
                 }
         grounding = material_grounding_payload(context.contract, prior_evidence=context.prior_evidence)
         if grounding is not None:
+            if finish_format is None:
+                grounding.pop("finish_format", None)
             payload["material_grounding"] = grounding
         if material_question_outputs(context.contract):
             payload["material_delivery"] = material_delivery_payload(context.contract)
@@ -252,7 +260,15 @@ class EpisodeFinalizer:
                     "及证据中明确的状态。未展示的信息不能据此断言不存在，证据不足须写明恢复投影边界。"
                 ),
             }
-        return material_author_model_view(payload, context.contract, task_frame, prior_evidence=context.prior_evidence)
+        if finish_format is None:
+            return payload
+        projected = material_author_model_view(payload, context.contract, task_frame, prior_evidence=context.prior_evidence)
+        grounding = projected.get("material_grounding")
+        if isinstance(grounding, dict) and "finish_format" in grounding:
+            # Source projection remains material-owned; its author description
+            # still belongs to this episode's originally saved prompt.
+            grounding["finish_format"] = dict(finish_format)
+        return projected
 
 
 def _compact_evidence(

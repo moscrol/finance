@@ -276,6 +276,8 @@ def build_episode_instructions(
     """
 
     del task_frame, context, registry
+    # 2026-10-09：普通新会话的作者格式显式改变，唯一 wire 描述在 user.finish_format。
+    # 旧会话由 durable prompt_assembled 恢复原文，不靠新默认重造历史指令。
     # 只改形状，一个字不改：本函数的静态契约文本去掉全部空白后，sha256 与重排前
     # 逐字节相同（`test_episode_protocol` 里那条指纹测试锁住这一点）。所以下面新增
     # 的只有换行和六个分组标题，**约束的措辞与前后顺序都没动**。
@@ -348,33 +350,27 @@ def build_episode_instructions(
         "必需输出都有直接证据、关键判断已尽量交叉核对（另一数据源、相邻日期或反证）"
         "后再停止研究；不得为了耗尽步数调用与问题无关的工具。\n"
         "不要套固定标题、行数或段落模板。终止时不要调用工具。"
-        f"draft 篇幅由问题决定，上限 {EPISODE_DRAFT_MAX_CHARS} 汉字（只为保证结构化终止完整）："
+        f"最终正文篇幅由问题决定，上限 {EPISODE_DRAFT_MAX_CHARS} 汉字（只为保证结构化终止完整）："
         "先直接回答，再写清关键数据及其日期与来源、推理、继续条件和失效条件；"
         "不要为了压缩篇幅省掉证据里的关键数字；这不要求固定标题或段数。\n"
         "\n"
         "【排版】\n"
         "上面禁止的是「按固定小标题填空」，不是禁止排版：用哪些结构由内容"
         "决定，但不得整篇不分段、不换行地一段到底。\n"
-        "draft 用 Markdown 写：段落之间空一行；并列的情景、条件、跟踪指标"
+        "最终正文用 Markdown 写：段落之间空一行；并列的情景、条件、跟踪指标"
         "或风险点写成列表项；核心判断用 **加粗** 标出。\n"
         "\n"
         "【终局 JSON】\n"
-        "若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架："
-        "若其format=material_claims_v1，正文只写answers中的逐句claims及sources，"
-        "不提交draft、bindings、basis或evidence_hashes；运行时从冻结合同编译。"
-        "未提供 finish_format 时使用下面的旧格式。\n"
-        "只输出一个 JSON 对象：\n"
-        '{"status":"completed|partial","draft":"自然语言回答",'
-        '"gaps":["..."],"bindings":[{"output_id":"...",'
-        '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
-        '"gap":""}]}。\n'
+        "只输出一个 JSON 对象，按本轮 finish_format 的 wire_template 与 rule 提交完整正文。"
+        "材料格式继续服从 material_grounding 的来源与逐句规则；格式描述不授予来源、工具或完成权限。"
+        "未提供作者描述的历史合同保留原 status、draft、gaps、bindings 格式，不升级作者模式。\n"
         "每个 binding 的 basis 必须与对应 required output 的 grounding_mode 一致；"
         "evidence 表示当前世界事实，user_premise 表示只评估用户给出的条件，"
         "model_reasoning 表示方法论或推理框架，不得伪造证据序号或哈希。"
         "evidence_hashes 填观察里的序号 E1、E2…，不要誊抄 content_hash。\n"
         "binding.gap 只在该 required output 无法回答时填写；"
         "若 output 已由证据序号支持并完成，binding.gap 必须为空，"
-        "限制条件写入顶层 gaps 或 draft。\n"
+        "限制条件写入顶层 gaps 或最终正文。\n"
         "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
     )
 
@@ -447,6 +443,9 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    author_format = finish_author_contract(context).prompt_payload()
+    if author_format is not None:
+        payload["finish_format"] = author_format
     if dimensions:
         payload["research_dimensions_rule"] = (
             "research_dimensions 是内部研究自检，不是必填章节。围绕完整用户原问，"

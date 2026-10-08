@@ -102,6 +102,7 @@ from intelligence.services.agent_runtime import (
     public_agent_evidence,
 )
 from intelligence.services.episode_messages import EpisodeMessage
+from intelligence.services.finish_authoring import describe_finish_format
 from intelligence.services.empty_pool_fallback import (
     EmptyToolCall,
     fallback_already_attempted,
@@ -416,7 +417,10 @@ class ResearchHarness(Protocol):
         """开场 ``(system, user)``。system 在一次 episode 内字节稳定。"""
         ...
 
-    def steering_message(self, kind: SteeringKind, *, detail: str) -> str:
+    def steering_message(
+        self, kind: SteeringKind, *, detail: str,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
         """loop 在驳回 / 关闭研究阶段时注入给模型的那段话（user 角色正文）。"""
         ...
 
@@ -610,9 +614,8 @@ class ResearchHarness(Protocol):
         ``goal`` 是裁决后的模型侧目标（不可达格已降级）；``tools_open`` 是底座
         告诉领域「这一轮能不能派工具」——两套指令按它分叉。
 
-        ``finish_format`` 是开场发过的那份冻结成稿形状（material_only 才有）；传进来就
-        原样重述一遍。修复轮是最后一次机会，它必须在手上，而不是靠作者回忆上文。
-        不传时消息逐字节不变。
+        ``finish_format`` 是本集最初原生开场保存的作者描述，传进来就原样重述；
+        它不授予来源、工具或预算。没有描述的旧会话保留旧作者格式。
         """
         ...
 
@@ -635,6 +638,23 @@ class ResearchHarness(Protocol):
         纯判定：不持状态、不发事件、不抛（抛了按拒收处理）。
         """
         ...
+
+
+def steering_message_for_author(
+    harness: ResearchHarness, kind: SteeringKind, *, detail: str,
+    finish_format: Mapping[str, object] | None,
+) -> str:
+    """Keep existing custom signatures callable without masking their errors."""
+    from inspect import Parameter, signature
+
+    method = harness.steering_message
+    parameters = signature(method).parameters
+    accepts_format = (
+        "finish_format" in parameters and parameters["finish_format"].kind != Parameter.POSITIONAL_ONLY
+    ) or any(parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values())
+    if finish_format is not None and accepts_format:
+        return method(kind, detail=detail, finish_format=finish_format)
+    return describe_finish_format(method(kind, detail=detail), finish_format)
 
 
 class FinanceResearchHarness:
@@ -679,7 +699,13 @@ class FinanceResearchHarness:
             return f"{system}\n\n{policy}", f"{user}\n\n{history_context}"
         return system, user
 
-    def steering_message(self, kind: SteeringKind, *, detail: str) -> str:
+    def steering_message(
+        self, kind: SteeringKind, *, detail: str,
+        finish_format: Mapping[str, object] | None = None,
+    ) -> str:
+        return describe_finish_format(self._steering_message(kind, detail=detail), finish_format)
+
+    def _steering_message(self, kind: SteeringKind, *, detail: str) -> str:
         # 三段文案逐字搬自 agent_episode（run() 两处回灌 + _begin_finalization）。
         if kind == "invalid_plan":
             return (
@@ -694,8 +720,8 @@ class FinanceResearchHarness:
             return (
                 "上一条终止输出无效。请保留当前任务和全部观察，"
                 "修正下列格式或内容问题后输出 FINAL_JSON。"
-                "若上一条正文本身已是完整回答、只是没按 JSON 输出，就把正文原样放进 draft"
-                "（不要缩写，不要删掉证据里的数字），补齐 bindings。"
+                "若上一条正文本身已是完整回答、只是没按 JSON 输出，就按本集作者格式包装原正文"
+                "（不要缩写，不要删掉证据里的数字），补齐原合同所需绑定。"
                 "若还缺事实，仅在研究仍开放且剩余预算允许时使用当前授权工具补查；"
                 "不能补齐则明确 partial 和具体 gap，不猜补证据。"
                 f"错误：{detail}"
@@ -722,7 +748,7 @@ class FinanceResearchHarness:
                 "output binding；不得用同一次工具返回的另一条证据代替。"
                 "原因归因若没有同一时间窗口的 news_search 证据，不得用普通 "
                 "web_search 摘要补成已核验因果，应保留盘面事实并把原因写 gap。"
-                f"为保证 FINAL_JSON 完整，draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内；这是传输预算，"
+                f"为保证 FINAL_JSON 完整，最终正文控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内；这是传输预算，"
                 "不要求固定标题、段数或措辞。"
                 f"关闭原因：{detail}"
             )
@@ -890,7 +916,7 @@ class FinanceResearchHarness:
             facing = json.loads(content)
             owned_projection = {
                 "parts": catalogue.model_view(),
-                "instruction": "可用answer_parts选择result_ref或自由文字块；使用时draft为空。"
+                "instruction": "按本集最初的finish_format选择已实际送达的result_ref；是否引用与正文结构由作者决定。"
                                "引用块由程序生成，不能改值或嵌入否定/因果句；自由文字未获语义认证。",
             }
             audit["owned_results"] = owned_projection
@@ -1138,12 +1164,11 @@ class FinanceResearchHarness:
         tools_open: bool,
         finish_format: Mapping[str, object] | None = None,
     ) -> str:
-        # 逐字搬自 agent_episode.resume()：REPAIR_GOAL 正文 + 工具开/关两套指令。
+        # REPAIR_GOAL 重述本集原生开场选择的作者描述，不重选当前默认格式。
         payload: dict[str, object] = {
             "kind": "REPAIR_GOAL",
             **goal.to_dict(),
             # 开场的冻结成稿形状原样重述：修复稿仍要按它交，而修复轮里再犯格式就是终局。
-            # 这一键只在 material_only 出现，其它题型的修复轮消息逐字节不变。
             **({"finish_format": dict(finish_format)} if finish_format else {}),
             "instruction": (
                 "保留最初任务、全部原始观察和当前工具账本。"
@@ -1163,7 +1188,7 @@ class FinanceResearchHarness:
                 "不要只删前件留下后件，也不要自动恢复被拒断言。"
                 "核对原稿 gaps 中影响结论的来源、日期和覆盖限制，在正文用自然语言交代；"
                 "无关或已充分披露的缺口无需重复，不得把私有诊断原样粘贴。"
-                "提交完整 draft 并沿用真实证据绑定；不能核验的部分仍须如实标记未核验。"
+                "按本集作者格式提交完整正文并沿用真实证据绑定；不能核验的部分仍须如实标记未核验。"
             )
         # 跟踪题的表达槽以合成 id 混在 missing_answer_elements 里；不说明的话模型会把它们
         # 当 output 去绑（2026-09-07 两轮 theme_track 修复 2/2 因此被 unknown_output 硬拒）。
@@ -1190,7 +1215,7 @@ class FinanceResearchHarness:
             if ranking_slots:
                 hints.append(ranking_expression_slot_note(ranking_slots))
             payload["expression_elements_note"] = (
-                "以下缺件是正文表达要求，写进 draft 即可，不要作为 bindings 的 output_id："
+                "以下缺件是正文表达要求，写进最终正文即可，不要作为 bindings 的 output_id："
                 + "、".join(expression_slots)
                 + "（"
                 + "；".join(hints)

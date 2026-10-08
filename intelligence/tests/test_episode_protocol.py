@@ -70,10 +70,14 @@ def _frame() -> TaskFrame:
 
 
 @pytest.mark.parametrize("runtime_today", ["2026-10-09", "2026-10-10"])
-def test_absent_temporal_contract_first_model_messages_preserve_base_except_input_roles(monkeypatch, runtime_today) -> None:
+def test_archived_absent_temporal_contract_restores_original_model_bytes(monkeypatch, runtime_today) -> None:
     import socket
+    from datetime import datetime, timedelta
+    from pathlib import Path
 
     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.services.episode_messages import derive_messages, to_provider
+    from intelligence.services.episode_store import MemoryEpisodeStore, EpisodeState
     import intelligence.services.research_contract as contract_owner
 
     def forbidden(*_args, **_kwargs):
@@ -83,13 +87,9 @@ def test_absent_temporal_contract_first_model_messages_preserve_base_except_inpu
     monkeypatch.setattr(socket, "create_connection", forbidden)
     captured = []
 
-    class BoundaryStop(BaseException):
-        pass
-
     class BoundaryModel:
         def complete(self, **kwargs):
             captured.extend(dict(message) for message in kwargs["messages"])
-            raise BoundaryStop("first model input captured offline")
 
     frame = _frame()
     assert frame.temporal_contract is None
@@ -102,25 +102,29 @@ def test_absent_temporal_contract_first_model_messages_preserve_base_except_inpu
     context = dataclasses.replace(
         context, information_cutoff=contract_owner.InformationCutoff(date(2026, 10, 8), "runtime_default"),
     )
-    with pytest.raises(BoundaryStop):
-        ContinuousAgentEpisode(BoundaryModel()).run(task_frame=frame, context=context, registry=_registry())
+    # This is the actual pre-change native prefix captured from the original
+    # b4a1 owner at the 074ff base. New openings intentionally use finish_format;
+    # no stripping of the new system/user can establish legacy compatibility.
+    archive = json.loads((Path(__file__).parent / "fixtures/episode_opening_legacy_20261008.json").read_text())
+    events = tuple(EpisodeEvent(**item) for item in archive["events"])
+    state = EpisodeState.from_dict(archive["state"])
+    store = MemoryEpisodeStore()
+    store.append(context.contract.task_id, events)
+    store.put_state(context.contract.task_id, state)
+    restored = ContinuousAgentEpisode.restore(
+        context.contract.task_id, store, context=context, registry=_registry(),
+        now=datetime.fromisoformat(state.deadline_at) - timedelta(seconds=1),
+    )
+    assert restored.disposition == "resumable"
+    BoundaryModel().complete(messages=to_provider(derive_messages(restored.events)))
     user = next(message for message in captured if message["role"] == "user")
     payload = json.loads(user["content"])
-    assert payload.pop("input_roles") == {
-        "task_frame": "user_request", "research_contract.evidence_plan": "retrieval_requirements",
-        "available_tools": "currently_allowed_tools", "reading_baseline": "domain_method_guidance",
-    }
-    assert payload.pop("input_roles_rule") == (
-        "沿原字段阅读：原问决定目标，取证计划说明需求；方法候选、判读基线、观点与个人先验"
-        "不成为当前市场事实。材料和历史证据仍服从各自原始坐标、日期、授权与绑定合同；"
-        "未来条件是待验证条件，不是当日已发生的反证。按相关性选择资料，无需新增章节或强制查询。"
-        "资料被提供、响应已交付、答案实际引用、来源支持结论是不同判断；角色声明不认证后两者。"
-    )
-    user["content"] = json.dumps(payload, ensure_ascii=False)
+    assert payload["information_cutoff"] == {"as_of_date": "2026-10-08", "source": "runtime_default"}
+    assert "finish_format" not in payload and "input_roles" not in payload
     encoded = json.dumps(captured, ensure_ascii=False, separators=(",", ":")).encode()
     # Actual first model messages captured twice before changing the exact
     # b4a1e80ebf4949ddf0049fc0216fb2da710d0f05 protocol source. Keep that
-    # immutable expectation: only the explicit current-input role policy differs.
+    # immutable expectation for genuinely saved old messages.
     assert hashlib.sha256(encoded).hexdigest() == "a412664e7d52aedb67df336ab914a32d010464457d41be738a22362e4afa8da5"
 
 
@@ -427,8 +431,10 @@ def _static_contract_text() -> str:
 # （同题 8792 每题 1–7 次查询，Pi 5–21 次并自发做双源互证）；新句要求关键判断尽量
 # 交叉核对（另一数据源、相邻日期或反证）后再停，仍禁止为耗步数调与问题无关的工具。
 # 其余约束一字未动。
+# 2026-10-09 intentional change：新初始 system 指向唯一 user.finish_format，
+# 篇幅/排版适用于最终正文。旧制度字节由真实 durable 前缀和原 a412 金标另验。
 _CONTRACT_FINGERPRINT = (
-    "f3aa46a893f44398470d163ab0b0532dba99befea3c542337d6dfd27bda70aed"
+    "cca9220ceaab142d9bf844ab66337fe6bcd9407885f95ecd1b813bc67f64a640"
 )
 
 
