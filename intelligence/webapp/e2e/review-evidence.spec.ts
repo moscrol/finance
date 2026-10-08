@@ -82,3 +82,23 @@ test("missing day stays pinned; same-day return, session draft recovery and clea
   await expect(page.getByLabel("先看什么，再结合什么")).toHaveValue("");
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("river-review-reading-instructions-v1")!))).toEqual({ question: "", method: "", cautions: "" });
 });
+
+test("hand-off opens chat with coordinates only and the server refuses when the Agent cannot receive it", async ({ page, request }) => {
+  const evidence = await (await request.get(`/api/river/review-history?end=${end}&days=5&industry=${encodeURIComponent("电子")}`)).json();
+  expect(evidence.window_fingerprint).toMatch(/^[0-9a-f]{64}$/);
+  await page.getByText("告诉 Agent：这些数据应该怎样联立解读", { exact: true }).click();
+  await page.getByLabel("先看什么，再结合什么").fill("先看市场，再核对同日子板块。");
+  await page.getByRole("button", { name: "带着证据去问答" }).click();
+  const composer = page.getByLabel("输入研究问题");
+  await expect(composer).toHaveValue(/^请复盘 2026-09-18 至 2026-09-24 的电子，以每日复盘归档为准/);
+  await expect(composer).toHaveValue(/我的解读方法（研究指导，不是市场事实）：先看市场，再核对同日子板块。/);
+  await expect(page.getByRole("status", { name: "附带复盘证据" })).toBeVisible();
+  const posted = page.waitForRequest(req => req.method() === "POST" && /\/messages(\?|$)/.test(req.url()));
+  await page.getByRole("button", { name: "发送研究问题" }).click();
+  const body = (await posted).postDataJSON();
+  expect(body.review_evidence).toEqual({ schema: "review-evidence-ref/v1", end, days: 5, industry: "电子", fingerprint: evidence.window_fingerprint, selected_date: end });
+  expect(JSON.stringify(body)).not.toContain("合成股票");
+  // The fixture server has no model / continuous engine: refuse loudly, keep the attachment.
+  await expect(page.getByRole("alert")).toContainText(/复盘证据无法送达给 Agent/);
+  await expect(page.getByRole("status", { name: "附带复盘证据" })).toBeVisible();
+});

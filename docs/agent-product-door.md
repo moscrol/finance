@@ -114,6 +114,38 @@ ResearchToolRegistry 在所有研究模式拒收晚于信息截止的事实卡�
 未迁移 Ask generic owner 的旧手建 context，也未调整预算、工具菜单、数据写入链或
 判官。临时库、消息链和实际模型输入投影的离线通过不表示真实首答质量、上线或收益。
 
+### 复盘证据交给对话 Agent（2026-10-08，PR77 候选，未部署）
+
+复盘页「连续复盘 · 时间线」的「带着证据去问答」只送**坐标**：窗口末日、窗口长度、
+固定行业、查看日，以及页面所见窗口的 `window_fingerprint`（日期、归档状态、读失败原因、
+当日文件 SHA-256 的摘要，`/api/river/review-history` 同一函数算出）。请求体不能携带任何
+行情数值（`review_evidence` 字段 `extra=forbid`）；用户的解读方法只在可见用户消息里，
+作为“研究指导，不是市场事实”。
+
+入口 `POST /api/conversations/{id}/messages`：连续引擎未生效（off，或 canary 缺
+`CONTINUOUS_RUNTIME_CANARY_ID`）或没有可用模型 → 409，不建 run；服务端按坐标用同一个
+`review_history` 重读并比对指纹，查看后归档被生成或覆盖 → 409；坐标格式/版本/未来日期
+→ 422；归档读失败 → 503。通过后坐标写入 run 目录旁挂文件 `review_evidence_ref.json`
+（不改 `Run` 结构，回滚旧版本读 run.json 不受影响），响应带 `review_evidence: "verified"`；
+前端没收到这个键（旧后端静默忽略未知字段）就提示本轮未使用复盘证据。
+
+装配时 `_with_review_evidence` 包住 Episode 注册表工厂（两参签名不变），再读一次并再核
+指纹；不一致则本轮不交付任何复盘卡片，记 `review_evidence_changed_before_run`。卡片作为
+开场预取（`ResearchToolRegistry.with_opening_prefetch`，与问句日预取同一 E 号账本）：
+一张证据说明卡（范围、入选偏差、缺失含义、覆盖缺口、读法）+ 每个可读交易日一张卡
+（tool `review_archive`、tier `archived_review`、freshness `historical`、source_date=当日，
+不进硬证据等级）。晚于本轮 `information_cutoff` 的交易日不交付并列入缺口；缺档/读失败
+列为缺口不当零；单日发动机最多 20 行、矩阵 30 行，截断写明；全部日卡合计 24k 字符，
+从最新日起连续交付，超出部分写明“未交付，不是无数据”。local_only/material_only 轮开场
+预取整体不带，记 `review_evidence_withheld_by_read_scope`。交付后写
+`review_evidence_receipt.json`（交付日期、卡片哈希、截止日）；本轮结束仍无回执（回退旧
+路径等）记 `review_evidence_not_delivered`。
+
+预填消息为单段：`请复盘 {start} 至 {end} 的{行业}，以每日复盘归档为准…`，使时间合同把
+窗口绑为市场目标、不设资料截止；不换行、不加引号，避免消息切分把方法当作随附材料。
+不新增工具、判官或预算；不改日历/长河接口。尚未做：Agent 主动按日下钻的读取工具、把
+用户方法保存为 `user_framework` 视角。离线测试通过不代表真实首答质量或上线。
+
 ### 原题纠错追问（2026-09-30 接续候选）
 
 消息级明确“只基于原题重写/修正”等指令，在路由前按可信用户原记录承接，

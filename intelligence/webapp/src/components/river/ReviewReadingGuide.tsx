@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ReviewHistory } from "../../river/historyTypes";
-import { buildReviewEvidencePacket, type ReadingInstructions } from "../../river/reviewEvidence";
+import { buildReviewEvidenceHandoff, buildReviewEvidencePacket, sendReviewEvidenceToChat, type ReadingInstructions } from "../../river/reviewEvidence";
 
 const draftKey = "river-review-reading-instructions-v1";
 const empty: ReadingInstructions = { question: "", method: "", cautions: "" };
@@ -26,6 +26,8 @@ export function ReviewReadingGuide({ data, selectedDate }: { data: ReviewHistory
     const link = document.createElement("a"); link.href = url; link.download = `复盘联立证据-${data.start}-${data.end}.json`; link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  const canHandOff = Boolean(data.window_fingerprint && data.industry);
+  const handOff = () => sendReviewEvidenceToChat(buildReviewEvidenceHandoff(data, selectedDate, draft));
   return <section className="rh-reading" aria-label="人和Agent共用证据">
     <header><span className="rh-eyebrow">SAME EVIDENCE · TWO WAYS TO READ</span><h3>你看图表，Agent 读同种数据。</h3><p>不是让 Agent 看 dashboard，也不是只给它一段摘要。下面四类证据与页面读数来自同一接口；先对齐名称，再说明怎样联立。以下问题是阅读提示，不是自动判断。</p></header>
     <div className="rh-reading-map">{contract.groups.map((group, i) => <article key={group.id}><span className="rh-eyebrow">0{i + 1}</span><h4>{group.label}</h4><p>{group.question}</p><details><summary>对应字段与边界</summary><code>{group.fields.join(" · ")}</code><p>{group.boundary}</p>{group.selection && <p><b>入选条件：</b>{group.selection}</p>}</details></article>)}</div>
@@ -45,8 +47,8 @@ export function ReviewReadingGuide({ data, selectedDate }: { data: ReviewHistory
       <label>先看什么，再结合什么<textarea maxLength={8000} value={draft.method} onChange={e => setDraft({ ...draft, method: e.target.value })} placeholder="例如：先看成交额与涨家数的 MA5，再看行业榜内顺位；按同日核对子板块双红、新高和发动机原表。分别列出一致与不一致的证据，不直接把同时变化当因果。"/></label>
       <label>哪些情况不能直接下结论<textarea maxLength={4000} value={draft.cautions} onChange={e => setDraft({ ...draft, cautions: e.target.value })} placeholder="例如：缺归档不推断退潮；名单截断不判断股票退出；未列榜不当零；公式口径不明时先提出疑问。"/></label>
       <p className="rh-muted" role="status">{saved ? "草稿仅保存在当前浏览器标签页的会话存储；关闭标签页后可能丢失，请导出保存。" : "浏览器未允许保存草稿，离开页面可能丢失，请导出保存。"}</p>
-      <div className="rh-reading-actions"><button type="button" onClick={exportPacket}>导出 Agent 联立证据包</button><button type="button" onClick={() => setDraft({ ...empty })}>清空解读说明</button></div>
-      <details><summary>交接要求与 Agent 回答结构</summary><ul>{contract.agent_rules.map(rule => <li key={rule}>{rule}</li>)}</ul><p>回答按“覆盖与口径限制 → 联立证据 → 支持与不支持 → 尚不能判断”组织，并引用日期、字段和内容哈希。此处提供交接约定，不代表聊天 Agent 已自动接入或一定遵守。</p></details>
+      <div className="rh-reading-actions"><button type="button" disabled={!canHandOff} title={canHandOff ? "打开问答并预填上面的方法；只发送窗口坐标，服务端重读同一份归档并核对" : "需要固定行业且接口提供窗口指纹"} onClick={handOff}>带着证据去问答</button><button type="button" onClick={exportPacket}>导出 Agent 联立证据包</button><button type="button" onClick={() => setDraft({ ...empty })}>清空解读说明</button></div>
+      <details><summary>交接要求与 Agent 回答结构</summary><ul>{contract.agent_rules.map(rule => <li key={rule}>{rule}</li>)}</ul><p>回答按“覆盖与口径限制 → 联立证据 → 支持与不支持 → 尚不能判断”组织，并引用日期、字段和内容哈希。“带着证据去问答”会打开新对话并预填方法，不自动发送；发送时服务端按坐标重读同一份归档，内容在你查看后被改动则拒收。回答仍须你核对。</p></details>
     </details>
   </section>;
 }

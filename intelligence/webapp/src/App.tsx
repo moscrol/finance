@@ -70,6 +70,8 @@ import "./river.css";
 import "./theme-tech.css";
 import { supportsDailyProjection } from "./dailyReports";
 import { userFacingIssue } from "./displayText";
+import { ReviewEvidenceChip } from "./components/ReviewEvidenceChip";
+import { REVIEW_HANDOFF_EVENT, type ReviewEvidenceHandoff } from "./river/reviewEvidence";
 import {
   applyChatStreamEvent,
   createLiveMessageState,
@@ -131,6 +133,10 @@ export default function App() {
   const [marketFocusDate, setMarketFocusDate] = useState<string | null>(null);
   const [theme, setTheme] = useState<WorkbenchTheme>(getInitialTheme);
   useEffect(() => { applyTheme(theme); }, [theme]);
+  // 复盘页「带着证据去问答」：只在它打开的那个新对话里附带，换对话即不附带。
+  const [reviewHandoff, setReviewHandoff] = useState<
+    (ReviewEvidenceHandoff & { conversationId: string }) | null
+  >(null);
   const [overview, setOverview] = useState<WorkbenchOverview | null>(null);
   const [overviewRefreshing, setOverviewRefreshing] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -710,7 +716,10 @@ export default function App() {
           conversation = await newConversation();
           conversationId = conversation.conversation_id;
         }
+        const handoff =
+          reviewHandoff?.conversationId === conversationId ? reviewHandoff : null;
         const created = await createConversationMessage(conversationId, {
+          ...(handoff ? { review_evidence: handoff.ref } : {}),
           content: question,
           skill_mode: skillMode,
           selected_skill_ids: selectedSkillIds,
@@ -770,6 +779,12 @@ export default function App() {
           }),
         }));
         setDraft("");
+        if (handoff) {
+          setReviewHandoff(null);
+          if (created.review_evidence !== "verified") {
+            setError("服务端未确认接收复盘证据（后端版本可能过旧），本轮回答不会使用这些证据。");
+          }
+        }
         refreshCredits();
         connectStream({
           conversationId,
@@ -803,6 +818,7 @@ export default function App() {
       conversations,
       newConversation,
       refreshCredits,
+      reviewHandoff,
       selectedSkillIds,
       selectedPerspectiveIds,
       skillMode,
@@ -811,6 +827,23 @@ export default function App() {
       user,
     ],
   );
+
+  useEffect(() => {
+    const onHandoff = (event: Event) => {
+      const detail = (event as CustomEvent<ReviewEvidenceHandoff>).detail;
+      if (!detail?.ref) return;
+      void newConversation()
+        .then((created) => {
+          setDraft(detail.message);
+          setReviewHandoff({ ...detail, conversationId: created.conversation_id });
+        })
+        .catch((caught) =>
+          setError(caught instanceof Error ? caught.message : "无法打开问答"),
+        );
+    };
+    window.addEventListener(REVIEW_HANDOFF_EVENT, onHandoff);
+    return () => window.removeEventListener(REVIEW_HANDOFF_EVENT, onHandoff);
+  }, [newConversation]);
 
   /**
    * 研究进化的动作口：管理动作 / 任务选择 / 「继续核查」。
@@ -1286,6 +1319,13 @@ export default function App() {
               onStarter={setDraft}
             />
             <div className="chat-composer-dock">
+              {reviewHandoff &&
+                reviewHandoff.conversationId === activeConversationId && (
+                  <ReviewEvidenceChip
+                    label={reviewHandoff.label}
+                    onRemove={() => setReviewHandoff(null)}
+                  />
+                )}
               <Composer
                 value={draft}
                 taskType="ask"

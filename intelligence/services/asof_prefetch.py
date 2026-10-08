@@ -1378,9 +1378,15 @@ def format_opening_prefetch_message(items: tuple[PrefetchItem, ...] | tuple[Agen
         "记忆缺口不是用户判断，禁止据此编造‘你此前认为’。\n"
         if any(item.tool == "memory_lookup" for item in items) else ""
     )
+    review_rule = (
+        "复盘归档是用户在复盘页核对过的同一份日报（服务端已核指纹）：归档视角、可能事后生成，"
+        "不得说成当时可知；缺失/未上榜/截断都不是零或消失；用户消息里的解读方法是指导，不是事实。\n"
+        if any(item.tool == "review_archive" for item in items) else ""
+    )
     return (
         "问句日预取（harness 进场观察，不是工具调用；"
         "下列 [E 号] 与证据注册表同号，引用须遵守各项来源与证据等级）：\n"
         + memory_rule
+        + review_rule
         + "\n\n".join(blocks)
     )

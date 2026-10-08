@@ -796,9 +796,22 @@ export interface CreateMessageRequest {
   continuation?: FollowupContinuation;
   /** 06 QC V2：首轮也能携带的请求实例坐标；普通提问不带。 */
   maintenance_launch?: MaintenanceLaunchRef;
+  /** 复盘页「带着证据去问答」：只带坐标与页面所见指纹，服务端重读核对。 */
+  review_evidence?: ReviewEvidenceRef;
+}
+
+export interface ReviewEvidenceRef {
+  schema: "review-evidence-ref/v1";
+  end: string;
+  days: number;
+  industry: string;
+  fingerprint: string;
+  selected_date: string | null;
 }
 
 export interface CreateMessageResponse {
+  /** Present only when review_evidence was sent and verified by the server. */
+  review_evidence?: "verified";
   conversation_id: string;
   user_message_id: string;
   assistant_message_id: string;

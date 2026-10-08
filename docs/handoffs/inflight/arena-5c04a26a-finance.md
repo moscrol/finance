@@ -55,3 +55,11 @@
   - 迷你走势图标注本窗纵轴范围与缺读数日数，提示不同窗口/指标不可比高低。
   - JSON Pointer 前缀：合同 `citation_rule` 说明相对连续证据响应根；交接包 `response_contract.pointer_base` 说明包内一律加 `/evidence`。
 - 验证：vitest 25 文件 238 通过；tsc/eslint/ruff/三项 check 通过；本地 e2e：review-evidence 6/6、river 18/18（calendar 6/6 上一轮已过）。
+
+## 第四轮：复盘证据接入对话 Agent（8792 代码，未部署）
+
+- 设计与边界见 `docs/agent-product-door.md`「复盘证据交给对话 Agent」。
+- 后端：`intelligence/services/review_evidence_handoff.py`（坐标、核对、卡片）；`river_review_history.window_fingerprint` 并在响应中给出 `window_fingerprint`；`CreateMessageRequest.review_evidence`；`run_store` 旁挂 ref/receipt；`ResearchToolRegistry.with_opening_prefetch`；`asof_prefetch` 开场消息加复盘读法一句。
+- 前端：`ReviewReadingGuide`「带着证据去问答」→ `workbench:review-evidence-handoff` 事件 → App 新建对话、预填单段消息、显示「附带复盘证据」条（可“不附带”），发送时附 `review_evidence`；409/422 显示原因并保留附带。
+- 8792 影响：仅在 `ASK_CONTINUOUS_RUNTIME=on`（或 canary+ID）且有模型时可用；未启用时按钮流程会被 409 拒收，不会静默降级。普通消息路径不变。部署时需同时更新后端与静态页：旧后端会静默忽略未知字段，新前端看不到响应里的 `review_evidence: "verified"` 时会提示“服务端未确认接收复盘证据”。
+- 测试：`tests/test_review_evidence_handoff.py`、`test_workbench_api.py` 末尾 review 段、`ReviewReadingGuide.test.tsx`、`e2e/review-evidence.spec.ts` 第三条。

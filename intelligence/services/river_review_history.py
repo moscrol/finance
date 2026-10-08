@@ -5,6 +5,8 @@ No HTML scraping, market writes, model calls or retrospective knowledge claims.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from datetime import date, timedelta
 from pathlib import Path
@@ -76,6 +78,27 @@ def _matrix_day(report: dict, mode: str, industry: str, day: str) -> dict:
     rows = [{"name": row[0], "value": row[column]} for row in matrix["rows"]]
     return {"status": "available" if rows else "not_reported", "rows": rows[:ROW_LIMIT],
             "truncated": len(rows) > ROW_LIMIT, "total_rows": len(rows)}
+
+
+def window_fingerprint(history: dict) -> str:
+    """Identity of what a window *shows*: dates, archive status and file hashes.
+
+    Shared by the API response (what the page saw) and the hand-off check.
+    """
+    points = [
+        [p.get("date"), p.get("status"), p.get("reason"), (p.get("provenance") or {}).get("sha256")]
+        for p in history.get("points") or []
+    ]
+    payload = {
+        "v": 1,
+        "start": history.get("start"),
+        "end": history.get("end"),
+        "days": history.get("requested_days"),
+        "industry": history.get("industry"),
+        "points": points,
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def review_history(exports: Path, *, end: date | None = None, days: int = 20, industry: str | None = None) -> dict:
@@ -170,7 +193,7 @@ def review_history(exports: Path, *, end: date | None = None, days: int = 20, in
                     for value, prior in [(point["metrics"][key], _number(prior_report["facts"].get(key)))]
                 }
         points.append(point)
-    return {
+    result = {
         "schema_version": 1, "knowledge_mode": "archived_report_not_as_known",
         "evidence_contract": evidence_contract(),
         "requested_end": end.isoformat(), "start": visible[0].isoformat(), "end": visible[-1].isoformat(),
@@ -189,3 +212,6 @@ def review_history(exports: Path, *, end: date | None = None, days: int = 20, in
             "窗口内归档缺失处不计算差值；未知年份不猜交易日。",
         ],
     }
+    # What the page shows, so a hand-off to the Agent can prove it is the same window.
+    result["window_fingerprint"] = window_fingerprint(result)
+    return result

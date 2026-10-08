@@ -1063,6 +1063,21 @@ class ResearchToolRegistry:
             read_scope=self.read_scope,
         )
 
+    def with_opening_prefetch(
+        self, *items: agent_research.AgentEvidence,
+    ) -> "ResearchToolRegistry":
+        """同一份注册表追加装配期才知道的开场证据（如用户从复盘页带来的已核对归档）。
+
+        追加的条目排在原预取之前；收窄读取范围（local_only/material_only）时照旧不带入。
+        """
+
+        return ResearchToolRegistry(
+            tuple(self._specs.values()),
+            opening_prefetch=(*items, *self.opening_prefetch),
+            calc_loader=self.calc_loader,
+            read_scope=self.read_scope,
+        )
+
     def without(self, *names: str) -> "ResearchToolRegistry":
         """去掉几个工具的副本——子研究分支的注册表不含 ``sub_research``（深度 = 1）。"""
 

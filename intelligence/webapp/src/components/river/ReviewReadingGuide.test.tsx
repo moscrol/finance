@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ReviewHistory } from "../../river/historyTypes";
-import { buildReviewEvidencePacket } from "../../river/reviewEvidence";
+import { buildReviewEvidenceHandoff, buildReviewEvidencePacket, REVIEW_HANDOFF_EVENT, type ReviewEvidenceHandoff } from "../../river/reviewEvidence";
 import { ReviewReadingGuide } from "./ReviewReadingGuide";
 
 const data: ReviewHistory = {
@@ -67,4 +67,34 @@ it("fails visibly with an old backend and handles denied browser storage", () =>
   rerender(<ReviewReadingGuide data={{ ...data, evidence_contract: undefined }} selectedDate={null}/>);
   expect(screen.getByText(/Agent 交接暂不可用/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "导出 Agent 联立证据包" })).not.toBeInTheDocument();
+});
+
+const fingerprint = "a".repeat(64);
+it("hands the Agent coordinates and the page fingerprint, never the numbers", () => {
+  const handoff = buildReviewEvidenceHandoff({ ...data, window_fingerprint: fingerprint }, "2026-09-24", { question: "", method: "先看量能", cautions: "缺口不当退潮" });
+  expect(handoff.ref).toEqual({ schema: "review-evidence-ref/v1", end: "2026-09-24", days: 5, industry: "电子", fingerprint, selected_date: "2026-09-24" });
+    expect(handoff.message).toContain("我的解读方法（研究指导，不是市场事实）：先看量能");
+  expect(handoff.message).toMatch(/^请复盘 2026-09-23 至 2026-09-24 的电子/);
+  expect(handoff.message).not.toMatch(/[\n“”"]/);
+  expect(handoff.message).not.toContain("123.4");
+  expect(handoff.message).not.toContain("synthetic-hash");
+  expect(buildReviewEvidenceHandoff({ ...data, window_fingerprint: fingerprint }, "2020-01-01", { question: "", method: "", cautions: "" }).ref.selected_date).toBeNull();
+  expect(() => buildReviewEvidenceHandoff(data, null, { question: "", method: "", cautions: "" })).toThrow("指纹");
+});
+it("opens chat through one event and stays disabled without a fingerprint", () => {
+  const received: ReviewEvidenceHandoff[] = [];
+  const listener = (e: Event) => received.push((e as CustomEvent<ReviewEvidenceHandoff>).detail);
+  window.addEventListener(REVIEW_HANDOFF_EVENT, listener);
+  const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+  const { unmount } = render(<ReviewReadingGuide data={data} selectedDate="2026-09-24"/>);
+  fireEvent.click(screen.getByText("告诉 Agent：这些数据应该怎样联立解读"));
+  expect(screen.getByRole("button", { name: "带着证据去问答" })).toBeDisabled();
+  unmount();
+  render(<ReviewReadingGuide data={{ ...data, window_fingerprint: fingerprint }} selectedDate="2026-09-24"/>);
+  fireEvent.click(screen.getByText("告诉 Agent：这些数据应该怎样联立解读"));
+  fireEvent.click(screen.getByRole("button", { name: "带着证据去问答" }));
+  window.removeEventListener(REVIEW_HANDOFF_EVENT, listener);
+  expect(received).toHaveLength(1);
+  expect(received[0].ref.fingerprint).toBe(fingerprint);
+  expect(fetch).not.toHaveBeenCalled();
 });

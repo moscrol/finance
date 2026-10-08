@@ -43,4 +43,6 @@ export interface ReviewHistory {
   coverage: { available: number; total: number };
   notes: string[];
   limits: Record<string, number>;
+  /** Identity of what this window shows (dates, archive status, file hashes); the Agent hand-off proves it. */
+  window_fingerprint?: string;
 }
