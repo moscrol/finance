@@ -1000,14 +1000,6 @@ def validate_episode_finish(
     try:
         authored = compile_finish_authoring(decoded, context=context)
     except FinishAuthoringError as exc:
-        # Keep the protocol's exhaustive reason audit at this adapter seam;
-        # these existing reasons now originate in the mechanical compiler.
-        if exc.code == "historical_excerpt_shape":
-            raise _reject("historical_excerpt_shape", str(exc)) from exc
-        if exc.code == "bad_status":
-            raise _reject("bad_status", str(exc)) from exc
-        if exc.code == "draft_not_string":
-            raise _reject("draft_not_string", str(exc)) from exc
         raise _reject(exc.code, str(exc)) from exc
     decoded = authored.envelope_payload()
     status, draft = decoded["status"], decoded["draft"]
