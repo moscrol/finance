@@ -442,6 +442,7 @@ class _OwnedAnswerProof:
     owner: str
     task_id: str
     frame_hash: str
+    receipt: Mapping[str, object]
 
 
 def _make_owned_proof(outcome: object, *, context: ResearchRunContext) -> _OwnedAnswerProof | None:
@@ -457,7 +458,8 @@ def _make_owned_proof(outcome: object, *, context: ResearchRunContext) -> _Owned
     _rebuild_owned_sources(outcome.events, context=context, evidence=outcome.evidence)
     rendered = _verify_owned_answer(receipt, outcome.draft, context=context)
     return _OwnedAnswerProof(rendered.draft, rendered.owned_blocks, rendered.free_blocks,
-                             _context_owner(context), context.contract.task_id, context.contract.task_frame_hash)
+                             _context_owner(context), context.contract.task_id, context.contract.task_frame_hash,
+                             _freeze(_thaw(receipt)))
 
 
 def _owned_sentence_indexes(sentences: object, verified: object) -> frozenset[int]:
@@ -509,6 +511,11 @@ def _public_owned_coverage(proof: object, public: str, *, context: ResearchRunCo
         return None
     if proof.owner != _context_owner(context):
         raise OwnedResultError("ownership_owner_conflict")
+    # Identity is stable; authority can narrow after semantic review. Reuse
+    # the same source/ref/body admission before counting even removed nodes.
+    rendered = _verify_owned_answer(proof.receipt, proof.draft, context=context)
+    if rendered.owned_blocks != proof.owned_blocks or rendered.free_blocks != proof.free_blocks:
+        raise OwnedResultError("ownership_source_ref_body_conflict")
     opcodes = SequenceMatcher(None, proof.draft, public, autojunk=False).get_opcodes()
     fragments = []
     original_paragraphs = proof.draft.split("\n\n")

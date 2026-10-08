@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import replace
+from datetime import date
 
 import pytest
 
@@ -11,6 +12,7 @@ from intelligence.services.episode_semantic_verifier import SemanticEpisodeVerif
 from intelligence.services.episode_semantic_verifier import recheck_owned_public_delivery, numeric_condition_unsupported
 from intelligence.services.episode_projection import project_durable_events
 from intelligence.services.episode_entry_identity import EntryIdentity
+from intelligence.services.research_contract import InformationCutoff
 from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolRunResult, ToolSpec
 from intelligence.tests.owned_result_support import frame_context, source_fixture, finish_payload
@@ -121,6 +123,8 @@ def test_context_none_old_bad_body_and_instance_reuse_never_grant_proof(monkeypa
     verifier = SemanticEpisodeVerifier()
     approved = verifier.verify(frame=frame, structurally_verified=structural, context=context, deadline=context.deadline)
     assert approved.owned_coverage["owned_faithful"] == 1
+    with pytest.raises(TypeError):
+        approved._owned_public_proof.receipt["parts"][0]["result_ref"] = "forged"
     without_context = verifier.verify(frame=frame, structurally_verified=approved.verified, deadline=context.deadline)
     assert without_context.owned_coverage is None and without_context.verified._owned_answer is None
     assert "owned_coverage" not in without_context.to_dict()
@@ -154,3 +158,30 @@ def test_final_public_removal_mutation_and_private_receipt_projection(monkeypatc
     assert "owned_answer" not in finish and "owned_answer_sha256" in finish
     private = project_durable_events(outcome.events, include_model_visible_text=True)
     assert next(e["payload"] for e in reversed(private.events) if e["kind"] == "finish")["owned_answer"]
+
+
+@pytest.mark.parametrize("restriction", ["capability", "cutoff", "missing_source"])
+@pytest.mark.parametrize("remove_owned", [False, True])
+def test_final_publication_rechecks_current_source_even_after_owned_removal(monkeypatch, restriction, remove_owned):
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+    frame, context, outcome = _native_parts(lambda view: [{"result_ref": next(p["result_ref"] for p in view
+        if "医药生物主题中的免疫治疗" in p["text"])}, "自由分析待验证。"])
+    semantic = SemanticEpisodeVerifier().verify(
+        frame=frame, structurally_verified=verify_episode_outcome(context.contract, outcome),
+        context=context, deadline=context.deadline,
+    )
+    public = "自由分析待验证。" if remove_owned else outcome.draft
+    still_authorized = recheck_owned_public_delivery(semantic, context=context, projected=public)
+    assert still_authorized.judge_status == "passed"
+    assert still_authorized.owned_coverage["owned_faithful"] == (0 if remove_owned else 1)
+    assert still_authorized.owned_coverage["free_unassessed"] == 1
+    if restriction == "capability":
+        current = replace(context, contract=replace(context.contract, allowed_capabilities=()))
+    elif restriction == "cutoff":
+        current = replace(context, information_cutoff=InformationCutoff(date(2026, 9, 29), "requested"))
+    else:
+        current = replace(context, _owned_result_sources=[])
+    rejected = recheck_owned_public_delivery(semantic, context=current, projected=public)
+    assert rejected.judge_status == "rejected" and rejected.status == "partial"
+    assert rejected.owned_coverage is None
+    assert "owned_coverage" not in rejected.to_dict()
