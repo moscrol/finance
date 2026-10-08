@@ -1096,7 +1096,7 @@ def validate_episode_finish(
     owned_answer = None
     if parts is not None:
         from intelligence.services.owned_results import (
-            OwnedResultError, _catalogue_from_context, render_owned_parts,
+            OwnedResultError, _catalogue_from_context, _context_owner, render_owned_parts,
         )
 
         try:
@@ -1106,6 +1106,7 @@ def validate_episode_finish(
         except OwnedResultError as exc:
             raise _reject("bad_claim_binding", "owned result selection: " + exc.reason) from exc
         draft, owned_answer = rendered.draft, rendered.receipt
+        owned_answer = {**owned_answer, "owner": _context_owner(context)}
     render_from_claims = decoded.get("render_from_claims", False)
     if not isinstance(render_from_claims, bool):
         raise _reject("bad_claim_binding", "render_from_claims must be a boolean")

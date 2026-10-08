@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import date
+from difflib import SequenceMatcher
 from hashlib import sha256
 import json
 import math
@@ -427,9 +428,119 @@ def _verify_owned_answer(receipt: object, draft: str, *, context: ResearchRunCon
     if not isinstance(raw, dict) or raw.get("schema") != "owned_answer_v1":
         raise OwnedResultError("invalid_ownership_receipt")
     rendered = render_owned_parts(raw.get("parts"), _catalogue_from_context(context))
-    if rendered.receipt != raw or rendered.draft != draft:
+    expected = {**rendered.receipt, "owner": _context_owner(context)}
+    if expected != raw or rendered.draft != draft:
         raise OwnedResultError("ownership_source_ref_body_conflict")
     return rendered
+
+
+@dataclass(frozen=True)
+class _OwnedAnswerProof:
+    draft: str
+    owned_blocks: tuple[OwnedBlock, ...]
+    free_blocks: int
+    owner: str
+    task_id: str
+    frame_hash: str
+
+
+def _make_owned_proof(outcome: object, *, context: ResearchRunContext) -> _OwnedAnswerProof | None:
+    latest = next((e for e in reversed(outcome.events) if e.kind == "finish"), None)
+    receipt = latest.payload.get("owned_answer") if latest is not None else None
+    if receipt is None:
+        return None
+    configure = next((e.payload for e in outcome.events if e.kind == "configure"), {})
+    if (configure.get("task_id") != context.contract.task_id
+            or (receipt.get("owned_blocks") and "mainline_context" not in configure.get("authorized_tools", ()))
+            or outcome.task_frame_hash != context.contract.task_frame_hash):
+        raise OwnedResultError("ownership_task_or_authorization_conflict")
+    _rebuild_owned_sources(outcome.events, context=context, evidence=outcome.evidence)
+    rendered = _verify_owned_answer(receipt, outcome.draft, context=context)
+    return _OwnedAnswerProof(rendered.draft, rendered.owned_blocks, rendered.free_blocks,
+                             _context_owner(context), context.contract.task_id, context.contract.task_frame_hash)
+
+
+def _owned_sentence_indexes(sentences: object, verified: object) -> frozenset[int]:
+    proof = getattr(verified, "_owned_answer", None)
+    if (not isinstance(proof, _OwnedAnswerProof) or verified.contract is None
+            or proof.task_id != verified.contract.task_id or proof.frame_hash != verified.outcome.task_frame_hash
+            or proof.draft != verified.outcome.draft):
+        return frozenset()
+    # Locate successive occurrences, preserving equal free text as a different span.
+    cursor, indexes = 0, set()
+    for sentence in sentences:
+        text = str(sentence.get("text", ""))
+        start = proof.draft.find(text, cursor)
+        if start < 0:
+            return frozenset()
+        end = start + len(text)
+        cursor = end
+        if any(block.start <= start and end <= block.end for block in proof.owned_blocks):
+            indexes.add(sentence["index"])
+    return frozenset(indexes)
+
+
+def _rewrite_free_sentence(verified: object, sentences: object, index: int, public: str, annotated: str) -> tuple[str, bool]:
+    """An identical free sentence is a separate occurrence, never the first match."""
+    proof = getattr(verified, "_owned_answer", None)
+    if not isinstance(proof, _OwnedAnswerProof) or proof.draft != verified.outcome.draft:
+        return public, False
+    cursor = 0
+    for sentence in sentences:
+        text = str(sentence.get("text", ""))
+        start = proof.draft.find(text, cursor)
+        if start < 0:
+            return public, False
+        end, cursor = start + len(text), start + len(text)
+        if sentence["index"] != index:
+            continue
+        if any(block.start <= start and end <= block.end for block in proof.owned_blocks):
+            return public, False
+        for block in SequenceMatcher(None, proof.draft, public, autojunk=False).get_matching_blocks():
+            if block.a <= start and end <= block.a + block.size:
+                left, right = block.b + start - block.a, block.b + end - block.a
+                return public[:left] + annotated + public[right:], True
+        return public, False
+    return public, False
+
+
+def _public_owned_coverage(proof: object, public: str, *, context: ResearchRunContext) -> dict[str, object] | None:
+    if not isinstance(proof, _OwnedAnswerProof):
+        return None
+    if proof.owner != _context_owner(context):
+        raise OwnedResultError("ownership_owner_conflict")
+    opcodes = SequenceMatcher(None, proof.draft, public, autojunk=False).get_opcodes()
+    fragments = []
+    original_paragraphs = proof.draft.split("\n\n")
+    public_paragraphs = public.strip().split("\n\n")
+    for block in proof.owned_blocks:
+        status, public_start, public_end = "removed", None, None
+        for tag, a, b, x, y in opcodes:
+            if tag == "equal" and a <= block.start and block.end <= b:
+                left, right = x + block.start - a, x + block.end - a
+                # A complete document node cannot be absorbed into free syntax.
+                after = public[right:].lstrip("\n")
+                node_before = left == 0 or public[:left].endswith("\n\n")
+                node_after = not after or public[right:].startswith("\n\n")
+                if node_before and node_after and public[left:right] == block.text:
+                    status, public_start, public_end = "faithful", left, right
+                else:
+                    status = "changed"
+                break
+            if tag != "equal" and a < block.end and b > block.start:
+                status = "removed" if tag == "delete" and a <= block.start and block.end <= b else "changed"
+        # If free prose duplicates an owned node, deletion may be ambiguous.
+        # Same node count/order can preserve it; a shorter document cannot certify the clone.
+        if (proof.draft.count(block.text) > 1 and status == "faithful"
+                and len(original_paragraphs) != len(public_paragraphs)):
+            status, public_start, public_end = "removed", None, None
+        fragments.append({"result_ref": block.result_ref, "status": status,
+                          "public_start": public_start, "public_end": public_end})
+    return {"owned_fragments": fragments,
+            "owned_faithful": sum(f["status"] == "faithful" for f in fragments),
+            "owned_changed": sum(f["status"] == "changed" for f in fragments),
+            "owned_removed": sum(f["status"] == "removed" for f in fragments),
+            "free_unassessed": proof.free_blocks, "whole_answer": "unassessed"}
 
 
 def _rebuild_owned_sources(events: object, *, context: ResearchRunContext, evidence: object = None) -> None:

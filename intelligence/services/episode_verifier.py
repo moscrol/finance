@@ -57,6 +57,9 @@ class VerifiedEpisodeOutcome:
     # 契约外、但引用的哈希都在证据池里的输出绑定（「扩展区」）。它们不参与结构
     # 完成度，也不进 completion.outputs；正文仍由语义判官逐句核验。
     extension_outputs: tuple[str, ...] = ()
+    # Assigned only by the semantic entry with the current runtime context.
+    # Not serialized; immutable proof is unusable for another body/task.
+    _owned_answer: object | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "issues", serialize_issues(self.issue_items))

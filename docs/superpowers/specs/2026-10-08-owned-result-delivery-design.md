@@ -47,6 +47,10 @@ catalogue在共享harness投影时派生；只有实际送达后由现有acknowl
 
 semantic verifier消费实际被接纳的receipt及原draft，检查owned blocks的值与区间。仅对应精确owned区间的程序定义/计算文字可避开自由条件数字标注；绝不把它们放进通用观测数池。自由相邻条件、未来持续阈值、作者同义复述不获豁免。R20历史集合基数与未来持续天数保持区分。
 
+真实verify入口用当前context及实际outcome.evidence交集重算source/ref/receipt，建立一次私有不可变proof，尾置默认None在VerifiedEpisodeOutcome上且不序列化。proof绑定程序准入时的owner、task/frame及原draft；同task/frame不代表同draft/owner。实例复用先清空，context缺席不授proof；纯numeric helper只认这一proof与完全相同draft的精确区间，改稿、标签化或跨度移位均不沿用豁免。公开出口可继续用原proof记录删改覆盖，但不对改稿重新发证。
+
+proof准备只在同一semantic verifier的无IO私有方法实现；verify和现有adapter机械补证诊断共用，避免程序规则10/500触发假补证，不新增grant规则、判官或模型入口。公开覆盖保存原proof作删改对账，numeric所在的改稿对象清空proof。重复的自由同字句按原句坐标标注，不以首次字符串命中修改owned节点。
+
 最终公开出口再次对账实际保留的owned内容。已被其它合法处理删除的片段不算送达；若被改写或移入另一范围，资格不能继续标已保真。覆盖回执分别记录owned/fragments与free/unassessed，不把schema/basis/refs存在或合成passed当全文语义认证。已有judge off、完成状态及用户分析能力保留；只有真实来源/协议/所有权违例按原有修订机制处理。
 
 ## 必须通过的验收
