@@ -782,13 +782,13 @@ def test_skill_timeout_degrades_one_module_and_continues(
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
-    user_message = conversation_store.append_message(
-        conversation.conversation_id, "user", "测试 Skill 超时"
-    )
     run = run_store.create_run(
-        user_message.content,
+        "测试 Skill 超时",
         "ask",
         session_id=conversation.conversation_id,
+    )
+    user_message = conversation_store.append_message(
+        conversation.conversation_id, "user", "测试 Skill 超时", run_id=run.run_id,
     )
     assistant = conversation_store.append_message(
         conversation.conversation_id,

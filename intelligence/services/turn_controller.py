@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import date
 
 import json
 import re
@@ -59,10 +60,12 @@ from intelligence.services.task_frame import (
     build_task_frame,
     derive_required_outputs,
     has_explicit_date,
+    pin_temporal_contract,
     rebase_task_frame,
     resolve_task_frame_clarification,
     task_frame_requires_retrieval,
 )
+from intelligence.services.temporal_contract import TemporalContract, compile_temporal_contract
 
 TurnLane: TypeAlias = Literal[
     "chat",
@@ -719,7 +722,7 @@ def _controller_messages(
                 {
                     "query": query,
                     "minimal_conversation_context": context,
-                    "task_frame": task_frame.to_dict(),
+                    "task_frame": task_frame.to_model_dict(),
                 },
                 ensure_ascii=False,
             ),
@@ -1207,7 +1210,7 @@ def _arbitrate_personal_recall(
     return replace(decision, needs_memory=True, needs_template=False), "", ""
 
 
-def decide_turn(
+def _decide_turn_semantics(
     query: str,
     *,
     context: str = "",
@@ -1219,6 +1222,9 @@ def decide_turn(
     resolver: QueryResolver | None = None,
     conversation_materials: ConversationMaterials | None = None,
     deadline: ResearchDeadline | None = None,
+    today: date | None = None,
+    temporal_contract: TemporalContract | None = None,
+    temporal_contract_frozen: bool = False,
 ) -> TurnDecision:
     from intelligence.services.historical_research.intent import inherit_history_followup
 
@@ -1227,6 +1233,11 @@ def decide_turn(
     )
     if history_followup is not None and conversation_materials is None:
         conversation_materials = ConversationMaterials(unavailable=True)
+    if conversation_materials is None:
+        from intelligence.services.user_task import classify_top_level_regions
+
+        if classify_top_level_regions(query).uncertain_reasons:
+            conversation_materials = ConversationMaterials()
     # Source-aware material turns are resolved before pending-frame recovery,
     # lexicons and generic routing. An old research intent is not a permission.
     # Exception: a pending material-contract clarification means this message
@@ -1250,6 +1261,7 @@ def decide_turn(
             frame = build_task_frame(
                 query, envelope, conversation_materials=conversation_materials,
                 history_continuation=history_followup is not None,
+                today=today, temporal_contract=temporal_contract,
             )
             if material.needs_clarification:
                 question = (
@@ -1292,6 +1304,8 @@ def decide_turn(
             if is_entity_tristate_clarification(pending_frame)
             else resolve_task_frame_clarification(pending_frame, query)
         )
+        if temporal_contract is not None:
+            task_frame = pin_temporal_contract(task_frame, temporal_contract)
         envelope = envelope_from_task_frame(
             task_frame,
             operators=previous_intent.operators,
@@ -1360,6 +1374,7 @@ def decide_turn(
         conversation_context=context if context else None,
         conversation_materials=conversation_materials,
         history_continuation=history_followup is not None,
+        today=today, temporal_contract=temporal_contract,
     )
     if history_followup is not None and (
         task_frame.history_intent is None
@@ -1559,6 +1574,22 @@ def decide_turn(
             intent, required_outputs=task_frame.required_outputs,
             task_frame_hash=task_frame.task_frame_hash,
         )
+        temporal = temporal_contract
+        if not temporal_contract_frozen or temporal is None:
+            temporal = compile_temporal_contract(
+                query, today=today or date.today(), continuing=True,
+                previous=previous_intent.temporal_contract if previous_intent else None,
+            )
+        task_frame = pin_temporal_contract(task_frame, temporal)
+        envelope = project_task_frame(task_frame, envelope)
+        intent = replace(intent, timeframe=task_frame.timeframe,
+                         task_frame_hash=task_frame.task_frame_hash, temporal_contract=temporal)
+        if temporal.errors:
+            return _attach_turn_intent(
+                _decision("clarify", envelope=envelope, needs_retrieval=False,
+                          clarification_questions=(temporal.errors[0],), reason="续轮时间授权无法核对"),
+                intent, task_frame=task_frame,
+            )
     effective_query = contextualize_intent_query(query, intent)
     deterministic = _deterministic_decision(
         effective_query,
@@ -1747,6 +1778,54 @@ def decide_turn(
     return _attach_turn_intent(decision, intent, task_frame=task_frame)
 
 
+def decide_turn(
+    query: str, *, context: str = "", skill_mode: str = "auto",
+    selected_skill_ids: Sequence[str] = (), llm_complete: LLMComplete | None = None,
+    previous_intent: TurnIntent | None = None, previous_turn_id: str | None = None,
+    resolver: QueryResolver | None = None, conversation_materials: ConversationMaterials | None = None,
+    deadline: ResearchDeadline | None = None, today: date | None = None,
+    temporal_contract: TemporalContract | None = None,
+) -> TurnDecision:
+    runtime_date = today or date.today()
+    temporal = temporal_contract or compile_temporal_contract(query, today=runtime_date)
+    if temporal.errors:
+        envelope = QueryEnvelope("general_finance_qa", "unknown", None, query, None, "explicit", 1.0,
+                                 temporal_contract=temporal)
+        frame = build_task_frame(query, envelope, today=runtime_date, temporal_contract=temporal)
+        intent = build_turn_intent(query, envelope, task_frame=frame)
+        return _attach_turn_intent(
+            _decision("clarify", envelope=envelope, needs_retrieval=False,
+                      clarification_questions=(temporal.errors[0],), reason="可信用户时间授权需要澄清"),
+            intent, task_frame=frame,
+        )
+    decision = _decide_turn_semantics(
+        query, context=context, skill_mode=skill_mode, selected_skill_ids=selected_skill_ids,
+        llm_complete=llm_complete, previous_intent=previous_intent, previous_turn_id=previous_turn_id,
+        resolver=resolver, conversation_materials=conversation_materials, deadline=deadline,
+        today=runtime_date, temporal_contract=temporal,
+        temporal_contract_frozen=temporal_contract is not None,
+    )
+    intent = decision.turn_intent
+    if temporal_contract is None and intent is not None and intent.inherited_from_turn is not None:
+        temporal = compile_temporal_contract(
+            query, today=runtime_date, previous=previous_intent.temporal_contract if previous_intent else None,
+            continuing=True,
+            message_id=(temporal.cutoff_source.message_id if temporal.cutoff_source else
+                        temporal.market_target.source.message_id if temporal.market_target else None),
+        )
+    frame = decision.task_frame
+    if frame is not None:
+        frame = pin_temporal_contract(frame, temporal)
+        if intent is not None:
+            decision = _attach_turn_intent(decision, intent, task_frame=frame)
+        else:
+            decision = replace(decision, task_frame=frame, timeframe=frame.timeframe)
+    if temporal.errors:
+        decision = replace(decision, lane="clarify", needs_retrieval=False, needs_memory=False,
+                           needs_template=False, capabilities=(), clarification_questions=(temporal.errors[0],))
+    return decision
+
+
 def _attach_turn_intent(
     decision: TurnDecision,
     intent: TurnIntent,
@@ -1763,6 +1842,7 @@ def _attach_turn_intent(
             required_outputs=task_frame.required_outputs,
             task_frame_hash=task_frame.task_frame_hash,
             history_intent=task_frame.history_intent,
+            temporal_contract=task_frame.temporal_contract,
         )
     inherited_research_intent = (
         intent.answer_owner is not None

@@ -33,6 +33,14 @@ def test_local_history_execution_pagination_and_scope_without_external_attempts(
         con.execute("INSERT INTO fact_market_daily (trade_date, sh_index_pct_chg, market_stage) VALUES ('2026-08-05',99,'未来阶段')")
         con.execute("CREATE TABLE fact_mainline_theme_daily(trade_date DATE, theme_name TEXT, sector_count INT, min_sort INT)")
         con.execute("INSERT INTO fact_mainline_theme_daily VALUES ('2026-08-04','窗内主线',2,1),('2026-08-05','未来主线',9,1)")
+        con.execute("ALTER TABLE fact_sector_daily ADD COLUMN sw_l1 TEXT")
+        con.execute("""CREATE TABLE fact_mainline_sector_daily(
+            trade_date DATE, theme_code TEXT, theme_name TEXT, sector_ts_code TEXT, sector_name TEXT,
+            sort_no INT, today_pct DOUBLE, limit_up_count INT, net_inflow_1d DOUBLE, amount DOUBLE,
+            cycle_status TEXT, cycle_level TEXT, startup_date_small DATE, high_status_label TEXT,
+            near_breakout_label TEXT)""")
+        con.execute("INSERT INTO fact_mainline_sector_daily (trade_date,theme_code,theme_name,sector_ts_code,sector_name) "
+                    "VALUES ('2026-08-04','IN','窗内主线','A.FP','农业'),('2026-08-05','OUT','未来主线','OUT','未来板块')")
     before = path.read_bytes()
     question = "不要联网。以2026-08-04为信息截止日，只研究2026-08-03至2026-08-04这波农业怎么走出来的。"
     frame = understand_query(question).task_frame
@@ -74,7 +82,11 @@ def test_local_history_execution_pagination_and_scope_without_external_attempts(
     ), context=context, step_id="facts")
     assert "local:test" in observed.observation and "未来阶段" not in observed.observation
     mainline = registry.execute("mainline_context", {}, context=context, step_id="mainline")
-    assert "窗内主线" in mainline.observation and "未来主线" not in mainline.observation
+    from intelligence.services.research_harness import FinanceResearchHarness
+
+    public = FinanceResearchHarness().project_tool_result(mainline, evidence_so_far=mainline.evidence,
+                                                         seen_prose=set()).model_content
+    assert "窗内主线" in public and "未来主线" not in public
     for item in (*observed.evidence, *mainline.evidence):
         assert item.source_date <= "2026-08-04"
     with pytest.raises(ValueError, match="outside_authorized_scope"):

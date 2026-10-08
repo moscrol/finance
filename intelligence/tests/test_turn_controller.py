@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from datetime import date
 
 import pytest
 
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services.research_contract import TurnIntent
+from intelligence.services.temporal_contract import compile_temporal_contract
 from intelligence.services.query_resolution import QueryResolution, QueryResolver
 from intelligence.services.query_understanding import QueryEnvelope, understand_query
 from intelligence.services.turn_controller import TurnDecision, _attach_turn_intent, decide_turn
@@ -864,6 +866,7 @@ def test_rebound_reference_inherits_subject_without_rewriting_raw_question() -> 
         answer_owner=None,
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('科创50你认为反弹空间有多少', today=date(2026, 10, 7)),
     )
     question = "这个反弹还能持续多久"
 
@@ -931,6 +934,7 @@ def test_follow_up_inherits_subject_owner_and_evidence_set() -> None:
         answer_owner="stock-deep-dive",
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('请深挖英维克的客户和订单证据', today=date(2026, 10, 7)),
         evidence_atom_ids=("atom-1", "atom-2"),
     )
 
@@ -970,6 +974,7 @@ def test_financial_context_dependent_followups_inherit_research_gate(
         answer_owner="stock-deep-dive",
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('请深挖立讯精密的AI服务器客户订单', today=date(2026, 10, 7)),
         evidence_atom_ids=("atom-1",),
         skill_ids=("stock-deep-dive",),
         stage_artifact_ids=("owner:company_master:hash",),
@@ -1012,6 +1017,7 @@ def test_new_contextual_references_inherit_governed_owner(
         answer_owner="stock-deep-dive",
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('请深挖中际旭创的光模块客户订单', today=date(2026, 10, 7)),
         evidence_atom_ids=("atom-1",),
     )
 
@@ -1040,6 +1046,7 @@ def test_non_owner_skill_followup_cannot_fall_back_to_general_chat() -> None:
         answer_owner=None,
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('请复盘A股市场', today=date(2026, 10, 7)),
         skill_ids=("daily-review",),
     )
 
@@ -1065,6 +1072,7 @@ def test_explicit_follow_up_task_switch_keeps_subject_and_changes_owner() -> Non
         answer_owner="stock-deep-dive",
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('请深挖英维克的客户和订单证据', today=date(2026, 10, 7)),
     )
 
     decision = decide_turn(
@@ -1088,6 +1096,7 @@ def test_a04_comparison_inherits_theme_research_owner() -> None:
         answer_owner="theme-research",
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('请分析液冷题材', today=date(2026, 10, 7)),
     )
 
     decision = decide_turn(
@@ -1111,6 +1120,7 @@ def test_a16_comparison_inherits_stock_deep_dive_owner() -> None:
         answer_owner="stock-deep-dive",
         comparison_entities=(),
         inherited_from_turn=None,
+        temporal_contract=compile_temporal_contract('请深挖英维克的客户和订单证据', today=date(2026, 10, 7)),
     )
 
     decision = decide_turn(
@@ -1439,7 +1449,7 @@ def test_research_followup_preserves_inherited_contract_and_failure_provenance(
     if unavailable:
         assert decision.llm_failure_reason
         assert decision.llm_failure_detail == "provider unavailable"
-        assert json.loads(json.dumps(decision.task_frame.to_dict())) == json.loads(calls[0][1]["content"])["task_frame"]
+        assert json.loads(json.dumps(decision.task_frame.to_model_dict())) == json.loads(calls[0][1]["content"])["task_frame"]
     else:
         assert decision.llm_failure_reason == decision.llm_failure_detail == ""
 
@@ -1478,7 +1488,7 @@ def test_controller_failure_preserves_resolved_research_floor(
         assert decision.llm_failure_reason == "unparsable_response"
     assert decision.task_frame is not None
     assert decision.task_frame.subject == subject
-    assert json.loads(json.dumps(decision.task_frame.to_dict())) == json.loads(calls[0][1]["content"])["task_frame"]
+    assert json.loads(json.dumps(decision.task_frame.to_model_dict())) == json.loads(calls[0][1]["content"])["task_frame"]
     assert decision.turn_intent is not None
     assert decision.turn_intent.question_type == question_type
 
@@ -2253,7 +2263,7 @@ def test_failed_semantic_controller_keeps_mixed_company_research_floor(tmp_path,
     assert decision.needs_retrieval
     assert decision.task_frame is not None
     candidate = json.loads(calls[0][1]["content"])["task_frame"]
-    assert decision.task_frame.to_dict() == candidate
+    assert decision.task_frame.to_model_dict() == candidate
     control = project_turn_decision(decision, task_frame=decision.task_frame)
     assert control.terminal_kind == "research" and control.contract_required
     assert decision.llm_failure_detail == "fixture unavailable"

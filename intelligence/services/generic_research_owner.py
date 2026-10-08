@@ -380,6 +380,7 @@ def run_generic_research(
     preloaded_traces: tuple[ProviderTrace, ...] = (),
     preloaded_gaps: tuple[ResearchGap, ...] = (),
     preloaded_observation: str = "",
+    preloaded_query_basis: tuple[agent_research.ToolQueryBasis, ...] = (),
     disabled_tools: tuple[str, ...] = (),
     task_plan: research_task_planner.TaskPlan | None = None,
 ) -> GenericResearchResult:
@@ -405,7 +406,10 @@ def run_generic_research(
                 context=context,
                 step_id=f"{run_id}:owner:{step_counter}",
             )
-            return list(observation.evidence), observation.observation, observation.trace
+            return agent_research.AgentToolOutput(
+                observation.evidence, observation.observation, observation.trace,
+                observation.query_basis,
+            )
 
         return _runner
 
@@ -458,6 +462,7 @@ def run_generic_research(
         total_seconds=context.policy.total_seconds,
         deadline=context.deadline,
         complete_fn=complete_fn,
+        preloaded_query_basis=preloaded_query_basis,
         task_instructions=instructions,
         research_state=state,
         context_block=(

@@ -1,7 +1,7 @@
 """P0 T2：时点检索被 as_of 全滤时不得静默变 0 条。
 
-选定 T2-a：把晚于问句日的条目标注后交给模型，trace 仍是 future_of_cutoff。
-对应质量稿 §7.5。
+原 provider 的越界原件继续可审计；Episode registry 拒收正文，
+模型只得到「检索过但未交付」的诊断。
 """
 
 from __future__ import annotations
@@ -84,17 +84,34 @@ def test_cutoff_filtered_news_not_silently_empty() -> None:
             context,
         )
 
-    assert evidence, "T2-a：全滤时要把越界条目标注后交给模型"
+    assert evidence, "低层 provider 原件仍可审计，不能直接视为模型可交付事实"
     assert trace.status == "future_of_cutoff"
     assert "晚于问句日" in observation
     assert "不是源里没有" in observation or "不是源里没有" in " ".join(
         item.title + item.detail for item in evidence
     )
     assert "无资讯" not in observation
+    from intelligence.services.episode_factory import build_episode_context
+    from intelligence.services.query_understanding import understand_query
+    from intelligence.services.research_harness import FinanceResearchHarness
+    from intelligence.services.research_tool_registry import ResearchToolRegistry, ToolRunResult, ToolSpec
+
+    frame = understand_query("分析电网设备，只使用截至2026年7月23日的信息").task_frame
+    episode = build_episode_context(frame, task_id="cutoff-provider-to-registry", capabilities=("news_search",),
+                                    today="2026-08-20", latest_data_date="2026-08-20")
+    registry = ResearchToolRegistry((ToolSpec("news_search", "news_search", "provider", "local", "current",
+                                            lambda *_args: ToolRunResult(tuple(evidence), observation, trace)),))
+    delivered = registry.execute("news_search", {"query": "电网设备"}, context=episode, step_id="cutoff:1")
+    projection = FinanceResearchHarness().project_tool_result(delivered, evidence_so_far=delivered.evidence, seen_prose=set())
+    assert delivered.evidence == ()
+    assert delivered.trace.status == "future_of_cutoff"
+    assert "不是源里没有" in projection.model_content
+    assert "电网设备高景气延续" not in projection.model_content
+    assert "特高压招标落地" not in projection.model_content
 
 
 def test_overnight_news_discloses_after_cutoff(monkeypatch) -> None:
-    """market_forecast 旁路 _overnight_news_evidence 不得只读 items、把全滤写成空。"""
+    """market_forecast 旁路明确拒收原因，不以越界标题或正文补充事实。"""
 
     from intelligence.services.episode_tools import _overnight_news_evidence
     from intelligence.services.market_news import NewsFetchResult, NewsItem
@@ -128,7 +145,6 @@ def test_overnight_news_discloses_after_cutoff(monkeypatch) -> None:
         as_of=date(2026, 7, 23),
         timeout=2.0,
     )
-    assert evidence
-    assert "晚于问句日" in observation
+    assert evidence == []
     assert "不是源里没有" in observation
-    assert "费城半导体" in observation
+    assert "费城半导体" not in observation
