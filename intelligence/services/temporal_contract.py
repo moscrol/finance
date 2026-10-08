@@ -64,20 +64,61 @@ _DATE_ROLE = re.compile(
 )
 
 
-def _yearless_quantity(text: str, start: int, end: int, raw: str, *, permission: bool = False) -> bool:
+# Numeric punctuation is not date authority on its own. Short dates need a
+# local calendar role; financial quantities and slash-separated period lists
+# take precedence even when they occur next to a general review instruction.
+_DATE_PREFIX = re.compile(
+    r"(?:复盘|回看|回顾|日期|交易日|截至|截止|比较|对比)"
+    r"(?:一下|到|为|是|[:：]|\s)*$"
+)
+_DATE_SUFFIX = re.compile(r"\s*(?:的\s*)?(?:A股|市场|行情|盘面|主线|复盘|收盘|连板|龙虎榜|成交额|成交量|涨家数|跌家数|涨停|跌停|当天|当日|那天|这天)")
+_NUMERIC_ROLE_PREFIX = re.compile(
+    r"(?:仓位|持仓|仓|分位|历史|比例|占比|分数|概率|胜率|均线|MA)"
+    r"(?:\s|为|是|在|从|由|至|到|约|提高到|降低到|[:：=])*$", re.I,
+)
+_NUMERIC_ROLE_SUFFIX = re.compile(
+    r"\s*(?:仓位|仓|分位|概率|比例|日均线|天均线|日线|天线|日周期|日窗口)", re.I,
+)
+
+
+def _yearless_quantity(text: str, start: int, end: int, raw: str, *, permission: bool = False, linked_date: bool = False) -> bool:
+    prefix, suffix = text[:start], text[end:]
+    if _NUMERIC_ROLE_SUFFIX.match(suffix):
+        return True
+    # Do not extract 5/10 from 5/10/20, or the middle of another numeric token.
+    if "月" not in raw and (re.search(r"[\d][/.]\s*$", prefix) or re.match(r"\s*[/．.]\d", suffix)):
+        return True
     if "月" in raw or raw.endswith("日"):
+        # 5/10日均线: the trailing 日 is a period unit, not a date marker.
+        return raw.endswith("日") and bool(re.match(r"\s*(?:均线|线|周期|窗口)", suffix))
+    if (raw.startswith("0.") or _FINANCIAL_QUANTITY_UNIT_RE.match(suffix)
+            or (not permission and (_YEARLESS_QUANTITY_PREFIX_RE.search(re.sub(r"\s+", "", prefix))
+                                    or _NUMERIC_ROLE_PREFIX.search(prefix)))):
+        return True
+    if re.fullmatch(r"\s*(?:那|那么)\s*", prefix) and re.fullmatch(r"\s*呢[？?。\s]*", suffix):
+        return False  # Existing explicit short-date follow-up syntax.
+    if permission or linked_date or _DATE_PREFIX.search(prefix) or _DATE_SUFFIX.match(suffix):
         return False
-    return (
-        raw.startswith("0.")
-        or _FINANCIAL_QUANTITY_UNIT_RE.match(text[end:]) is not None
-        or (not permission and _YEARLESS_QUANTITY_PREFIX_RE.search(re.sub(r"\s+", "", text[:start])) is not None)
-    )
+    if not text[:start].strip() and not text[end:].strip(" 。，？！?!\n"):
+        return False  # A standalone date reply keeps legacy short-date support.
+    return True
 
 
 def yearless_date_matches(text: str) -> tuple[re.Match[str], ...]:
-    """One source-aware numeric-role filter for every yearless date reader."""
-    return tuple(match for match in _YEARLESS_DATE_RE.finditer(text)
-                 if not _yearless_quantity(text, match.start(), match.end(), match.group()))
+    """One source-aware numeric-role filter for every yearless date reader.
+
+    Propagate directly connected date roles iteratively: long date lists must
+    not recurse through every preceding token or authorize unrelated fractions.
+    """
+    accepted = []
+    full_dates = list(_FULL_DATE_RE.finditer(text))
+    connector = re.compile(r"\s*(?:和|与|及|、|到|至|~|～|—|–|-)\s*")
+    for match in _YEARLESS_DATE_RE.finditer(text):
+        prior = accepted[-1:] + [full for full in full_dates if full.end() <= match.start()]
+        linked = any(connector.fullmatch(text[item.end():match.start()]) for item in prior)
+        if not _yearless_quantity(text, match.start(), match.end(), match.group(), linked_date=linked):
+            accepted.append(match)
+    return tuple(accepted)
 
 
 def _iso(value: object) -> str:
@@ -269,9 +310,30 @@ def lexical_date(raw: str, *, today: date) -> date | None:
     return None
 
 
+def _comparison_error(text: str, *, today: date) -> tuple[str, ...]:
+    # A single target/window cannot faithfully represent two discrete dates.
+    # Clarify before routing instead of silently dropping 今天 or one endpoint.
+    token = rf"(?:今天|{_FULL_DATE_RE.pattern}|{_YEARLESS_DATE_RE.pattern})"
+    pattern = re.compile(rf"(?P<left>{token})\s*(?:和|与|跟|对比|相比)\s*(?P<right>{token})")
+    for match in pattern.finditer(text):
+        prefix = re.sub(r"\s+", "", text[:match.start()])
+        if _NUMERIC_ROLE_PREFIX.search(prefix) or _YEARLESS_QUANTITY_PREFIX_RE.search(prefix):
+            continue
+        raw_dates = (match['left'], match['right'])
+        dates = [today if raw == "今天" else lexical_date(raw, today=today) for raw in raw_dates]
+        if any(value is None for value in dates):
+            return ("对比日期无效，请明确两个有效日期",)
+        if dates[0] != dates[1]:
+            return (f"已识别对比日期 {dates[0].isoformat()} 与 {dates[1].isoformat()}；"
+                    "当前单日/连续窗口合同不支持离散多日对比，请分别查询，或明确是否研究两日之间的连续区间",)
+    return ()
+
+
 def market_review_requested_date(query: str, *, today: date | None = None) -> str | None:
     """Legacy single-date projection with the same legal/recent-year lexicon."""
     anchor = today or date.today()
+    if _comparison_error(query, today=anchor):
+        return None
     full = _FULL_DATE_RE.search(query)
     if full is not None:
         parsed = lexical_date(full.group(), today=anchor)
@@ -287,6 +349,9 @@ def _target_window(
     text: str, *, today: date, source: TemporalSource,
     inherited: ResearchDateWindow | None = None,
 ) -> tuple[ResearchDateWindow | None, tuple[str, ...]]:
+    comparison_errors = _comparison_error(text, today=today)
+    if comparison_errors:
+        return None, comparison_errors
     full = list(_FULL_DATE_RE.finditer(text))
     matches = full + [m for m in yearless_date_matches(text) if not any(
         f.start() <= m.start() < f.end() for f in full
