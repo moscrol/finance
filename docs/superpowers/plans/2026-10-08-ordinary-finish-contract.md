@@ -12,11 +12,13 @@
 
 设计见同日期ordinary-finish-contract-design.md；actual baseline为origin/main bd66，PR80已部署。外部三案minimal/flexible/caller及原独审在 `~/.finance-runtime/answer-evidence-quality-1007/owned-delivery-1008/`。原scope/task/window/预算和判官off不扩。只一名source writer，Root不并写。
 
+**执行状态（2026-10-09）**：Task1已提交于`f5847f33`，固定候选121条定向测试通过，独立Spec与Standards均通过；未部署。用户随后提供Knevo架构，要求重新判断架构根因。Task2/3保持hold，本计划暂不作为自动续改指令：成稿合同只是已证缺口之一，下一步先沿既有TaskFrame/ResearchPlan/Harness明确方法装配、证据语义与纠正责任。详见`docs/handoffs/2026-10-09-knevo-architecture-review.md`。
+
 ## Task 1: 作者合同与编译的同一owner
 
 **Files:** Create `intelligence/services/finish_authoring.py`; Modify `intelligence/services/episode_protocol.py`仅必要兼容adapter/作者编译接线；Test `intelligence/tests/test_finish_authoring.py`；既有material/owned准入测试不改弱。
 
-- [ ] 先建真caller RED，schema/模板/编译同一variant，普通无目录默认parts自由块、material由旧owner、旧schema无context原样。接口类型只含json_schema/model_payload和编译envelope/claim origins/可选receipt，不新增状态机柄。
+- [x] 先建真caller RED，schema/模板/编译同一variant，普通无目录默认parts自由块、material由旧owner、旧schema无context原样。接口类型只含json_schema/model_payload和编译envelope/claim origins/可选receipt，不新增状态机柄。
 
 ```python
 author = finish_author_contract(ordinary_context)
@@ -30,9 +32,9 @@ assert compiled.envelope['draft'] == '原正文。'
 assert compiled.owned_answer is None
 ```
 
-- [ ] RED后实现纯入口，复用现有材料编译及owned编译，保持旧类型/错误前后顺序；不得新JSON恢复器或compile.accepted自签。closed schema明确parts/legacy非重叠分支，未知ref或作者receipt不能通过。
-- [ ] 模板仅自由示例不假ref；currentcontext/source/ACK重核由原owner做。单向imports无runtime依赖/重复谓词；material原schema/source/floor/历史例外保留。
-- [ ] 只跑新模块+实际protocol/owned/material必要邻域，Ruff变更files；pathspeccommit。记录准确scope/dirty/head，定向绿不叫全仓。
+- [x] RED后实现纯入口，复用现有材料编译及owned编译，保持旧类型/错误前后顺序；不得新JSON恢复器或compile.accepted自签。closed schema明确parts/legacy非重叠分支，未知ref或作者receipt不能通过。
+- [x] 模板仅自由示例不假ref；currentcontext/source/ACK重核由原owner做。单向imports无runtime依赖/重复谓词；material原schema/source/floor/历史例外保留。
+- [x] 只跑新模块+实际protocol/owned/material必要邻域，Ruff变更files；pathspeccommit。记录准确scope/dirty/head，定向绿不叫全仓。
 
 ## Task 2: 初始system与实际native前缀
 
