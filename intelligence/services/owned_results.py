@@ -35,15 +35,21 @@ _BASIS_KEYS = frozenset({
 _SIGNAL_KEYS = frozenset({
     *_KEYS, *_INPUTS, "theme_name", "strict_double_red", "state", "inputs_complete", "missing_inputs",
 })
-_SEMANTICS = {
-    "sector_pct": "coalesce(fact_sector_daily.pct_chg, fact_mainline_sector_daily.today_pct)；%",
-    "sector_amount": "coalesce(fact_sector_daily.amount, fact_mainline_sector_daily.amount/10000)；亿元",
-    "mainline_amount": "fact_mainline_sector_daily.amount；保留原表值与源口径",
-    "diff_ratio": "(当日成交额/上一交易日成交额-1)*100；成交额环比%，不是净流入",
-    "strict_double_red": DOUBLE_RED_DESCRIPTION,
-    "strict_double_red_rule": "market_feature_store.signals.is_double_red；任一输入缺失则资格未知",
-}
-_UNAVAILABLE = frozenset({"market_unique_mainline", "medicine_no_high", "index_contribution"})
+# One versioned source descriptor, read by both the D4 producer and decoder.
+# Units describe inputs; prose is a presentation of this source contract.
+D4_SOURCE_DESCRIPTOR = MappingProxyType({
+    "schema": _SCHEMA, "definition_version": "d4_strict_double_red_v1",
+    "predicate_owner": "market_feature_store.signals.is_double_red",
+    "inputs": MappingProxyType({"sector_pct": "%", "diff_ratio": "%", "sector_amount": "亿元"}),
+    "metric_semantics": MappingProxyType({
+        "sector_pct": "coalesce(fact_sector_daily.pct_chg, fact_mainline_sector_daily.today_pct)；%",
+        "sector_amount": "coalesce(fact_sector_daily.amount, fact_mainline_sector_daily.amount/10000)；亿元",
+        "mainline_amount": "fact_mainline_sector_daily.amount；保留原表值与源口径",
+        "diff_ratio": "(当日成交额/上一交易日成交额-1)*100；成交额环比%，不是净流入",
+        "strict_double_red": DOUBLE_RED_DESCRIPTION,
+        "strict_double_red_rule": "market_feature_store.signals.is_double_red；任一输入缺失则资格未知",
+    }),
+})
 
 
 class OwnedResultError(ValueError):
@@ -128,7 +134,7 @@ class OwnedCatalogue:
         raise OwnedResultError("unknown_result_ref")
 
     def unavailable(self, role: str) -> bool:
-        return role in _UNAVAILABLE or not any(block.role == role for block in self.blocks)
+        return not any(block.role == role for block in self.blocks)
 
     def model_view(self) -> list[dict[str, str]]:
         return [{"result_ref": block.result_ref, "text": block.text} for block in self.blocks]
@@ -140,6 +146,67 @@ class RenderedOwnedParts:
     owned_blocks: tuple[OwnedBlock, ...]
     free_blocks: int
     receipt: dict[str, object] | None
+
+
+@dataclass(frozen=True)
+class _DeliveredSource:
+    owner: str
+    observation: ToolObservation
+
+
+def _context_owner(context: ResearchRunContext) -> str:
+    from intelligence.services.episode_entry_identity import capture_entry_identity
+
+    return _digest([context.contract.task_id, context.contract.task_frame_hash,
+                    context.trace_parent_id, capture_entry_identity(context)])
+
+
+def _catalogue_from_context(context: ResearchRunContext) -> OwnedCatalogue:
+    catalogues = []
+    seen: dict[str, str] = {}
+    for item in context._owned_result_sources:
+        if not isinstance(item, _DeliveredSource) or item.owner != _context_owner(context):
+            continue
+        catalogue = compile_owned_results(item.observation, context)
+        if not catalogue.blocks:
+            continue
+        old_digest = seen.get(catalogue.source_identity)
+        if old_digest and old_digest != catalogue.source_digest:
+            raise OwnedResultError("same_source_input_conflict")
+        if old_digest:
+            continue
+        seen[catalogue.source_identity] = catalogue.source_digest
+        catalogues.append(catalogue)
+    if not catalogues:
+        return OwnedCatalogue()
+    if len(catalogues) == 1:
+        return catalogues[0]
+    blocks = tuple(block for catalogue in catalogues for block in catalogue.blocks)
+    witnesses = [_thaw(catalogue.witness) for catalogue in catalogues]
+    cards = [card for witness in witnesses for card in witness["cards"]]
+    return OwnedCatalogue(blocks, _digest(sorted(seen.values())), _digest(sorted(seen)),
+                          _freeze({"cards": cards, "sources": witnesses}))
+
+
+def _acknowledge_owned_results(
+    observation: ToolObservation, model_content: str, *, context: ResearchRunContext,
+) -> None:
+    try:
+        facing = json.loads(model_content)
+    except (TypeError, ValueError):
+        return
+    if not isinstance(facing, dict) or not isinstance(facing.get("owned_results"), dict):
+        return
+    catalogue = compile_owned_results(observation, context)
+    if (not catalogue.blocks or facing.get("query_basis") != observation.query_basis
+            or facing["owned_results"].get("parts") != catalogue.model_view()):
+        return
+    source = replace(observation, query_basis=json.loads(_json(observation.query_basis)), telemetry={})
+    delivery = _DeliveredSource(_context_owner(context), source)
+    # Check source conflicts without leaving rejected data in the current cache.
+    trial = replace(context, _owned_result_sources=[*context._owned_result_sources, delivery])
+    _catalogue_from_context(trial)
+    context._owned_result_sources.append(delivery)
 
 
 def compile_owned_results(
@@ -162,7 +229,7 @@ def compile_owned_results(
         return OwnedCatalogue()
     if source_observation.dataset != "mainline_sector_daily":
         raise OwnedResultError("source_dataset_conflict")
-    if set(basis) != _BASIS_KEYS or basis["metric_semantics"] != _SEMANTICS:
+    if set(basis) != _BASIS_KEYS or basis["metric_semantics"] != D4_SOURCE_DESCRIPTOR["metric_semantics"]:
         raise OwnedResultError("source_definition_conflict")
     # JSON types and finite numbers only; a witness must be immutable and portable.
     try:
@@ -258,8 +325,7 @@ def compile_owned_results(
         selected.append((row, cards[key], truth))
     if set(cards) - seen or any(row_names.get(g["theme_name"], 0) != g["preview_rows"] for g in groups):
         raise OwnedResultError("source_key_scope_conflict")
-    definition = {"owner": "market_feature_store.signals.is_double_red", "predicate": DOUBLE_RED_SQL,
-                  "semantics": _SEMANTICS}
+    definition = {"descriptor": _thaw(D4_SOURCE_DESCRIPTOR), "predicate": DOUBLE_RED_SQL}
     identities = [{"key": list(key), "content_hash": card.content_hash, "source_date": card.source_date}
                   for key, card in sorted(cards.items())]
     identity = {"tool": source_observation.tool, "dataset": source_observation.dataset,
@@ -271,13 +337,11 @@ def compile_owned_results(
         key = tuple(row[k] for k in _KEYS)
         display = card.title.rsplit(" / ", 1)[-1]
         qualifier = "资格未知" if truth is None else "满足严格双红" if truth else "不满足严格双红"
-        inputs = ("缺输入：" + "、".join(row["missing_inputs"]) if truth is None else
-                  f"涨幅{row['sector_pct']}%、成交额环比{row['diff_ratio']}%、成交额{row['sector_amount']}亿元")
-        text = f"{snapshot}，{display}（{key[1]}/{key[2]}）{qualifier}（{inputs}）。"
+        text = f"{snapshot}，{row['theme_name']}主题中的{display}{qualifier}。"
         ref = "R" + _digest([digest, key, "strict_double_red"])[:20]
         blocks.append(OwnedBlock(ref, key, "strict_double_red", truth, text, digest, definition_digest))
     texts = {
-        "rule_definition": "规则定义：" + DOUBLE_RED_DESCRIPTION + "来源：market_feature_store.signals.is_double_red（本地规则）；这不是当日行情观测值。",
+        "rule_definition": "本地量价规则：" + DOUBLE_RED_DESCRIPTION + "这是规则定义，不是当日行情观测值。",
         "scope": f"{snapshot}，本表共{len(groups)}主题、{total}行，原表预览{preview}行、省略{omitted}行；"
                  f"本次来源可认证{len(selected)}条板块资格，不能据该预览认证全市场唯一主线。",
     }

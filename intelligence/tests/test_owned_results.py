@@ -22,10 +22,12 @@ def test_actual_d4_false_is_owned_and_preview_cannot_certify_market_uniqueness()
     assert rendered.owned_blocks[0].value is False
     assert "免疫治疗" in rendered.draft
     assert "不满足严格双红" in rendered.draft
-    assert "349.327亿元" in rendered.draft
+    assert next(r["sector_amount"] for r in catalogue.witness["query_basis"]["price_volume_signals"]
+                if (r["trade_date"], r["theme_code"], r["sector_ts_code"]) == IMMUNE_KEY) == 349.327
+    assert "LM002.LOCAL" not in rendered.draft and "990080.FP" not in rendered.draft
     block = rendered.owned_blocks[0]
     assert rendered.draft[block.start:block.end] == block.text
-    assert catalogue.unavailable("market_unique_mainline")
+    assert catalogue.unavailable("unregistered_aggregate")
     scope = render_owned_parts([{"result_ref": catalogue.ref_for((), "scope")}], catalogue)
     assert "4主题、68行" in scope.draft and "24" in scope.draft and "44" in scope.draft
     assert rendered.receipt["free_blocks"] == 0
@@ -43,9 +45,9 @@ def test_real_true_signals_keep_their_fact_keys_and_local_rule_role():
         assert "不满足" not in result.draft and "满足严格双红" in result.draft
     rule = render_owned_parts([{"result_ref": catalogue.ref_for((), "rule_definition")}], catalogue)
     assert "大于 10" in rule.draft and "大于 500 亿" in rule.draft
-    assert "market_feature_store.signals.is_double_red（本地规则）" in rule.draft
+    assert "本地量价规则" in rule.draft and "market_feature_store" not in rule.draft
     assert rule.owned_blocks[0].role == "rule_definition"
-    assert catalogue.unavailable("medicine_no_high") and catalogue.unavailable("index_contribution")
+    assert catalogue.unavailable("incomplete_population") and catalogue.unavailable("unsupported_calculation")
 
 
 @pytest.mark.parametrize("amount,diff,pct,truth", [(500, 11, 1, False), (501, 11, 1, True),
