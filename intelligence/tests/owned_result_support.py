@@ -46,7 +46,7 @@ def frame_context(*, task_id: str = "owned-results-test", max_steps: int = 4):
         subject_kind=frame.subject_kind, question_type=frame.question_type,
         required_outputs=(RequiredOutput("direct_assessment", "同日行情研判", ("mainline_context",), True),),
         allowed_capabilities=("mainline_context",), research_tier="quick", freshness="current",
-        task_frame_hash=frame.task_frame_hash, evidence_plan=EvidencePlan(()),
+        task_frame_hash=frame.task_frame_hash, evidence_plan=EvidencePlan(),
     )
     context = ResearchRunContext(
         contract=contract, deadline=ResearchDeadline.from_timeout(60),

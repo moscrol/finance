@@ -164,6 +164,7 @@ def _context_owner(context: ResearchRunContext) -> str:
 def _catalogue_from_context(context: ResearchRunContext) -> OwnedCatalogue:
     catalogues = []
     seen: dict[str, str] = {}
+    fact_inputs: dict[tuple[tuple[str, ...], str], str] = {}
     for item in context._owned_result_sources:
         if not isinstance(item, _DeliveredSource) or item.owner != _context_owner(context):
             continue
@@ -175,6 +176,16 @@ def _catalogue_from_context(context: ResearchRunContext) -> OwnedCatalogue:
             raise OwnedResultError("same_source_input_conflict")
         if old_digest:
             continue
+        cards = {tuple(card["key"]): card["content_hash"] for card in catalogue.witness["cards"]}
+        for row in catalogue.witness["query_basis"]["price_volume_signals"]:
+            key = tuple(row[k] for k in _KEYS)
+            if key not in cards:
+                continue
+            identity = (key, cards[key])
+            inputs_digest = _digest({k: _thaw(row[k]) for k in (*_INPUTS, "inputs_complete", "missing_inputs", "strict_double_red")})
+            if identity in fact_inputs and fact_inputs[identity] != inputs_digest:
+                raise OwnedResultError("same_source_input_conflict")
+            fact_inputs[identity] = inputs_digest
         seen[catalogue.source_identity] = catalogue.source_digest
         catalogues.append(catalogue)
     if not catalogues:
@@ -281,7 +292,7 @@ def compile_owned_results(
     for card in source_observation.evidence:
         if (card.tool != "mainline_context" or not card.content_hash
                 or card.content_hash not in source_observation.evidence_hashes
-                or card.evidence_tier != "L4_structured"):
+                or card.evidence_tier != "L4_structured" or card.io_effect != "local_read"):
             continue
         try:
             key = json.loads(card.independent_key)
@@ -390,9 +401,72 @@ def render_owned_parts(
     draft = "\n\n".join(text_parts)
     receipt = {"schema": "owned_answer_v1", "parts": saved,
                "draft_sha256": sha256(draft.encode()).hexdigest(),
-               "source_identity": catalogue.source_identity,
-               "source_cards": _thaw(catalogue.witness.get("cards", ())),
+               "source_digests": sorted({block.source_digest for block in owned}),
                "owned_blocks": [block.payload() for block in owned],
                "free_blocks": free, "free_spans": free_spans,
                "qualification": "partially_owned" if owned and free else "owned" if owned else "unassessed"}
     return RenderedOwnedParts(draft, tuple(owned), free, receipt)
+
+
+def _matching_owned_answer(events: object, draft: str) -> dict[str, object] | None:
+    """Only the adopted latest finish can own this body; never search older prose."""
+    for event in reversed(tuple(events)):
+        if event.kind != "finish":
+            continue
+        receipt = event.payload.get("owned_answer")
+        if isinstance(receipt, Mapping) and receipt.get("draft_sha256") == sha256(draft.encode()).hexdigest():
+            return _thaw(receipt)
+        return None
+    return None
+
+
+def _verify_owned_answer(receipt: object, draft: str, *, context: ResearchRunContext) -> RenderedOwnedParts | None:
+    if receipt is None:
+        return None
+    raw = _thaw(receipt)
+    if not isinstance(raw, dict) or raw.get("schema") != "owned_answer_v1":
+        raise OwnedResultError("invalid_ownership_receipt")
+    rendered = render_owned_parts(raw.get("parts"), _catalogue_from_context(context))
+    if rendered.receipt != raw or rendered.draft != draft:
+        raise OwnedResultError("ownership_source_ref_body_conflict")
+    return rendered
+
+
+def _rebuild_owned_sources(events: object, *, context: ResearchRunContext, evidence: object = None) -> None:
+    """Rebuild from native, delivered tool results and existing approved atoms only."""
+    from intelligence.services.provider_observability import ProviderTrace
+    from intelligence.services.research_tool_registry import ToolObservation
+    from intelligence.services.agent_research import AgentEvidence
+
+    approved = None if evidence is None else {card.content_hash: card for card in evidence}
+    trial = replace(context, _owned_result_sources=[])
+    for event in events:
+        if event.kind != "tool_result":
+            continue
+        payload = _thaw(event.payload)
+        if payload.get("tool") != "mainline_context" or payload.get("ok") is not True:
+            continue
+        content = payload.get("model_content", "")
+        if (not isinstance(content, str) or not content
+                or payload.get("model_content_sha256") != sha256(content.encode()).hexdigest()
+                or not isinstance(payload.get("owned_results"), dict)):
+            continue
+        if approved is None:
+            # Source-only recovery, never reconstruction of the evidence ledger.
+            fields = {"tool", "title", "detail", "source", "source_date", "evidence_tier", "supports",
+                      "contradicts", "independent_key", "freshness", "content_hash", "io_effect"}
+            cards = tuple(AgentEvidence(**{**{k: v for k, v in raw.items() if k in fields},
+                                           "supports": tuple(raw.get("supports", ())),
+                                           "contradicts": tuple(raw.get("contradicts", ()))})
+                          for raw in payload.get("evidence", ()) if isinstance(raw, dict))
+        else:
+            cards = tuple(approved[digest] for digest in payload.get("evidence_hashes", ()) if digest in approved)
+        observation = ToolObservation(
+            tool=payload["tool"], query=payload.get("query", ""), evidence=cards,
+            observation=payload.get("observation", ""),
+            trace=ProviderTrace(provider="owned:restore", capability="mainline_context", status=payload.get("status", "unknown")),
+            evidence_hashes=tuple(payload.get("evidence_hashes", ())),
+            dataset=payload.get("dataset", "unknown"), query_basis=payload.get("query_basis", {}),
+        )
+        _acknowledge_owned_results(observation, content, context=trial)
+    context._owned_result_sources[:] = trial._owned_result_sources

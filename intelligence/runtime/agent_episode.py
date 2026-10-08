@@ -1880,6 +1880,7 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                     carried_draft=carried.draft if carried is not None else "",
                     carried_bindings=carried.bindings if carried is not None else (),
+                    carried_owned_answer=carried.owned_answer if carried is not None else None,
                 )
             if not _consume_root_seconds(context, model_elapsed):
                 if context.root_budget is not None:
@@ -1910,6 +1911,7 @@ class ContinuousAgentEpisode:
                         invalid_actions=invalid_actions,
                         carried_draft=carried_draft,
                         carried_bindings=carried_bindings,
+                        carried_owned_answer=carried.owned_answer,
                     )
                 # R-20260828-06：LLM 这轮已经发生，tool_calls 是产出。
                 # 丢掉等于编译完把查询扔掉。flush 后停机，不发明稿、不开下一轮。
@@ -2412,6 +2414,7 @@ class ContinuousAgentEpisode:
                     "gaps": list(current_gaps),
                     "caveat_slips": admission.caveat_slips,
                     **admission.rejection,
+                    **({} if admission.owned_answer is None else {"owned_answer": admission.owned_answer}),
                 },
             )
             return ledger.outcome(
@@ -2637,6 +2640,8 @@ class ContinuousAgentEpisode:
         if state.ledger.store_failures:
             return previous
         context = state.context
+        from intelligence.services.owned_results import _matching_owned_answer
+
         if state.context_ref is not None:
             state.context_ref.value = context
         ledger = state.ledger
@@ -2765,6 +2770,7 @@ class ContinuousAgentEpisode:
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
                 carried_draft=previous.draft,
+                carried_owned_answer=_matching_owned_answer(previous.events, previous.draft),
                 carried_bindings=previous.bindings,
             )
         definitions = (
@@ -2825,7 +2831,7 @@ class ContinuousAgentEpisode:
             )
         performed_tool_action = False
         if not budget_alive:
-            carried_draft, carried_bindings = self._carry_repair_finish(
+            carried_draft, carried_bindings, carried_owned_answer = self._carry_repair_finish(
                 turn=turn,
                 previous=previous,
                 context=context,
@@ -2846,6 +2852,7 @@ class ContinuousAgentEpisode:
                 invalid_actions=invalid_actions,
                 carried_draft=carried_draft,
                 carried_bindings=carried_bindings,
+                carried_owned_answer=carried_owned_answer,
             )
         if turn.error:
             ledger.add("model_error", {"reason": turn.error})
@@ -2862,6 +2869,7 @@ class ContinuousAgentEpisode:
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
                 carried_draft=previous.draft,
+                carried_owned_answer=_matching_owned_answer(previous.events, previous.draft),
                 carried_bindings=previous.bindings,
             )
         if turn.tool_calls:
@@ -2918,6 +2926,7 @@ class ContinuousAgentEpisode:
                     tool_calls=tool_calls,
                     invalid_actions=invalid_actions,
                     carried_draft=previous.draft,
+                    carried_owned_answer=_matching_owned_answer(previous.events, previous.draft),
                     carried_bindings=previous.bindings,
                 )
             self._compact_history_for_model(
@@ -2948,7 +2957,7 @@ class ContinuousAgentEpisode:
             )
             messages.append(self._assistant_message(turn))
             if not budget_alive:
-                carried_draft, carried_bindings = self._carry_repair_finish(
+                carried_draft, carried_bindings, carried_owned_answer = self._carry_repair_finish(
                     turn=turn,
                     previous=previous,
                     context=context,
@@ -2969,6 +2978,7 @@ class ContinuousAgentEpisode:
                     invalid_actions=invalid_actions,
                     carried_draft=carried_draft,
                     carried_bindings=carried_bindings,
+                    carried_owned_answer=carried_owned_answer,
                 )
         if turn.error or turn.tool_calls:
             invalid_actions += len(turn.tool_calls)
@@ -2999,6 +3009,7 @@ class ContinuousAgentEpisode:
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
                 carried_draft=previous.draft,
+                carried_owned_answer=_matching_owned_answer(previous.events, previous.draft),
                 carried_bindings=previous.bindings,
                 **rejection,
             )
@@ -3032,6 +3043,7 @@ class ContinuousAgentEpisode:
                 tool_calls=tool_calls,
                 invalid_actions=invalid_actions,
                 carried_draft=previous.draft,
+                carried_owned_answer=_matching_owned_answer(previous.events, previous.draft),
                 carried_bindings=previous.bindings,
                 **rejection,
             )
@@ -3054,6 +3066,7 @@ class ContinuousAgentEpisode:
                 "gaps": list(current_gaps),
                 "caveat_slips": admission.caveat_slips,
                 **admission.rejection,
+                **({} if admission.owned_answer is None else {"owned_answer": admission.owned_answer}),
             },
         )
         return ledger.outcome(
@@ -4046,6 +4059,7 @@ class ContinuousAgentEpisode:
                 "gaps": list(current_gaps),
                 "caveat_slips": admission.caveat_slips,
                 **admission.rejection,
+                **({} if admission.owned_answer is None else {"owned_answer": admission.owned_answer}),
             },
         )
         return ledger.outcome(
@@ -4240,7 +4254,7 @@ class ContinuousAgentEpisode:
         context: ResearchRunContext,
         evidence: tuple[AgentEvidence, ...],
         registry: ResearchToolRegistry,
-    ) -> tuple[str, tuple[OutputEvidenceBinding, ...]]:
+    ) -> tuple[str, tuple[OutputEvidenceBinding, ...], dict[str, object] | None]:
         """Prefer the repair turn's own FINAL_JSON, else keep the previous answer.
 
         修复轮的截止路径原本一律结转 ``previous.draft``。那假设「上一轮已经有
@@ -4261,8 +4275,10 @@ class ContinuousAgentEpisode:
             registry=registry,
         )
         if carried is not None and carried.draft:
-            return carried.draft, carried.bindings
-        return previous.draft, previous.bindings
+            return carried.draft, carried.bindings, carried.owned_answer
+        from intelligence.services.owned_results import _matching_owned_answer
+
+        return previous.draft, previous.bindings, _matching_owned_answer(previous.events, previous.draft)
 
     @staticmethod
     def _stopped_outcome(
@@ -4280,6 +4296,7 @@ class ContinuousAgentEpisode:
         invalid_actions: int,
         carried_draft: str = "",
         carried_bindings: tuple[OutputEvidenceBinding, ...] = (),
+        carried_owned_answer: dict[str, object] | None = None,
         rejection_code: str = "none",
         rejection_reason: str = "",
         finish_extra: Mapping[str, object] | None = None,
@@ -4316,6 +4333,7 @@ class ContinuousAgentEpisode:
                 "rejection_reason": rejection_reason,
                 # 只有取消终局带 cancel_cause / cancel_detail（INV-R4）；其余路径不带该键。
                 **dict(finish_extra or {}),
+                **({} if carried_owned_answer is None else {"owned_answer": carried_owned_answer}),
             },
         )
         return ledger.outcome(

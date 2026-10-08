@@ -886,12 +886,17 @@ class FinanceResearchHarness:
             catalogue = None  # Conflicting sources do not publish selectable refs.
         if catalogue is not None and catalogue.blocks:
             facing = json.loads(content)
-            facing["owned_results"] = {
+            owned_projection = {
                 "parts": catalogue.model_view(),
                 "instruction": "可用answer_parts选择result_ref或自由文字块；使用时draft为空。"
                                "引用块由程序生成，不能改值或嵌入否定/因果句；自由文字未获语义认证。",
             }
+            audit["owned_results"] = owned_projection
+            facing["owned_results"] = owned_projection
             content = json.dumps(facing, ensure_ascii=False)
+            from hashlib import sha256
+
+            audit["model_content_sha256"] = sha256(content.encode()).hexdigest()
         return ToolResultProjection(
             audit_payload=audit,
             model_content=content,

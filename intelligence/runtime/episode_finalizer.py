@@ -219,6 +219,15 @@ class EpisodeFinalizer:
         }
         if domain_materials:
             payload["domain_materials"] = domain_materials
+        if context.contract.material_contract is None:
+            from intelligence.services.owned_results import _catalogue_from_context
+
+            catalogue = _catalogue_from_context(context)
+            if catalogue.blocks:
+                payload["owned_results"] = {
+                    "parts": catalogue.model_view(),
+                    "instruction": "可用answer_parts选择已送达的result_ref与自由文字块；draft须为空，不能同时render_from_claims。",
+                }
         grounding = material_grounding_payload(context.contract, prior_evidence=context.prior_evidence)
         if grounding is not None:
             payload["material_grounding"] = grounding

@@ -434,6 +434,7 @@ def _restore_owned(
         )
 
     latest_finish = next((e for e in reversed(events) if e.kind == "finish"), None)
+    terminal_owned = bool(state.terminal and latest_finish is not None and latest_finish.payload.get("owned_answer") is not None)
     if state.terminal:
         # A visible finish alone does not prove the done checkpoint was ACKed.
         # Nor may an old done checkpoint hide a later repair or failure suffix.
@@ -443,8 +444,9 @@ def _restore_owned(
             or state.last_sequence != len(events)
         ):
             raise RestoreUnavailable(f"{episode_id}: terminal checkpoint does not match the finish prefix")
-        return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
-    if latest_finish is not None:
+        if not terminal_owned:
+            return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
+    if latest_finish is not None and not state.terminal:
         repair_checkpointed = any(
             e.kind == "repair_reentry"
             and latest_finish.sequence < e.sequence <= state.last_sequence
@@ -496,6 +498,21 @@ def _restore_owned(
         raise RestoreUnavailable(f"{episode_id}: recovery evidence snapshot is required")
     if state.evidence_snapshot["information_cutoff"] != context.information_cutoff.as_of_date.isoformat():
         raise RestoreUnavailable(f"{episode_id}: recovery evidence cutoff mismatch")
+
+    from intelligence.services.owned_results import (
+        _catalogue_from_context, _rebuild_owned_sources, _verify_owned_answer, render_owned_parts,
+    )
+
+    try:
+        _rebuild_owned_sources(events, context=context)
+        if latest_finish is not None and latest_finish.payload.get("owned_answer") is not None:
+            receipt = latest_finish.to_dict()["payload"]["owned_answer"]
+            restored = render_owned_parts(receipt["parts"], _catalogue_from_context(context))
+            _verify_owned_answer(receipt, restored.draft, context=context)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise RestoreUnavailable(f"{episode_id}: owned result source/ref/receipt unavailable: {exc}") from exc
+    if terminal_owned:
+        return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
 
     synth = _Synthesizer(
         episode_id=episode_id,
