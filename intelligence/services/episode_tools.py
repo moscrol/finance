@@ -7,6 +7,8 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 
 from __future__ import annotations
 
+from intelligence.services.owned_results import D4_SOURCE_DESCRIPTOR
+
 import copy
 import json
 from dataclasses import dataclass, replace
@@ -52,7 +54,6 @@ from intelligence.services.research_tool_registry import (
 )
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.tool_payload import field_names_from_rows
-from market_feature_store.signals import DOUBLE_RED_DESCRIPTION
 
 
 # runner 真能出零 LLM 答案的题型。``run_deterministic_fast_path`` 用它判
@@ -170,7 +171,7 @@ def mainline_snapshot_tool_result(
 def _mainline_snapshot_query_basis(snapshot: ask_blocks.MainlineContextSnapshot) -> dict[str, object]:
     """Public execution semantics only: no SQL, physical path, trace or method cards."""
     return {
-        "schema": "d4_mainline_snapshot_v1",
+        "schema": D4_SOURCE_DESCRIPTOR["schema"],
         "scope": "current_table_single_theme" if snapshot.target_theme else "current_table_all_themes",
         "status": snapshot.status,
         "market_date": snapshot.market_date,
@@ -199,14 +200,7 @@ def _mainline_snapshot_query_basis(snapshot: ask_blocks.MainlineContextSnapshot)
              "sector_rows": history.sector_rows, "has_snapshot_day": history.has_snapshot_day}
             for history in snapshot.history
         ],
-        "metric_semantics": {
-            "sector_pct": "coalesce(fact_sector_daily.pct_chg, fact_mainline_sector_daily.today_pct)；%",
-            "sector_amount": "coalesce(fact_sector_daily.amount, fact_mainline_sector_daily.amount/10000)；亿元",
-            "mainline_amount": "fact_mainline_sector_daily.amount；保留原表值与源口径",
-            "diff_ratio": "(当日成交额/上一交易日成交额-1)*100；成交额环比%，不是净流入",
-            "strict_double_red": DOUBLE_RED_DESCRIPTION,
-            "strict_double_red_rule": "market_feature_store.signals.is_double_red；任一输入缺失则资格未知",
-        },
+        "metric_semantics": dict(D4_SOURCE_DESCRIPTOR["metric_semantics"]),
         "price_volume_signals": [
             {"trade_date": signal.trade_date, "theme_code": signal.theme_code,
              "theme_name": signal.theme_name, "sector_ts_code": signal.sector_ts_code,

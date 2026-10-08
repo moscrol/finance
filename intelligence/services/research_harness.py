@@ -302,6 +302,7 @@ class FinishAdmission:
     reason: str = ""
     kind: str = ""
     response: RejectionResponse | None = None
+    owned_answer: dict[str, object] | None = None
 
     @property
     def repair_steering_kind(self) -> Literal["invalid_finish", "invalid_finish_evidence"]:
@@ -877,6 +878,25 @@ class FinanceResearchHarness:
             # 空值与 independent_key 不进模型上下文（−21%）；开关缺省关，关时逐字节同前。
             budgeted = lean_tool_observation(budgeted)
         content = json.dumps(strip_hashes_for_model(budgeted), ensure_ascii=False)
+        from intelligence.services.owned_results import OwnedResultError, compile_owned_results
+
+        try:
+            catalogue = compile_owned_results(observation, None)
+        except OwnedResultError:
+            catalogue = None  # Conflicting sources do not publish selectable refs.
+        if catalogue is not None and catalogue.blocks:
+            facing = json.loads(content)
+            owned_projection = {
+                "parts": catalogue.model_view(),
+                "instruction": "可用answer_parts选择result_ref或自由文字块；使用时draft为空。"
+                               "引用块由程序生成，不能改值或嵌入否定/因果句；自由文字未获语义认证。",
+            }
+            audit["owned_results"] = owned_projection
+            facing["owned_results"] = owned_projection
+            content = json.dumps(facing, ensure_ascii=False)
+            from hashlib import sha256
+
+            audit["model_content_sha256"] = sha256(content.encode()).hexdigest()
         return ToolResultProjection(
             audit_payload=audit,
             model_content=content,
@@ -890,6 +910,9 @@ class FinanceResearchHarness:
         from intelligence.services.historical_research.episode import record_history_delivery
 
         record_history_delivery(observation, projection.model_content, context=context)
+        from intelligence.services.owned_results import _acknowledge_owned_results
+
+        _acknowledge_owned_results(observation, projection.model_content, context=context)
 
     def project_tool_error(
         self, *, tool: str, error: str, detail: str
@@ -1019,6 +1042,7 @@ class FinanceResearchHarness:
             caveat_slips=finish.caveat_slips,
             rejection=finish_rejection_fields(),
             declared_gaps=tuple(finish.gaps),
+            owned_answer=finish.owned_answer,
         )
 
     def assess_publication(

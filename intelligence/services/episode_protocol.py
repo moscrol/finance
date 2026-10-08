@@ -90,6 +90,7 @@ class EpisodeFinish:
     # EVAL_ONLY：本次把 hashes+gap 滑档挪到顶层 gaps 的格数。
     # 无滑档时为 0，字段仍在场。不参与任何判定。
     caveat_slips: int = 0
+    owned_answer: dict[str, object] | None = None
 
 
 def finish_json_schema(
@@ -109,6 +110,14 @@ def finish_json_schema(
                 "enum": ["completed", "partial"],
             },
             "draft": {"type": "string"},
+            "answer_parts": {
+                "type": "array",
+                "items": {"anyOf": [
+                    {"type": "string"},
+                    {"type": "object", "additionalProperties": False,
+                     "properties": {"result_ref": {"type": "string"}}, "required": ["result_ref"]},
+                ]},
+            },
             "render_from_claims": {"type": "boolean"},
             "gaps": {
                 "type": "array",
@@ -1064,6 +1073,12 @@ def validate_episode_finish(
     decoded = _finish_object(value)
     if decoded is None:
         raise _reject("not_json_object", "finish must be one JSON object" + _json_failure_position(value))
+    if "owned_answer" in decoded:
+        raise _reject("bad_claim_binding", "ownership receipt is program-owned")
+    parts = decoded.get("answer_parts")
+    if parts is not None and (decoded.get("format") is not None or decoded.get("render_from_claims")
+                              or context.contract.material_contract is not None):
+        raise _reject("bad_claim_binding", "answer_parts cannot mix with material authoring or claim rendering")
     try:
         decoded = compile_material_author_finish(
             decoded, context.contract, prior_evidence=getattr(context, "prior_evidence", None),
@@ -1078,6 +1093,20 @@ def validate_episode_finish(
     draft = decoded.get("draft")
     if not isinstance(draft, str):
         raise _reject("draft_not_string", "finish draft must be a string")
+    owned_answer = None
+    if parts is not None:
+        from intelligence.services.owned_results import (
+            OwnedResultError, _catalogue_from_context, _context_owner, render_owned_parts,
+        )
+
+        try:
+            # Free blocks retain the legacy natural-language newline normalization.
+            normalized_parts = [_normalize_natural_language_layout(p) if type(p) is str else p for p in parts] if isinstance(parts, list) else parts
+            rendered = render_owned_parts(normalized_parts, _catalogue_from_context(context), legacy_draft=draft)
+        except OwnedResultError as exc:
+            raise _reject("bad_claim_binding", "owned result selection: " + exc.reason) from exc
+        draft, owned_answer = rendered.draft, rendered.receipt
+        owned_answer = {**owned_answer, "owner": _context_owner(context)}
     render_from_claims = decoded.get("render_from_claims", False)
     if not isinstance(render_from_claims, bool):
         raise _reject("bad_claim_binding", "render_from_claims must be a boolean")
@@ -1093,7 +1122,8 @@ def validate_episode_finish(
         decoded, claim_origins = split_claim_sentences(decoded)
     else:
         claim_origins = {}
-        draft = _normalize_natural_language_layout(draft)
+        if owned_answer is None:
+            draft = _normalize_natural_language_layout(draft)
     # 题设计算的程序表准入跟在两条 draft 来源之后：无论 draft 是模型原文还是按
     # 材料主张渲染出来的，只要合同带 premise_calculation，就要过同一道表格硬校验。
     calculation = context.contract.premise_calculation
@@ -1380,6 +1410,7 @@ def validate_episode_finish(
         gaps=gaps,
         bindings=tuple(bindings),
         caveat_slips=caveat_slips,
+        owned_answer=owned_answer,
     )
 
 

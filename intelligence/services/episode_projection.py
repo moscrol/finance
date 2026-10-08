@@ -79,6 +79,14 @@ def _redact_model_visible_text(event_dict: dict[str, object]) -> dict[str, objec
     payload = event_dict.get("payload")
     if not isinstance(payload, dict):
         return event_dict
+    if "owned_answer" in payload:
+        import json
+
+        payload = dict(payload)
+        receipt = payload.pop("owned_answer")
+        encoded = json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        payload["owned_answer_sha256"] = sha256_text(encoded)
+        event_dict = {**event_dict, "payload": payload}
     redacted: dict[str, object] | None = None
     for field_kind, name in MODEL_VISIBLE_TEXT_FIELDS:
         if field_kind != kind:

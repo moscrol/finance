@@ -753,6 +753,14 @@ class ContinuousTurnAdapter:
                 context.contract.research_tier
             )
             repair_terminal = False
+            prepare_owned = getattr(self._semantic_verifier, "_prepare_owned_answer", None)
+            if callable(prepare_owned):
+                try:
+                    structural = prepare_owned(frame=frame, structurally_verified=structural, context=context)
+                except ValueError:
+                    # This diagnostic never grants authority or alters completion.
+                    # The real semantic entry reports the source violation later.
+                    structural = replace(structural, _owned_answer=None)
             backfill_plan = _issue_backfill_plan(
                 structural,
                 context,
@@ -1297,6 +1305,11 @@ class ContinuousTurnAdapter:
             semantic, question=frame.raw_question, delivered_answer=answer,
             evidence_outcome=outcome,
         )
+        from intelligence.services.episode_semantic_verifier import recheck_owned_public_delivery
+
+        semantic = recheck_owned_public_delivery(semantic, context=context, projected=answer)
+        if semantic.judge_status == "rejected" and any(issue.startswith("owned_answer:") for issue in semantic.issues):
+            answer, status = semantic.public_answer, "partial"
         artifact = {
             "schema_version": 1,
             # 事件日志的 schema 版本（运行底座 P2 G9）：与 store 里 state.json 的同一个数。

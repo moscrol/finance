@@ -1339,6 +1339,11 @@ class ResearchRunContext:
     entry_identity: EpisodeEntryIdentity | None = None
     temporal_contract: TemporalContract | None = None
 
+    # Only actual model-message ACK populates this per-turn source cache. It is
+    # never serialized as authorization, and every use recompiles under current
+    # capability/cutoff and entry identity. Old/other callers leave it empty.
+    _owned_result_sources: list[object] = field(default_factory=list, repr=False, compare=False)
+
 
 @dataclass(frozen=True)
 class EvidenceAtom:
