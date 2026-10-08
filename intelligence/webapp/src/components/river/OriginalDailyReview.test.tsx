@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { OriginalDailyReview } from "./OriginalDailyReview";
 
@@ -52,28 +52,4 @@ it.each(["error", "pending"])("loads the selected archive independently while th
   expect(screen.getByLabelText("复盘当前交易日")).toHaveValue(selected);
   expect(notify).not.toHaveBeenCalled();
   if (marketState === "error") expect(await screen.findByRole("alert")).toHaveTextContent("503");
-});
-
-
-it("opens continuous review only on demand and returns to the same daily archive", async () => {
-  const day = "2026-09-24";
-  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-    if (url.includes("daily-overview")) return { ok: false, status: 503 };
-    const body = url.includes("review-history") ? {
-      schema_version: 1, knowledge_mode: "archived_report_not_as_known", requested_end: day,
-      start: day, end: day, requested_days: 20, calendar_complete: true,
-      industry: "", industries: [], points: [], metrics: [], coverage: { available: 0, total: 0 }, notes: [], limits: {},
-    } : { schema_version: 1, trade_date: day, status: "missing", available_dates: [], report: null };
-    return { ok: true, json: async () => body };
-  }));
-  const onFocusDate = vi.fn();
-  render(<OriginalDailyReview focusDate={day} onFocusDate={onFocusDate} onResearch={vi.fn()} onAttention={vi.fn()}/>);
-  await screen.findByText("这一天尚无结构化日报归档");
-  expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("review-history"))).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "连续复盘 · 时间线" }));
-  await screen.findByText(/这个窗口没有可读的结构化日报/);
-  fireEvent.click(screen.getByRole("button", { name: /打开当日完整复盘/ }));
-  expect(onFocusDate).toHaveBeenCalledWith(day);
-  expect(await screen.findByText("这一天尚无结构化日报归档")).toBeInTheDocument();
-  expect(screen.getByLabelText("复盘当前交易日")).toHaveValue(day);
 });

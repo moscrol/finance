@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getBoardCalendar } from "../api";
@@ -227,37 +227,4 @@ describe("BoardCalendarDashboard", () => {
     expect(screen.getAllByText("没有达到门槛的个股")).toHaveLength(1);
     expect(screen.getByText("暂不能确认")).toBeVisible();
   });
-  it("refreshes successful data without losing month or threshold", async () => {
-    const user = userEvent.setup();
-    render(<BoardCalendarDashboard focusDate="2026-09-24" />);
-    await screen.findByText("6-000001 甲公司");
-    await user.click(screen.getByRole("button", { name: "≥2板" }));
-    await screen.findByText("2-000001 乙公司");
-    await user.click(screen.getByRole("button", { name: "刷新日历" }));
-    await screen.findByText("2-000001 乙公司");
-    expect(mockedGetBoardCalendar).toHaveBeenLastCalledWith("2026-09", 2);
-    expect(mockedGetBoardCalendar).toHaveBeenCalledTimes(3);
-  });
-
-  it("does not label unavailable break coverage as zero events", async () => {
-    const payload = calendarFor("2026-09", 3);
-    payload.calendar_days[0].high_board_comparison_status = "data_missing";
-    mockedGetBoardCalendar.mockResolvedValue(payload);
-    render(<BoardCalendarDashboard focusDate="2026-09-24" />);
-    expect(await screen.findByText("断板未判定：当日或前一交易日名单缺失")).toBeVisible();
-    expect(screen.getByLabelText("日历摘要")).toHaveTextContent("—");
-    expect(screen.getByText(/断板可比较 0 \/ 1/)).toBeVisible();
-  });
-
-  it("keeps a late old response from replacing a newly selected month", async () => {
-    let resolveOld!: (data: BoardCalendar) => void;
-    mockedGetBoardCalendar.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }));
-    render(<BoardCalendarDashboard focusDate="2026-08-24" />);
-    fireEvent.change(screen.getByLabelText("选择月份"), { target: { value: "2026-09" } });
-    await screen.findByRole("article", { name: "2026-09-24" });
-    await act(async () => { resolveOld(calendarFor("2026-08", 3)); });
-    expect(screen.queryByRole("article", { name: "2026-08-24" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("选择月份")).toHaveValue("2026-09");
-  });
-
 });

@@ -5,7 +5,6 @@ import type { DailyOverview, SectorSeries } from "../../river/dailyTypes";
 import type { EntityHit, Kline } from "../../river/types";
 import { ShKline } from "./ShKline";
 import { DailyReviewWorkspace } from "./DailyReviewWorkspace";
-import { ReviewHistory } from "./ReviewHistory";
 import { TimelineViewport } from "./TimelineViewport";
 
 /** Original Workbench chrome, canonical daily-review content. No second dashboard entry. */
@@ -14,7 +13,6 @@ export function OriginalDailyReview({ focusDate, onFocusDate, onResearch, onAtte
   onResearch: (entity: EntityHit, date: string) => void;
   onAttention: (entity: Pick<SectorSeries, "id" | "name"> | null, date: string) => void;
 }) {
-  const [reading, setReading] = useState<"daily" | "history">("daily");
   const [days, setDays] = useState(40);
   const [anchor, setAnchor] = useState<string | null>(focusDate);
   const [revision, setRevision] = useState(0);
@@ -55,8 +53,6 @@ export function OriginalDailyReview({ focusDate, onFocusDate, onResearch, onAtte
   };
   return <div className="output-workbench original-review">
     <div className="output-workbench-header"><div><BookOpen size={15}/><strong>每日复盘</strong><span>原 daily 指标 · 行业 → 子板块 → 个股</span></div><button type="button" onClick={() => setRevision(n => n + 1)}><RefreshCw size={12}/> 刷新复盘</button></div>
-    <div className="original-selection-bar" role="group" aria-label="复盘阅读方式"><button type="button" aria-pressed={reading === "daily"} onClick={() => setReading("daily")}>单日完整复盘</button><button type="button" aria-pressed={reading === "history"} onClick={() => setReading("history")}>连续复盘 · 时间线</button></div>
-    {reading === "history" ? <ReviewHistory refreshToken={revision} initialEnd={selected} selectedDate={selected} onSelect={pick} onOpenReport={day => { pick(day); setReading("daily"); }}/> : <>
     <div className="original-selection-bar"><div className="original-date-picker"><button type="button" aria-label="复盘上一交易日" disabled={!overview || index <= 0} onClick={() => overview && pick(overview.calendar[index - 1])}><ArrowLeft size={14}/></button><label>交易日<select aria-label="复盘当前交易日" value={selected ?? ""} onChange={e => pick(e.target.value)}>{!selected && <option value="">读取日期…</option>}{selected && !overview?.calendar.includes(selected) && <option value={selected}>{selected}</option>}{overview?.calendar.slice().reverse().map(d => <option key={d}>{d}</option>)}</select></label><button type="button" aria-label="复盘下一交易日" disabled={!overview || index < 0 || index >= overview.calendar.length - 1} onClick={() => overview && pick(overview.calendar[index + 1])}><ArrowRight size={14}/></button><button type="button" disabled={!overview?.latest_market_date} onClick={() => { desired.current = null; setOverview(null); setAnchor(null); setRevision(n => n + 1); }}>最新</button></div><div className="river-segment" role="group" aria-label="复盘指数窗口">{[20, 40, 60, 120].map(w => <button type="button" key={w} className={days === w ? "active" : ""} aria-pressed={days === w} onClick={() => setDays(w)}>{w} 日</button>)}</div></div>
     {error && <div className="global-error" role="alert">{error}</div>}
     {!overview && !error && <div className="surface-loading" role="status">正在对齐交易日与原始复盘…</div>}
@@ -67,6 +63,5 @@ export function OriginalDailyReview({ focusDate, onFocusDate, onResearch, onAtte
       {chartError && <p className="river-hint">指数图暂不可读；下方日报归档独立展示，不用虚构K线补齐。</p>}
       {selected && <DailyReviewWorkspace date={selected} revision={revision} sectors={overview?.sectors ?? []} marketDates={overview?.days.map(d => d.date) ?? []} onDate={pick} onResearch={onResearch} onAttention={onAttention}/>}
     </div>
-    </>}
   </div>;
 }

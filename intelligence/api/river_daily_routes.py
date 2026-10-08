@@ -9,7 +9,6 @@ from fastapi import FastAPI, HTTPException, Query
 from intelligence.services.opinion_attention import attention_snapshot, cutoff_for_date, default_ledger_path, read_ledger
 from intelligence.services.river_daily_overview import daily_overview
 from intelligence.services.river_daily_review import daily_review_snapshot
-from intelligence.services.river_review_history import review_history
 
 
 def register_daily_river_routes(app: FastAPI, *, market_db_path: Path | None = None, attention_ledger_path: Path | None = None, review_exports_path: Path | None = None) -> None:
@@ -33,19 +32,6 @@ def register_daily_river_routes(app: FastAPI, *, market_db_path: Path | None = N
             return daily_review_snapshot(exports, as_of=as_of)
         except (ValueError, OSError) as exc:
             raise HTTPException(status_code=503, detail="日报归档不可读或结构无效；未使用其他日期替代。") from exc
-
-    @app.get("/api/river/review-history")
-    def history(end: date | None = None, days: int = Query(default=20, ge=5, le=60),
-                industry: str | None = Query(default=None, max_length=160)) -> dict:
-        from intelligence.paths import default_paths
-
-        exports = Path(review_exports_path) if review_exports_path else default_paths().market_exports
-        try:
-            return review_history(exports, end=end, days=days, industry=industry)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        except OSError as exc:
-            raise HTTPException(status_code=503, detail="连续复盘归档目录暂不可读") from exc
 
     @app.get("/api/river/opinion-attention")
     def attention(as_of: date, entity_id: str | None = Query(default=None, max_length=160)) -> dict:

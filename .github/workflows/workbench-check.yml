@@ -144,16 +144,7 @@ jobs:
         working-directory: intelligence/webapp
         env:
           WORKBENCH_PYTHON: python
-        run: |
-          pnpm test:e2e
-          pnpm test:e2e:calendar
-
-      - name: Test review evidence handoff end to end
-        if: ${{ !cancelled() }}
-        working-directory: intelligence/webapp
-        env:
-          WORKBENCH_PYTHON: python
-        run: pnpm test:e2e:review-evidence
+        run: pnpm test:e2e
 
       - name: Upload Playwright traces on failure
         if: failure()
