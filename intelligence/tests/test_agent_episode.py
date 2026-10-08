@@ -2694,7 +2694,7 @@ def test_model_contract_separates_output_gaps_from_answer_caveats() -> None:
 
     system_prompt = model.calls[0]["messages"][0]["content"]
     assert "binding.gap 只在该 required output 无法回答时填写" in system_prompt
-    assert "限制条件写入顶层 gaps 或 draft" in system_prompt
+    assert "限制条件写入顶层 gaps 或最终正文" in system_prompt
 
 
 def test_model_contract_keeps_compact_reasoning_and_public_boundary_rules() -> None:

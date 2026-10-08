@@ -235,6 +235,26 @@ canonical `fact_sector_daily` published 视图，按本表当日主题统计完�
 这是结果交付的有限保证，发布状态仍以 health 与部署账本为准；原失败首答保留。
 设计及验收见 [结果文字所有权设计](superpowers/specs/2026-10-08-owned-result-delivery-design.md)。
 
+### 本集唯一作者格式（2026-10-09，本地候选）
+
+`finish_authoring.finish_author_contract` 统一新会话的作者描述与 schema。
+普通 Continuous 首个真实 user 输入提供 `finish_format`；system、工具目录、格式回灌、
+`REPAIR_GOAL` 与独立 finalizer 都沿用这份描述，正文的篇幅与 Markdown 规则适用于编译后的最终正文。
+作者可只用自由文字 `answer_parts` 完稿，也可选择已实际送达的结果引用；不强制引用、章节或顺序。
+合法旧 `draft` 仍兼容，无引用的正文不产生所有权回执。材料与非空 `prior_evidence` 沿各自原作者/来源合同。
+真实 Codex schema 文件从当前 context 选择同一 owner；context-free 旧接口保留原字节。
+
+格式身份只读取最初 `prompt_assembled{source:episode}` 的原始 user：新顶层描述优先，
+其次原材料描述；没有描述的旧会话保留旧模式。恢复从原生事件派生原 system/user，
+后来的 repair/finalizer 不能覆盖身份；未知、损坏或跨作者模式不猜新格式。
+保存格式只描述正文，恢复仍先核当前权限、信息截止、入口、ACK 和 durable 来源；
+旧引用不能越过收紧后的合同。修订/失败 carry 只保存与实际采用正文同摘要的回执，
+自由文字旁有程序结果也不获得整篇认证。现有恢复只返回 plan/messages；没有新增冷启动生产驱动、
+作者状态机、账本、预算或模型调用额度。
+
+这是本地运行合同变更，尚待独立审查与候选门禁；生产仍以实际版本与部署账本为准。
+原首答、source floor 与全文质量的 `NOT_PASSED` 保留，不用离线合同通过代签自然金融质量。
+
 ### 评测专用目录视图（非生产入口）
 
 `intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，

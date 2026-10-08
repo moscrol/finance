@@ -66,7 +66,7 @@ from intelligence.services.episode_history_compaction import (
     history_compaction_enabled,
     history_keep_batches,
 )
-from intelligence.services.material_grounding import claim_finish_format
+from intelligence.services.finish_authoring import accepts_finish_format, saved_finish_format
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -139,6 +139,7 @@ from intelligence.services.research_harness import (
     FinishAdmission,
     ModeGovernance,
     ResearchHarness,
+    steering_message_for_author,
 )
 from intelligence.services.research_tool_registry import (
     ResearchToolRegistry,
@@ -2360,8 +2361,9 @@ class ContinuousAgentEpisode:
                     append_model_input(
                         messages,
                         ledger,
-                        content=self._harness.steering_message(
-                            admission.repair_steering_kind, detail=reason
+                        content=steering_message_for_author(
+                            self._harness, admission.repair_steering_kind, detail=reason,
+                            finish_format=saved_finish_format(ledger.events, context=context),
                         ),
                         source="steering_invalid_finish",
                     )
@@ -2733,8 +2735,9 @@ class ContinuousAgentEpisode:
             append_model_input(
                 messages,
                 ledger,
-                content=self._harness.steering_message(
-                    "invalid_finish", detail=unreported
+                content=steering_message_for_author(
+                    self._harness, "invalid_finish", detail=unreported,
+                    finish_format=saved_finish_format(ledger.events, context=context),
                 ),
                 source="repair_last_rejection",
             )
@@ -2744,7 +2747,7 @@ class ContinuousAgentEpisode:
             content=self._harness.repair_goal_message(
                 prompt_goal,
                 tools_open=research_tools_open,
-                finish_format=claim_finish_format(downgraded_contract, prior_evidence=context.prior_evidence),
+                finish_format=saved_finish_format(ledger.events, context=context),
             ),
             source="repair_goal",
         )
@@ -2908,7 +2911,10 @@ class ContinuousAgentEpisode:
             append_model_input(
                 messages,
                 ledger,
-                content=self._harness.steering_message("repair_finalize", detail=""),
+                content=steering_message_for_author(
+                    self._harness, "repair_finalize", detail="",
+                    finish_format=saved_finish_format(ledger.events, context=context),
+                ),
                 source="steering_repair_finalize",
             )
             final_timeout = repair_deadline.synthesis_timeout(self._turn_ceiling(context))
@@ -3769,10 +3775,15 @@ class ContinuousAgentEpisode:
         reason: str,
     ) -> None:
         ledger.add("finalization", {"reason": reason})
+        if ledger.active_context is None:
+            raise ValueError("finalization author context is unavailable")
         append_model_input(
             messages,
             ledger,
-            content=self._harness.steering_message("begin_finalization", detail=reason),
+            content=steering_message_for_author(
+                self._harness, "begin_finalization", detail=reason,
+                finish_format=saved_finish_format(ledger.events, context=ledger.active_context),
+            ),
             source="begin_finalization",
         )
         # phase 转移：从这里起模型只被要求收口（tools=[]）。恢复读到它就不再派工具。
@@ -3906,6 +3917,9 @@ class ContinuousAgentEpisode:
                 )
                 if isinstance(priority, tuple) and priority:
                     recovery_options["evidence_priority"] = priority
+            finish_format = saved_finish_format(ledger.events, context=context)
+            if accepts_finish_format(self._finalizer.recover):
+                recovery_options["finish_format"] = finish_format
             turn = self._finalizer.recover(
                 task_frame=task_frame,
                 context=context,

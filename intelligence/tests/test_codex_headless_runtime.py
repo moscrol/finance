@@ -184,6 +184,7 @@ class ValidFakeCodex:
         shell_extra: bool = False,
     ) -> None:
         self.commands: list[HeadlessCommand] = []
+        self.tool_results: list[dict[str, object]] = []
         self._unauthorized = unauthorized
         self._shell_wrapped = shell_wrapped
         self._shell_extra = shell_extra
@@ -202,6 +203,7 @@ class ValidFakeCodex:
             timeout=5.0,
         )
         tool_result = json.loads(completed.stdout)
+        self.tool_results.append(tool_result)
         finish = {
             "status": "completed",
             "draft": "截至2026-07-24，医药是韧性核心，电力是轮动支线。",
@@ -209,7 +211,7 @@ class ValidFakeCodex:
             "bindings": [
                 {
                     "output_id": "direct_assessment",
-                    "evidence_hashes": tool_result["evidence_hashes"],
+                    "evidence_hashes": tool_result["evidence_ids"],
                     "gap": "",
                 }
             ],
@@ -271,6 +273,33 @@ def test_headless_runtime_returns_shared_agent_outcome() -> None:
     )
 
 
+def test_headless_runtime_uses_its_harness_for_real_gateway_projection():
+    from intelligence.services.research_harness import FinanceResearchHarness
+
+    class RecordingHarness(FinanceResearchHarness):
+        projected = 0
+        acknowledged = 0
+
+        def project_tool_result(self, observation, **kwargs):
+            self.projected += 1
+            return super().project_tool_result(observation, **kwargs)
+
+        def acknowledge_tool_result(self, observation, projection, **kwargs):
+            self.acknowledged += 1
+            return super().acknowledge_tool_result(observation, projection, **kwargs)
+
+    harness = RecordingHarness()
+    frame = _frame()
+    fake = ValidFakeCodex()
+    outcome = CodexHeadlessRuntime(command_runner=fake, harness=harness).run(
+        task_frame=frame, context=_context(frame), registry=_registry([]),
+    )
+    assert outcome.status == "completed"
+    assert harness.projected == harness.acknowledged == 1
+    assert fake.tool_results[0]["evidence_ids"] == ["E1"]
+    assert outcome.bindings[0].evidence_hashes == ("mainline-hash",)
+
+
 def test_headless_runtime_delivers_tool_cap_finalization_instruction() -> None:
     frame = _frame()
 
@@ -295,7 +324,7 @@ def test_headless_runtime_delivers_tool_cap_finalization_instruction() -> None:
             "bindings": [
                 {
                     "output_id": "direct_assessment",
-                    "evidence_hashes": result["evidence_hashes"],
+                    "evidence_hashes": result["evidence_ids"],
                     "gap": "",
                 }
             ],

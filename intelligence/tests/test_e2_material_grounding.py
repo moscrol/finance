@@ -298,6 +298,8 @@ def test_finalizer_recovery_receives_same_material_grounding_contract():
     payload = json.loads(writer.calls[0][0][1]["content"])
     expected = json.loads(build_episode_input(frame, context, ResearchToolRegistry(())))["material_grounding"]
     assert payload["material_grounding"] == expected
+    assert payload["finish_format"] == expected["finish_format"]
+    assert writer.calls[0][1] == [] and len(writer.calls) == 1
     assert "material_delivery" in payload
 
 

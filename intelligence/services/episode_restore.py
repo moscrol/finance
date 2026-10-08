@@ -511,6 +511,14 @@ def _restore_owned(
             _verify_owned_answer(receipt, restored.draft, context=context)
     except (TypeError, ValueError, KeyError) as exc:
         raise RestoreUnavailable(f"{episode_id}: owned result source/ref/receipt unavailable: {exc}") from exc
+    from intelligence.services.finish_authoring import saved_finish_format
+
+    try:
+        # The original durable prompt owns the author shape. Current grants,
+        # cutoff and sources have already been checked; this never grants them.
+        saved_finish_format(events, context=context)
+    except (TypeError, ValueError) as exc:
+        raise RestoreUnavailable(f"{episode_id}: saved author format unavailable: {exc}") from exc
     if terminal_owned:
         return result("already_terminal", synth=None, plan=None, outcome=None, state_after=state)
 

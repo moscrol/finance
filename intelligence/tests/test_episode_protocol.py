@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from datetime import date
 import hashlib
 import json
 import os
@@ -68,10 +69,16 @@ def _frame() -> TaskFrame:
     )
 
 
-def test_absent_temporal_contract_first_model_messages_keep_exact_base_bytes(monkeypatch) -> None:
+@pytest.mark.parametrize("runtime_today", ["2026-10-09", "2026-10-10"])
+def test_archived_absent_temporal_contract_restores_original_model_bytes(monkeypatch, runtime_today) -> None:
     import socket
+    from datetime import datetime, timedelta
+    from pathlib import Path
 
     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    from intelligence.services.episode_messages import derive_messages, to_provider
+    from intelligence.services.episode_store import MemoryEpisodeStore, EpisodeState
+    import intelligence.services.research_contract as contract_owner
 
     def forbidden(*_args, **_kwargs):
         raise AssertionError("legacy byte positive must not send network requests")
@@ -80,21 +87,44 @@ def test_absent_temporal_contract_first_model_messages_keep_exact_base_bytes(mon
     monkeypatch.setattr(socket, "create_connection", forbidden)
     captured = []
 
-    class BoundaryStop(BaseException):
-        pass
-
     class BoundaryModel:
         def complete(self, **kwargs):
             captured.extend(dict(message) for message in kwargs["messages"])
-            raise BoundaryStop("first model input captured offline")
 
     frame = _frame()
     assert frame.temporal_contract is None
-    with pytest.raises(BoundaryStop):
-        ContinuousAgentEpisode(BoundaryModel()).run(task_frame=frame, context=_context(frame), registry=_registry())
+    context = dataclasses.replace(
+        _context(frame), information_cutoff=contract_owner.InformationCutoff(date.fromisoformat(runtime_today), "runtime_default"),
+    )
+    assert context.information_cutoff.as_of_date.isoformat() == runtime_today
+    # The original capture used 10/08 runtime_default. Freeze that one clock
+    # leaf rather than replacing its golden hash whenever the calendar advances.
+    context = dataclasses.replace(
+        context, information_cutoff=contract_owner.InformationCutoff(date(2026, 10, 8), "runtime_default"),
+    )
+    # This is the actual pre-change native prefix captured from the original
+    # b4a1 owner at the 074ff base. New openings intentionally use finish_format;
+    # no stripping of the new system/user can establish legacy compatibility.
+    archive = json.loads((Path(__file__).parent / "fixtures/episode_opening_legacy_20261008.json").read_text())
+    events = tuple(EpisodeEvent(**item) for item in archive["events"])
+    state = EpisodeState.from_dict(archive["state"])
+    store = MemoryEpisodeStore()
+    store.append(context.contract.task_id, events)
+    store.put_state(context.contract.task_id, state)
+    restored = ContinuousAgentEpisode.restore(
+        context.contract.task_id, store, context=context, registry=_registry(),
+        now=datetime.fromisoformat(state.deadline_at) - timedelta(seconds=1),
+    )
+    assert restored.disposition == "resumable"
+    BoundaryModel().complete(messages=to_provider(derive_messages(restored.events)))
+    user = next(message for message in captured if message["role"] == "user")
+    payload = json.loads(user["content"])
+    assert payload["information_cutoff"] == {"as_of_date": "2026-10-08", "source": "runtime_default"}
+    assert "finish_format" not in payload and "input_roles" not in payload
     encoded = json.dumps(captured, ensure_ascii=False, separators=(",", ":")).encode()
     # Actual first model messages captured twice before changing the exact
-    # b4a1e80ebf4949ddf0049fc0216fb2da710d0f05 protocol source.
+    # b4a1e80ebf4949ddf0049fc0216fb2da710d0f05 protocol source. Keep that
+    # immutable expectation for genuinely saved old messages.
     assert hashlib.sha256(encoded).hexdigest() == "a412664e7d52aedb67df336ab914a32d010464457d41be738a22362e4afa8da5"
 
 
@@ -401,8 +431,10 @@ def _static_contract_text() -> str:
 # （同题 8792 每题 1–7 次查询，Pi 5–21 次并自发做双源互证）；新句要求关键判断尽量
 # 交叉核对（另一数据源、相邻日期或反证）后再停，仍禁止为耗步数调与问题无关的工具。
 # 其余约束一字未动。
+# 2026-10-09 intentional change：新初始 system 指向唯一 user.finish_format，
+# 篇幅/排版适用于最终正文。旧制度字节由真实 durable 前缀和原 a412 金标另验。
 _CONTRACT_FINGERPRINT = (
-    "f3aa46a893f44398470d163ab0b0532dba99befea3c542337d6dfd27bda70aed"
+    "cca9220ceaab142d9bf844ab66337fe6bcd9407885f95ecd1b813bc67f64a640"
 )
 
 
@@ -916,6 +948,58 @@ def test_validate_finish_rejects_basis_that_weakens_evidence_contract() -> None:
         )
 
 
+def _rejection_audit_owners():
+    from intelligence.services import episode_protocol, finish_authoring, material_answer_authoring
+
+    # Constructor interfaces, not a hand-copied inventory of code values.
+    # The compiler relays material reasons; the protocol relays compiler reasons.
+    return (
+        (episode_protocol, "_reject", 0, "FinishAuthoringError"),
+        (finish_authoring, "FinishAuthoringError", 0, "MaterialAuthoringError"),
+        (material_answer_authoring, "MaterialAuthoringError", "code", None),
+    )
+
+
+def _source_rejection_codes(source, constructor, code_argument, delegated_error):
+    import ast
+
+    tree = ast.parse(source)
+    parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+    default = None
+    if isinstance(code_argument, str):
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef) and node.name == constructor:
+                initializer = next(item for item in node.body
+                                   if isinstance(item, ast.FunctionDef) and item.name == "__init__")
+                default = next((value for arg, value in zip(initializer.args.kwonlyargs, initializer.args.kw_defaults)
+                                if arg.arg == code_argument), None)
+    codes = set()
+    for call in ast.walk(tree):
+        if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+                and call.func.id == constructor):
+            continue
+        if isinstance(code_argument, int):
+            assert len(call.args) > code_argument, f"{constructor}: cannot parse a missing code argument"
+            code = call.args[code_argument]
+        else:
+            code = next((item.value for item in call.keywords if item.arg == code_argument), default)
+        if isinstance(code, ast.Constant) and isinstance(code.value, str):
+            codes.add(code.value)
+            continue
+        # Dynamic relays are bounded to an exception from the next audited owner.
+        # Any other expression must fail closed instead of silently vanishing.
+        handler = parents.get(call)
+        while handler is not None and not isinstance(handler, ast.ExceptHandler):
+            handler = parents.get(handler)
+        assert (isinstance(code, ast.Attribute) and code.attr == "code" and isinstance(code.value, ast.Name)
+                and isinstance(handler, ast.ExceptHandler) and handler.name == code.value.id
+                and isinstance(handler.type, ast.Name) and handler.type.id == delegated_error), (
+            f"{constructor}: dynamic code must come from the next audited error owner"
+        )
+    assert codes, f"AST 没解析到 {constructor} 的任何真实字面构造调用——解析器或来源范围坏了，不是代码干净了"
+    return codes
+
+
 def test_every_rejection_code_is_classified() -> None:
     """每个 raise 出去的 code 都必须在分类表里——可恢复集合是明确枚举。
 
@@ -927,28 +1011,107 @@ def test_every_rejection_code_is_classified() -> None:
     「只钉文件名的审计保不住符号」的同一个形状。
     """
 
-    import ast
     import pathlib
 
     from intelligence.services import episode_protocol as mod
 
-    source = pathlib.Path(mod.__file__).read_text(encoding="utf-8")
-    raised = {
-        node.args[0].value
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "_reject"
-        and node.args
-        and isinstance(node.args[0], ast.Constant)
-        and isinstance(node.args[0].value, str)
-    }
+    raised = set()
+    owners = _rejection_audit_owners()
+    constructors = {constructor for _, constructor, _, _ in owners}
+    for module, constructor, code_argument, delegated_error in owners:
+        assert delegated_error is None or delegated_error in constructors
+        source = pathlib.Path(module.__file__).read_text(encoding="utf-8")
+        raised.update(_source_rejection_codes(source, constructor, code_argument, delegated_error))
 
     assert raised, "AST 没解析到任何 _reject 调用——解析器坏了，不是代码干净了"
     unclassified = raised - set(mod.REJECTION_KINDS)
     assert not unclassified, f"这些病因没有类别: {sorted(unclassified)}"
     unused = set(mod.REJECTION_KINDS) - raised
     assert not unused, f"分类表里有已不再抛出的病因，应删除: {sorted(unused)}"
+
+
+@pytest.mark.parametrize("owner_index", range(3))
+@pytest.mark.parametrize("mutation", ["unknown_code", "no_source_calls", "unproven_dynamic"])
+def test_rejection_audit_rejects_mutated_actual_owner_sources(monkeypatch, owner_index, mutation):
+    """Mutate the real sources read by the audit, without editing production files."""
+    import ast
+    import pathlib
+
+    module, constructor, code_argument, _ = _rejection_audit_owners()[owner_index]
+    path = pathlib.Path(module.__file__)
+    read_text = pathlib.Path.read_text
+    source = read_text(path, encoding="utf-8")
+
+    class Mutation(ast.NodeTransformer):
+        changed = False
+
+        def visit_Call(self, call):
+            if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == constructor):
+                return self.generic_visit(call)
+            if mutation == "no_source_calls":
+                call.func.id = "ValueError"
+            elif self.changed:
+                return self.generic_visit(call)
+            else:
+                value = ast.Constant("unclassified_future_reason") if mutation == "unknown_code" else ast.Name("unproven_code", ast.Load())
+                if isinstance(code_argument, int):
+                    call.args[code_argument] = value
+                else:
+                    keyword = next((item for item in call.keywords if item.arg == code_argument), None)
+                    if keyword is None:
+                        call.keywords.append(ast.keyword(arg=code_argument, value=value))
+                    else:
+                        keyword.value = value
+            self.changed = True
+            return self.generic_visit(call)
+
+    mutator = Mutation()
+    mutated = ast.unparse(mutator.visit(ast.parse(source)))
+    assert mutator.changed
+
+    def mutated_source(target, *args, **kwargs):
+        return mutated if target == path else read_text(target, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "read_text", mutated_source)
+    expected = {"unknown_code": "这些病因没有类别", "no_source_calls": "AST 没解析到", "unproven_dynamic": "dynamic code must come"}
+    with pytest.raises(AssertionError, match=expected[mutation]):
+        test_every_rejection_code_is_classified()
+
+
+@pytest.mark.parametrize("owner_index", range(3))
+@pytest.mark.parametrize("location", ["assignment_then_raise", "return", "expression"])
+def test_rejection_audit_checks_constructor_calls_independently_of_raise(monkeypatch, owner_index, location):
+    """The actual owner may construct its error before the eventual raise."""
+    import ast
+    import pathlib
+
+    module, constructor, code_argument, _ = _rejection_audit_owners()[owner_index]
+    path = pathlib.Path(module.__file__)
+    read_text = pathlib.Path.read_text
+    tree = ast.parse(read_text(path, encoding="utf-8"))
+    code = ast.Constant("review_unclassified_future_reason")
+    call = ast.Call(func=ast.Name(constructor, ast.Load()),
+                    args=[code, ast.Constant("review")] if isinstance(code_argument, int) else [ast.Constant("review")],
+                    keywords=[] if isinstance(code_argument, int) else [ast.keyword(arg=code_argument, value=code)])
+    if location == "assignment_then_raise":
+        statements = [ast.Assign(targets=[ast.Name("failure", ast.Store())], value=call),
+                      ast.Raise(exc=ast.Name("failure", ast.Load()))]
+    elif location == "return":
+        statements = [ast.Return(value=call)]
+    else:
+        statements = [ast.Expr(value=call)]
+    probe = ast.FunctionDef(name="_review_future_error", args=ast.arguments(
+        posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
+        body=statements, decorator_list=[])
+    tree.body.append(probe)
+    mutated = ast.unparse(ast.fix_missing_locations(tree))
+
+    def mutated_source(target, *args, **kwargs):
+        return mutated if target == path else read_text(target, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "read_text", mutated_source)
+    with pytest.raises(AssertionError, match="这些病因没有类别"):
+        test_every_rejection_code_is_classified()
 
 
 def test_forged_hash_is_integrity_not_format() -> None:

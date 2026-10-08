@@ -236,7 +236,15 @@ def test_repeated_query_is_steered_then_stalled_then_finalized(monkeypatch: pyte
     assert [e.payload["reason"] for e in finalizations] == ["research_stalled"]
     assert model.calls[-1]["tools"] == []
     closing = [m for m in model.calls[-1]["messages"] if m.get("role") == "user"][-1]
-    assert str(closing["content"]).endswith("关闭原因：research_stalled")
+    closing_content = str(closing["content"])
+    assert closing_content.count("关闭原因：research_stalled") == 1
+    # 关闭提示仍完整送达；作者描述位于其后，沿用最初原生输入的整份合同。
+    initial = next(e for e in outcome.events if e.kind == "prompt_assembled" and e.payload.get("source", "episode") == "episode")
+    original_format = json.loads(initial.payload["user"])["finish_format"]
+    assert json.loads(model.calls[0]["messages"][1]["content"])["finish_format"] == original_format
+    assert json.loads(closing_content.rsplit("\n", 1)[-1])["finish_format"] == original_format
+    durable_closing = [e for e in outcome.events if e.kind == "model_input" and e.payload.get("source") == "begin_finalization"]
+    assert len(durable_closing) == 1 and durable_closing[0].payload["content"] == closing_content
     # 重复调用被去重闸拒掉的那三次记成 duplicate，不是笼统 rejected。
     duplicates = [e for e in outcome.events if e.kind == "tool_error" and e.payload.get("error") == "duplicate_query"]
     assert len(duplicates) == 3

@@ -8,6 +8,7 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 from __future__ import annotations
 
 from intelligence.services.owned_results import D4_SOURCE_DESCRIPTOR
+from intelligence.services.research_source_context import source_context
 
 import copy
 import json
@@ -165,6 +166,33 @@ def mainline_snapshot_tool_result(
         caliber="fact_mainline_sector_daily × fact_sector_daily（published 视图）",
         payload_field_names=tuple(ask_blocks.MainlineSectorFact.__dataclass_fields__),
         query_basis=_mainline_snapshot_query_basis(snapshot),
+        source_context=source_context(
+            role="structured_market_data", status=status,
+            execution_scope={
+                "dataset": "mainline_sector_daily", "source_population": "subset",
+                "scope": "current_table_single_theme" if snapshot.target_theme else "current_table_all_themes",
+                "row_unit": "theme_sector_records", "group_by": ["theme_name"],
+                "requested_as_of": snapshot.requested_as_of,
+                "snapshot_date": snapshot.snapshot_date,
+                "history_window": {"start": snapshot.history_start, "end": snapshot.history_end,
+                                   "unit": "calendar_days", "inclusive": True},
+                "preview_limit_per_group": ask_blocks.MAINLINE_PREVIEW_ROWS_PER_THEME,
+                "preview_meaning": "bounded_sector_rows_in_each_theme; not_all_stock_members",
+                "membership": "group_disjointness_not_established",
+                "member_identities": "not_delivered",
+                "counts_and_values": "query_basis_and_original_evidence",
+            },
+            metric_semantics={
+                "total_rows": "theme_sector_record_count; not_unique_stocks",
+                "total_groups": "theme_groups_in_this_source_table",
+                "history.day_count": "distinct_observed_dates_in_this_source_table_and_window",
+                "history.first_date,last_date": "date_span_of_observations; not_consecutive_days",
+                "history.sector_rows": "theme_sector_records_across_observed_dates; may_repeat_entities",
+                "price_volume": "descriptive_same_key_market_values; no_index_weights_or_capital_causality",
+            },
+            method_sources=tuple({"id": rule.id, "source": rule.source, "role": "method_guidance"}
+                                 for rule in snapshot.guidance),
+        ),
     )
 
 
@@ -323,6 +351,7 @@ def _finance_payload_kwargs(
     }
     if result is not None:
         payload["query_basis"] = _finance_query_basis(spec, result)
+        payload["source_context"] = finance_query.query_source_context(spec, result)
     return payload
 
 
@@ -1919,11 +1948,19 @@ def build_episode_registry(
                     dataset_label=value.dataset,
                 )
                 if exit_result is not None:
+                    initial_context = finance_query.query_source_context(bounded_value, result)
                     return replace(
                         exit_result,
                         query_basis={
                             **_finance_query_basis(bounded_value, result),
                             "historical_followup": exit_result.query_basis,
+                        },
+                        source_context={
+                            **initial_context,
+                            "execution_scope": {
+                                **initial_context["execution_scope"],
+                                "historical_followup": exit_result.source_context.get("execution_scope", {}),
+                            },
                         },
                     )
             gaps = result.quality_gaps + (

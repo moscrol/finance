@@ -228,6 +228,7 @@ def test_compact_author_projection_schema_and_finalizer_share_frozen_catalogue()
 
     recovered = EpisodeFinalizer(Writer()).recover(
         task_frame=frame, context=context, evidence=(), gaps=(), failure_reason="invalid_model_finish",
+        finish_format=opening["finish_format"],
     )
     assert json.loads(calls[0][1]["content"])["material_grounding"] == author
     assert "wire_template" in calls[0][0]["content"]

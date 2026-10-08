@@ -25,6 +25,7 @@ from intelligence.services.research_contract import (
     InformationCutoff,
     ResearchDeadline,
 )
+from intelligence.services.research_source_context import source_context
 
 
 class FinanceQueryError(RuntimeError):
@@ -284,6 +285,68 @@ class FinanceQueryResult:
     quality_gaps: tuple[str, ...] = ()
 
 
+def query_source_context(
+    spec: FinanceQuerySpec, result: FinanceQueryResult,
+) -> dict[str, object]:
+    """Describe the executed semantic selection without reading more records.
+
+    The engine validated/normalized this spec; field definitions own aggregate
+    meanings. Dataset population describes the source, never LIMIT coverage.
+    """
+    dataset = _DATASETS.get(spec.dataset)
+    if dataset is None or result.audit.dataset != spec.dataset:
+        return {}
+    status = "partial" if result.evidence and result.quality_gaps else (
+        "success" if result.evidence else "empty"
+    )
+    metrics = {}
+    for name in spec.metrics:
+        definition = dataset.metrics.get(name)
+        if definition is None:
+            return {}
+        aggregation = definition.aggregate if spec.group_by else "none"
+        input_scope = "filtered_source_records_in_each_group" if spec.group_by else "source_record"
+        if _return_summary(spec):
+            if name == "return_compound_pct":
+                aggregation = "compound_daily_returns"
+            elif name == "return_observed_count":
+                aggregation = "count_source_records"
+            elif name == "return_valid_count":
+                aggregation = "count_valid_daily_returns"
+        if _stock_amount_summary(spec) and name in _STOCK_AMOUNT_SUMMARY_METRICS:
+            input_scope = _STOCK_AMOUNT_SUMMARY_SAMPLE.meaning
+            if name == "amount_valid_count":
+                aggregation = f"count_{_STOCK_AMOUNT_SUMMARY_SAMPLE.meaning}"
+        metrics[name] = {
+            "meaning": definition.label, "aggregation": aggregation,
+            "input_scope": input_scope, "value_kind": definition.value_kind,
+        }
+    audit = result.audit
+    return source_context(
+        role="disclosed_schedule" if dataset.allow_future_time_range else "structured_market_data", status=status,
+        execution_scope={
+            "dataset": spec.dataset, "source_population": dataset.population,
+            "incomplete_before": dataset.incomplete_before.isoformat() if dataset.incomplete_before else None,
+            "row_unit": "groups" if spec.group_by else "source_records",
+            "row_meaning": dataset.label,
+            "dimensions": list(spec.dimensions), "group_by": list(spec.group_by),
+            "returned_row_count": audit.row_count, "applied_limit": audit.applied_limit,
+            "candidate_population_count": "unknown_not_counted",
+            "group_inputs": "all_filtered_records_before_group_limit" if spec.group_by else None,
+            "time_axis": _semantic_time_dimension(dataset),
+            "requested_time_range": (
+                {"start": audit.requested_time_range[0], "end": audit.requested_time_range[1]}
+                if audit.requested_time_range is not None else None
+            ),
+            "information_cutoff": audit.information_cutoff,
+            "membership": dataset.membership,
+            "member_identities": "selected_stock_codes" if "stock_code" in spec.dimensions else "not_delivered",
+            "time_count_meaning": "records_may_repeat_across_dates; counts_are_not_consecutive_days",
+        },
+        metric_semantics=metrics,
+    )
+
+
 @dataclass(frozen=True)
 class _FieldDefinition:
     column: str
@@ -322,6 +385,8 @@ class _DatasetDefinition:
     # 海外指数 2025-01~2026-09 有 187 行、海外核心股 1944 行是这种形状，道指 07-15~07-24 十天同一个数）。
     # 只标注不删除：被标的行仍返回，但带「不可当作该日行情」的说明。
     clone_key: str | None = None
+    # Source membership, independent of selected fields or result row counts.
+    membership: Literal["may_overlap", "unknown"] = "unknown"
 
     @property
     def fields(self) -> dict[str, _FieldDefinition]:
@@ -568,6 +633,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         table="fact_sector_stock_daily",
         label="板块成分股日频行情",
         population="full",
+        membership="may_overlap",
         coverage=(
             "板块×成分股全集，本库行数最大的一张，务必先加筛选再查。"
             "high_status 空值不等于非新高；个股请同日同码核验 stock_high_daily，名单未命中也不单独证明非新高。"
@@ -657,6 +723,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         table="fact_mainline_sector_daily",
         label="主线板块日频结构",
         population="subset",
+        membership="may_overlap",
         coverage=(
             "**只含当日「主线」板块的人工筛选子集，不是全市板块全集**。"
             "指标可用性须看本次字段质量提示，不能凭日期新或有名单就确认量价条件。"
@@ -1173,6 +1240,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         table="fact_theme_limit_heat_daily",
         label="题材涨停热度日频",
         population="full",
+        membership="may_overlap",
         coverage=(
             "**全量板块的涨停热度榜**（每板块涨停家数 / 占比 / "
             "排名）。「涨停集中在哪些题材」「哪个板块涨停最多」这类**全市分布**问题用这张。"
@@ -1203,6 +1271,7 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         table="fact_theme_limit_stock_daily",
         label="题材涨停个股明细日频",
         population="subset",
+        membership="may_overlap",
         coverage=(
             "**只收当日涨停个股 × 其所属题材（一股多题材会多行）**，不是全市场行情。"
             "数涨停家数要先按 stock_code 去重，或直接用 theme_limit_heat_daily（聚合层）/ "
@@ -2735,6 +2804,19 @@ def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
 _STOCK_AMOUNT_SUMMARY_METRICS = frozenset({"amount_mean", "amount_valid_count"})
 
 
+@dataclass(frozen=True)
+class _AmountSummarySample:
+    """The stock amount owner's one input rule for both SQL and public meaning."""
+
+    predicate: str
+    meaning: str
+
+
+_STOCK_AMOUNT_SUMMARY_SAMPLE = _AmountSummarySample(
+    "isfinite", "finite_amount_records_including_zero_and_negative",
+)
+
+
 def result_has_date_axis(spec: FinanceQuerySpec) -> bool:
     """A grouped MAX(source_date) alone does not describe covered input dates."""
     dataset = _DATASETS.get(spec.dataset)
@@ -2900,7 +2982,7 @@ def _compile_query(
         expression = _quote(field.column)
         if _stock_amount_summary(spec) and name in _STOCK_AMOUNT_SUMMARY_METRICS:
             # AVG and COUNT must see exactly the same valid sample, including zeros.
-            expression = f"CASE WHEN isfinite({expression}) THEN {expression} END"
+            expression = f"CASE WHEN {_STOCK_AMOUNT_SUMMARY_SAMPLE.predicate}({expression}) THEN {expression} END"
         if _return_summary(spec) and name in _RETURN_SUMMARY_FIELDS:
             expression = _return_summary_expression(name, dataset, _RETURN_SUMMARY_KEYS[spec.dataset])
         elif group_by and field.role == "metric":
@@ -3597,6 +3679,7 @@ __all__ = [
     "QueryFilter",
     "TimeRange",
     "dataset_field_hint",
+    "query_source_context",
     "result_has_date_axis",
     "validation_diagnostic",
     "validation_retry_hint",

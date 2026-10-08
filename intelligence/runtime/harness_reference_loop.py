@@ -76,13 +76,14 @@ from intelligence.services.episode_messages import (
     unreported_invalid_finish,
     user_message,
 )
-from intelligence.services.material_grounding import claim_finish_format
+from intelligence.services.finish_authoring import saved_finish_format
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
 from intelligence.services.research_harness import (
     FinanceResearchHarness,
     RepairGoal,
     ResearchHarness,
+    steering_message_for_author,
 )
 from intelligence.services.research_plan import (
     PlanParseResult,
@@ -255,7 +256,10 @@ class HarnessReferenceLoop:
             append_model_input(
                 messages,
                 ledger,
-                content=harness.steering_message("begin_finalization", detail=reason),
+                content=steering_message_for_author(
+                    harness, "begin_finalization", detail=reason,
+                    finish_format=saved_finish_format(ledger.events, context=context),
+                ),
                 source="begin_finalization",
             )
 
@@ -458,8 +462,9 @@ class HarnessReferenceLoop:
                     append_model_input(
                         messages,
                         ledger,
-                        content=harness.steering_message(
-                            admission.repair_steering_kind, detail=admission.reason
+                        content=steering_message_for_author(
+                            harness, admission.repair_steering_kind, detail=admission.reason,
+                            finish_format=saved_finish_format(ledger.events, context=context),
                         ),
                         source="steering_invalid_finish",
                     )
@@ -542,7 +547,10 @@ class HarnessReferenceLoop:
             append_model_input(
                 messages,
                 ledger,
-                content=harness.steering_message("invalid_finish", detail=unreported),
+                content=steering_message_for_author(
+                    harness, "invalid_finish", detail=unreported,
+                    finish_format=saved_finish_format(ledger.events, context=context),
+                ),
                 source="repair_last_rejection",
             )
         append_model_input(
@@ -551,7 +559,7 @@ class HarnessReferenceLoop:
             content=harness.repair_goal_message(
                 downgrade.goal,
                 tools_open=tools_open,
-                finish_format=claim_finish_format(downgrade.contract, prior_evidence=context.prior_evidence),
+                finish_format=saved_finish_format(ledger.events, context=context),
             ),
             source="repair_goal",
         )
@@ -638,7 +646,10 @@ class HarnessReferenceLoop:
             append_model_input(
                 messages,
                 ledger,
-                content=harness.steering_message("repair_finalize", detail=""),
+                content=steering_message_for_author(
+                    harness, "repair_finalize", detail="",
+                    finish_format=saved_finish_format(ledger.events, context=context),
+                ),
                 source="steering_repair_finalize",
             )
             turn = complete([])
