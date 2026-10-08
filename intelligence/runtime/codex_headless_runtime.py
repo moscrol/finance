@@ -663,6 +663,7 @@ class CodexHeadlessRuntime:
                 run_dir=run_dir,
                 transport=self._gateway_transport,
                 finalization_floor_ratio=self._finalization_floor_ratio,
+                harness=self._harness,
             ) as gateway:
                 command = self._build_command(
                     task_frame=task_frame,

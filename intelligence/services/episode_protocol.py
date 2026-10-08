@@ -529,6 +529,35 @@ def build_episode_input(
             "只有用户所需且尚无证据支持的内容才声明缺口，无关阶段未执行不算缺口。"
             "阶段表本身不是证据，也不改变 research_contract 的证据边界或工具权限"
         )
+    # Index existing inputs without copying prose or requesting extra retrieval.
+    # These roles never enter evidence, source-floor or authorization checks.
+    roles = {
+        "task_frame": "user_request",
+        "research_contract.evidence_plan": "retrieval_requirements",
+        "available_tools": "currently_allowed_tools",
+    }
+    if task_frame.method_candidates:
+        roles["task_frame.method_candidates"] = "unverified_method_candidates"
+    if task_frame.competing_explanations:
+        roles["task_frame.competing_explanations"] = "hypotheses_to_test"
+    for field, role in (
+        ("conversation_context", "conversation_and_user_prior"),
+        ("reading_baseline", "domain_method_guidance"),
+        ("perspective_context", "viewpoint"), ("stance_pack", "personal_prior"),
+        ("material_delivery", "user_material_under_original_contract"),
+        ("material_grounding", "material_and_prior_evidence_under_original_contract"),
+        ("calculation_delivery", "conditional_premise_calculation"),
+        ("retrieval_stages", "optional_retrieval_guidance"),
+    ):
+        if payload.get(field):
+            roles[field] = role
+    payload["input_roles"] = roles
+    payload["input_roles_rule"] = (
+        "沿原字段阅读：原问决定目标，取证计划说明需求；方法候选、判读基线、观点与个人先验"
+        "不成为当前市场事实。材料和历史证据仍服从各自原始坐标、日期、授权与绑定合同；"
+        "未来条件是待验证条件，不是当日已发生的反证。按相关性选择资料，无需新增章节或强制查询。"
+        "资料被提供、响应已交付、答案实际引用、来源支持结论是不同判断；角色声明不认证后两者。"
+    )
     return json.dumps(material_author_model_view(
         payload, context.contract, task_frame, prior_evidence=context.prior_evidence,
     ), ensure_ascii=False)

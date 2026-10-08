@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Literal
 import urllib.parse
 
 from intelligence.services.tool_payload import tool_payload_meta
+from intelligence.services.research_source_context import copy_source_context
 
 from intelligence.services import agent_research, closed_loop_retrieval, query_ledger
 from intelligence.services.provider_observability import ProviderTrace, provider_result_error
@@ -806,6 +807,7 @@ class ToolRunResult:
     # Public execution semantics, unlike telemetry. Only explicit safe fields
     # from the producer belong here; never SQL, local paths or provider internals.
     query_basis: dict[str, object] = field(default_factory=dict)
+    source_context: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         diagnostics = tuple(self.diagnostics)
@@ -847,6 +849,9 @@ class ToolRunResult:
         object.__setattr__(self, "payload_sha256", digest)
         object.__setattr__(self, "telemetry", dict(self.telemetry or {}))
         object.__setattr__(self, "query_basis", dict(self.query_basis or {}))
+        object.__setattr__(self, "source_context", copy_source_context(
+            self.source_context, status=self.trace.status,
+        ))
 
 
 class ToolRunnerAdapter:
@@ -936,6 +941,12 @@ class ToolObservation:
     payload_sha256: str = ""
     telemetry: dict[str, object] = field(default_factory=dict)
     query_basis: dict[str, object] = field(default_factory=dict)
+    source_context: dict[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "source_context", copy_source_context(
+            self.source_context, status=self.trace.status,
+        ))
 
     def result_status_fields(self) -> dict[str, object]:
         """Domain failure is not transport success; empty lookup remains distinct.
@@ -1520,6 +1531,7 @@ class ResearchToolRegistry:
                     "evidence": [asdict(item) for item in (*rejected, *history_rejected)],
                     "observation": run_result.observation,
                     "query_basis": run_result.query_basis,
+                    "source_context": run_result.source_context,
                     "gaps": list(run_result.gaps),
                     "source_trade_date": trace.source_trade_date,
                     "count": withheld_count,
@@ -1548,6 +1560,8 @@ class ResearchToolRegistry:
                     emitted["telemetry"] = telemetry
                 if run_result.query_basis and not withheld:
                     emitted["query_basis"] = run_result.query_basis
+                if run_result.source_context and not withheld:
+                    emitted["source_context"] = run_result.source_context
                 scope.emit(TOOL_RESULT, emitted)
             return ToolObservation(
                 tool=spec.name,
@@ -1563,6 +1577,7 @@ class ResearchToolRegistry:
                 payload_sha256=run_result.payload_sha256,
                 telemetry=telemetry,
                 query_basis={} if withheld else run_result.query_basis,
+                source_context={} if withheld else run_result.source_context,
             )
 
         ledger_call = partial(

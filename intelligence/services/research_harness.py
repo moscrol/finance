@@ -864,6 +864,8 @@ class FinanceResearchHarness:
             # Execution scope must survive prose pruning/900-char budgeting.
             # It is writer input, not private runtime telemetry.
             audit["query_basis"] = observation.query_basis
+        if observation.source_context:
+            audit["source_context"] = observation.source_context
         telemetry = dict(getattr(observation, "telemetry", None) or {})
         if telemetry:
             # 控制面收据：只进 ledger，不进模型上下文。

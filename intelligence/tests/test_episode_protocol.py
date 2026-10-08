@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from datetime import date
 import hashlib
 import json
 import os
@@ -68,10 +69,12 @@ def _frame() -> TaskFrame:
     )
 
 
-def test_absent_temporal_contract_first_model_messages_keep_exact_base_bytes(monkeypatch) -> None:
+@pytest.mark.parametrize("runtime_today", ["2026-10-09", "2026-10-10"])
+def test_absent_temporal_contract_first_model_messages_preserve_base_except_input_roles(monkeypatch, runtime_today) -> None:
     import socket
 
     from intelligence.runtime.agent_episode import ContinuousAgentEpisode
+    import intelligence.services.research_contract as contract_owner
 
     def forbidden(*_args, **_kwargs):
         raise AssertionError("legacy byte positive must not send network requests")
@@ -90,11 +93,34 @@ def test_absent_temporal_contract_first_model_messages_keep_exact_base_bytes(mon
 
     frame = _frame()
     assert frame.temporal_contract is None
+    context = dataclasses.replace(
+        _context(frame), information_cutoff=contract_owner.InformationCutoff(date.fromisoformat(runtime_today), "runtime_default"),
+    )
+    assert context.information_cutoff.as_of_date.isoformat() == runtime_today
+    # The original capture used 10/08 runtime_default. Freeze that one clock
+    # leaf rather than replacing its golden hash whenever the calendar advances.
+    context = dataclasses.replace(
+        context, information_cutoff=contract_owner.InformationCutoff(date(2026, 10, 8), "runtime_default"),
+    )
     with pytest.raises(BoundaryStop):
-        ContinuousAgentEpisode(BoundaryModel()).run(task_frame=frame, context=_context(frame), registry=_registry())
+        ContinuousAgentEpisode(BoundaryModel()).run(task_frame=frame, context=context, registry=_registry())
+    user = next(message for message in captured if message["role"] == "user")
+    payload = json.loads(user["content"])
+    assert payload.pop("input_roles") == {
+        "task_frame": "user_request", "research_contract.evidence_plan": "retrieval_requirements",
+        "available_tools": "currently_allowed_tools", "reading_baseline": "domain_method_guidance",
+    }
+    assert payload.pop("input_roles_rule") == (
+        "沿原字段阅读：原问决定目标，取证计划说明需求；方法候选、判读基线、观点与个人先验"
+        "不成为当前市场事实。材料和历史证据仍服从各自原始坐标、日期、授权与绑定合同；"
+        "未来条件是待验证条件，不是当日已发生的反证。按相关性选择资料，无需新增章节或强制查询。"
+        "资料被提供、响应已交付、答案实际引用、来源支持结论是不同判断；角色声明不认证后两者。"
+    )
+    user["content"] = json.dumps(payload, ensure_ascii=False)
     encoded = json.dumps(captured, ensure_ascii=False, separators=(",", ":")).encode()
     # Actual first model messages captured twice before changing the exact
-    # b4a1e80ebf4949ddf0049fc0216fb2da710d0f05 protocol source.
+    # b4a1e80ebf4949ddf0049fc0216fb2da710d0f05 protocol source. Keep that
+    # immutable expectation: only the explicit current-input role policy differs.
     assert hashlib.sha256(encoded).hexdigest() == "a412664e7d52aedb67df336ab914a32d010464457d41be738a22362e4afa8da5"
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from contextvars import Context, copy_context
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,6 +28,7 @@ from intelligence.services.agent_runtime import EpisodeEvent, public_agent_evide
 from intelligence.services.episode_scope import EpisodeScope
 from intelligence.services.provider_observability import ProviderTrace
 from intelligence.services.research_contract import ResearchRunContext
+from intelligence.services.research_harness import FinanceResearchHarness, ResearchHarness, ToolResultProjection
 from intelligence.services.research_tool_registry import (
     copy_tool_parameters,
     InvalidResearchToolArguments,
@@ -192,6 +193,7 @@ class HeadlessToolGateway:
         transport: str = "http",
         finalization_floor_ratio: float = 0.65,
         scope: EpisodeScope | None = None,
+        harness: ResearchHarness | None = None,
     ) -> None:
         selected_transport = str(transport or "").strip().lower()
         if selected_transport not in {"http", "mailbox"}:
@@ -201,6 +203,7 @@ class HeadlessToolGateway:
             raise ValueError("headless finalization floor ratio must be between 0 and 1")
         self._registry = registry
         self._context = context
+        self._harness = harness if harness is not None else FinanceResearchHarness()
         initial_research_seconds = context.deadline.stage_timeout(
             context.deadline.remaining()
         )
@@ -239,6 +242,7 @@ class HeadlessToolGateway:
         self._lock = Lock()
         self._contextvars: Context = copy_context()
         self._seen_queries: set[tuple[str, str]] = set()
+        self._seen_prose: frozenset[str] = frozenset()
         self._successful_episode_tools: set[str] = set()
         self._evidence: list[AgentEvidence] = []
         self._evidence_hashes: set[str] = set()
@@ -414,6 +418,7 @@ class HeadlessToolGateway:
         response_path: Path,
     ) -> None:
         request_sha256 = hashlib.sha256(b"").hexdigest()
+        deliveries: list[tuple[ToolObservation, ToolResultProjection, EpisodeEvent]] = []
         try:
             raw = self._read_mailbox_request(request_path)
             request_sha256 = hashlib.sha256(raw).hexdigest()
@@ -424,6 +429,7 @@ class HeadlessToolGateway:
                 str(payload.get("tool") or ""),
                 payload.get("query"),
                 request_id=request_path.stem,
+                on_publication=lambda *delivery: deliveries.append(delivery),
             )
         except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
             result = {"status": "rejected", "error": "invalid_request"}
@@ -459,6 +465,11 @@ class HeadlessToolGateway:
                     response_sha256=response_sha256,
                 )
             )
+        # The wrapper removes only its transport checksum and prints the other
+        # fields in the sorted file order. Record those exact model-facing bytes.
+        content = json.dumps(result, ensure_ascii=False, sort_keys=True)
+        for delivery in deliveries:
+            self._record_response_delivery(*delivery, model_content=content)
 
     @staticmethod
     def _read_mailbox_request(path: Path) -> bytes:
@@ -672,8 +683,15 @@ class HeadlessToolGateway:
             )
             return
         query = payload.get("query") if isinstance(payload, dict) else None
-        result = self._execute_tool(urllib.parse.unquote(parts[1]), query)
+        deliveries: list[tuple[ToolObservation, ToolResultProjection, EpisodeEvent]] = []
+        result = self._execute_tool(
+            urllib.parse.unquote(parts[1]), query,
+            on_publication=lambda *delivery: deliveries.append(delivery),
+        )
         self._send(handler, 200, result)
+        content = json.dumps(result, ensure_ascii=False)
+        for delivery in deliveries:
+            self._record_response_delivery(*delivery, model_content=content)
 
     @staticmethod
     def _send(
@@ -694,6 +712,7 @@ class HeadlessToolGateway:
         raw_query: object,
         *,
         request_id: str | None = None,
+        on_publication: Callable[[ToolObservation, ToolResultProjection, EpisodeEvent], None] | None = None,
     ) -> dict[str, object]:
         resolved_request_id = (
             secrets.token_hex(16) if request_id is None else request_id
@@ -847,6 +866,7 @@ class HeadlessToolGateway:
             spec.query_scope,
             observation,
             request_id=resolved_request_id,
+            on_publication=on_publication,
         )
 
     def _reserve_root_call_locked(self) -> bool:
@@ -1006,6 +1026,7 @@ class HeadlessToolGateway:
         observation: ToolObservation,
         *,
         request_id: str,
+        on_publication: Callable[[ToolObservation, ToolResultProjection, EpisodeEvent], None] | None = None,
     ) -> dict[str, object]:
         with self._lock:
             if self._closed or self._is_cancelled():
@@ -1034,30 +1055,59 @@ class HeadlessToolGateway:
                 self._evidence.append(item)
             if query_scope == "episode" and observation.evidence:
                 self._successful_episode_tools.add(observation.tool)
-            status = "success" if observation.evidence else "empty"
+            projection = self._harness.project_tool_result(
+                observation, evidence_so_far=tuple(self._evidence), seen_prose=self._seen_prose,
+            )
+            self._seen_prose = projection.seen_prose
             budget = self._effective_budget()
-            payload: dict[str, object] = {
-                "status": status,
-                "tool": observation.tool,
-                "query": observation.query,
-                "observation": observation.observation,
-                "evidence": [
-                    public_agent_evidence(item) for item in observation.evidence
-                ],
-                "evidence_hashes": list(observation.evidence_hashes),
-                "gaps": list(observation.gaps),
-                "budget": self._budget_payload(budget),
-            }
+            payload = json.loads(projection.model_content)
+            payload["budget"] = self._budget_payload(budget)
             finalization_reason = self._pending_finalization_reason(budget)
             if finalization_reason is not None:
                 payload["instruction"] = FINALIZATION_INSTRUCTION
-            self._add_event(
+            audit = {**projection.audit_payload, "budget": payload["budget"], "request_id": request_id}
+            if finalization_reason is not None:
+                audit["instruction"] = FINALIZATION_INSTRUCTION
+            # A prepared projection is not a delivered response. Recovery may
+            # use model_content/hash only after the transport writer succeeds.
+            audit.pop("model_content", None)
+            audit.pop("model_content_sha256", None)
+            event = self._add_event(
                 "tool_result",
-                {**payload, "request_id": request_id},
+                audit,
             )
+            if on_publication is not None:
+                on_publication(observation, projection, event)
             if finalization_reason is not None:
                 self._begin_finalization_locked(finalization_reason)
             return payload
+
+    def _record_response_delivery(
+        self, observation: ToolObservation, projection: ToolResultProjection, event: EpisodeEvent,
+        *, model_content: str,
+    ) -> None:
+        """Seal this live event after response write; no claim of CLI consumption."""
+        with self._lock:
+            index = next(i for i, item in enumerate(self._events) if item.sequence == event.sequence)
+            if self._events[index].payload.get("model_content"):
+                return
+            audit = {
+                **event.payload, "model_content": model_content,
+                "model_content_sha256": hashlib.sha256(model_content.encode()).hexdigest(),
+            }
+            # Gateway events remain in RAM until the CLI run is collected. Keep
+            # one result/sequence; this does not rewrite a durable native archive.
+            self._events[index] = replace(event, payload=audit)
+            if self._closed or self._is_cancelled():
+                return
+            if not any(spec.name == observation.tool for spec in self._registry.authorized_specs(
+                self._context.contract.allowed_capabilities,
+            )):
+                return
+            if self._scope is not None and not self._scope.authorize(observation.tool).allowed:
+                return
+            delivered = replace(projection, audit_payload=audit, model_content=model_content)
+            self._harness.acknowledge_tool_result(observation, delivered, context=self._context)
 
     def _budget_payload(
         self,
