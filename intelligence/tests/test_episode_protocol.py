@@ -942,11 +942,10 @@ def _source_rejection_codes(source, constructor, code_argument, delegated_error)
                 default = next((value for arg, value in zip(initializer.args.kwonlyargs, initializer.args.kw_defaults)
                                 if arg.arg == code_argument), None)
     codes = set()
-    for node in ast.walk(tree):
-        if not (isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call)
-                and isinstance(node.exc.func, ast.Name) and node.exc.func.id == constructor):
+    for call in ast.walk(tree):
+        if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+                and call.func.id == constructor):
             continue
-        call = node.exc
         if isinstance(code_argument, int):
             assert len(call.args) > code_argument, f"{constructor}: cannot parse a missing code argument"
             code = call.args[code_argument]
@@ -957,7 +956,7 @@ def _source_rejection_codes(source, constructor, code_argument, delegated_error)
             continue
         # Dynamic relays are bounded to an exception from the next audited owner.
         # Any other expression must fail closed instead of silently vanishing.
-        handler = parents.get(node)
+        handler = parents.get(call)
         while handler is not None and not isinstance(handler, ast.ExceptHandler):
             handler = parents.get(handler)
         assert (isinstance(code, ast.Attribute) and code.attr == "code" and isinstance(code.value, ast.Name)
@@ -965,7 +964,7 @@ def _source_rejection_codes(source, constructor, code_argument, delegated_error)
                 and isinstance(handler.type, ast.Name) and handler.type.id == delegated_error), (
             f"{constructor}: dynamic code must come from the next audited error owner"
         )
-    assert codes, f"AST 没解析到 {constructor} 的任何真实字面抛错——解析器或来源范围坏了，不是代码干净了"
+    assert codes, f"AST 没解析到 {constructor} 的任何真实字面构造调用——解析器或来源范围坏了，不是代码干净了"
     return codes
 
 
@@ -1014,14 +1013,13 @@ def test_rejection_audit_rejects_mutated_actual_owner_sources(monkeypatch, owner
     class Mutation(ast.NodeTransformer):
         changed = False
 
-        def visit_Raise(self, node):
-            call = node.exc
+        def visit_Call(self, call):
             if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == constructor):
-                return self.generic_visit(node)
+                return self.generic_visit(call)
             if mutation == "no_source_calls":
                 call.func.id = "ValueError"
             elif self.changed:
-                return node
+                return self.generic_visit(call)
             else:
                 value = ast.Constant("unclassified_future_reason") if mutation == "unknown_code" else ast.Name("unproven_code", ast.Load())
                 if isinstance(code_argument, int):
@@ -1033,7 +1031,7 @@ def test_rejection_audit_rejects_mutated_actual_owner_sources(monkeypatch, owner
                     else:
                         keyword.value = value
             self.changed = True
-            return node
+            return self.generic_visit(call)
 
     mutator = Mutation()
     mutated = ast.unparse(mutator.visit(ast.parse(source)))
@@ -1045,6 +1043,42 @@ def test_rejection_audit_rejects_mutated_actual_owner_sources(monkeypatch, owner
     monkeypatch.setattr(pathlib.Path, "read_text", mutated_source)
     expected = {"unknown_code": "这些病因没有类别", "no_source_calls": "AST 没解析到", "unproven_dynamic": "dynamic code must come"}
     with pytest.raises(AssertionError, match=expected[mutation]):
+        test_every_rejection_code_is_classified()
+
+
+@pytest.mark.parametrize("owner_index", range(3))
+@pytest.mark.parametrize("location", ["assignment_then_raise", "return", "expression"])
+def test_rejection_audit_checks_constructor_calls_independently_of_raise(monkeypatch, owner_index, location):
+    """The actual owner may construct its error before the eventual raise."""
+    import ast
+    import pathlib
+
+    module, constructor, code_argument, _ = _rejection_audit_owners()[owner_index]
+    path = pathlib.Path(module.__file__)
+    read_text = pathlib.Path.read_text
+    tree = ast.parse(read_text(path, encoding="utf-8"))
+    code = ast.Constant("review_unclassified_future_reason")
+    call = ast.Call(func=ast.Name(constructor, ast.Load()),
+                    args=[code, ast.Constant("review")] if isinstance(code_argument, int) else [ast.Constant("review")],
+                    keywords=[] if isinstance(code_argument, int) else [ast.keyword(arg=code_argument, value=code)])
+    if location == "assignment_then_raise":
+        statements = [ast.Assign(targets=[ast.Name("failure", ast.Store())], value=call),
+                      ast.Raise(exc=ast.Name("failure", ast.Load()))]
+    elif location == "return":
+        statements = [ast.Return(value=call)]
+    else:
+        statements = [ast.Expr(value=call)]
+    probe = ast.FunctionDef(name="_review_future_error", args=ast.arguments(
+        posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
+        body=statements, decorator_list=[])
+    tree.body.append(probe)
+    mutated = ast.unparse(ast.fix_missing_locations(tree))
+
+    def mutated_source(target, *args, **kwargs):
+        return mutated if target == path else read_text(target, *args, **kwargs)
+
+    monkeypatch.setattr(pathlib.Path, "read_text", mutated_source)
+    with pytest.raises(AssertionError, match="这些病因没有类别"):
         test_every_rejection_code_is_classified()
 
 
