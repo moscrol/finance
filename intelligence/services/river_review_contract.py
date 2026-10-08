@@ -24,7 +24,7 @@ def evidence_contract() -> dict:
         ],
         "join_keys": ["points[].date", "industry（窗口固定的申万一级原名）", "matrices.*.rows[].name（原名，非稳定实体ID）", "engines.rows[] 的「代码」列（股票代码，跨日对齐个股优先用代码而非名称）"],
         "selection_bias": "三类行业级证据的入选条件不同：行业位置看成交前三，子板块矩阵看重点行业，发动机看成交前三且每行业前20。固定行业的连续窗口只在其入选的日子有数据；不得对未入选日求平均、算趋势，或把未入选解读为走弱。",
-        "citation_rule": "结论引用交易日、行业原名、证据JSON Pointer（如 /points/0/metrics/total_amount）和该日 provenance.sha256。原始值与推断分开，跨日分析同时列出各日依据。",
+        "citation_rule": "结论引用交易日、行业原名、证据JSON Pointer（相对本连续证据响应根，如 /points/0/metrics/total_amount；被包进交接包时加交接包内的前缀，如 /evidence/points/...）和该日 provenance.sha256。原始值与推断分开，跨日分析同时列出各日依据。",
         "missing_semantics": {
             "missing": "缺少当日结构化归档；不能用别日替代",
             "unavailable": "归档不可读或读取预算不足；见 reason",

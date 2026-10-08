@@ -33,7 +33,7 @@ it("ignores a slow obsolete industry response", async () => {
   render(<ReviewHistory {...props}/>);
   await screen.findByText("test-hash");
   fireEvent.change(screen.getByLabelText("连续复盘行业"), { target: { value: "机械设备" } });
-  // During loading, the auto choice restores the pinned initial industry.
+  // During loading, switching back to auto re-picks from the latest archive.
   fireEvent.change(screen.getByLabelText("连续复盘行业"), { target: { value: "" } });
   await screen.findByText("test-hash");
   await act(async () => { resolveOld(response(fixture("机械设备"))); });
@@ -69,4 +69,21 @@ it("marks why a matrix or engine table is absent instead of a bare dash", async 
   expect(screen.getByText("列入但暂无")).toBeInTheDocument();
   expect(screen.getAllByText("未覆盖")).toHaveLength(2); // matrix cell + engine row
   expect(screen.getByText(/列入前三但归档写明暂无可排序个股/)).toBeVisible();
+});
+it("auto industry really un-pins and a non-trading end date is explained", async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(response(fixture()))
+    .mockResolvedValueOnce(response(fixture("机械设备")))
+    .mockResolvedValue(response({ ...fixture(), requested_end: "2026-09-26" }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ReviewHistory {...props}/>);
+  await screen.findByText("test-hash");
+  fireEvent.change(screen.getByLabelText("连续复盘行业"), { target: { value: "机械设备" } });
+  await waitFor(() => expect(screen.getByLabelText("连续复盘行业")).toHaveValue("机械设备"));
+  fireEvent.change(screen.getByLabelText("连续复盘截止日"), { target: { value: "2026-09-26" } });
+  await waitFor(() => expect(String(fetchMock.mock.calls.at(-1)![0])).toContain("industry=%E6%9C%BA%E6%A2%B0"));
+  fireEvent.change(screen.getByLabelText("连续复盘行业"), { target: { value: "" } });
+  await waitFor(() => expect(String(fetchMock.mock.calls.at(-1)![0])).not.toContain("industry="));
+  expect(await screen.findByText(/所选截止日 2026-09-26 不是已收盘的计划交易日/)).toBeInTheDocument();
+  expect(screen.getByText(/当前光标 2026-09-26 不在本窗口内/)).toBeInTheDocument();
 });

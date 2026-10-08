@@ -13,10 +13,11 @@ function Sparkline({ values, selected }: { values: (number | null)[]; selected: 
   const min = Math.min(...valid), max = Math.max(...valid);
   const x = (i: number) => 5 + i * 210 / Math.max(1, values.length - 1);
   const y = (v: number) => 43 - (max === min ? .5 : (v - min) / (max - min)) * 34;
-  return <svg viewBox="0 0 220 50" aria-hidden="true">
+  const range = `${valid.length < values.length ? `${values.length - valid.length} 日缺读数 · ` : ""}纵轴按本窗 ${min.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} – ${max.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} 缩放，不同指标、不同窗口不可直接比高低`;
+  return <figure className="rh-spark" title={range}><svg viewBox="0 0 220 50" aria-hidden="true">
     {values.map((v, i) => v !== null && i > 0 && values[i - 1] !== null ? <line key={`l${i}`} x1={x(i - 1)} y1={y(values[i - 1]!)} x2={x(i)} y2={y(v)} stroke="currentColor" strokeWidth="1.8" /> : null)}
     {values.map((v, i) => v === null ? <path key={i} d={`M${x(i) - 1} 46h2`} stroke="#baada0" /> : <circle key={i} cx={x(i)} cy={y(v)} r={i === selected ? 3.8 : 1.6} fill="currentColor" />)}
-  </svg>;
+  </svg><figcaption className="rh-spark-range">本窗 {min.toLocaleString("zh-CN", { maximumFractionDigits: 2 })} – {max.toLocaleString("zh-CN", { maximumFractionDigits: 2 })}</figcaption></figure>;
 }
 // Distinct markers so "not in scope", "listed but empty", "no column" and
 // "no archive" never collapse into the same dash a human would read as zero.
@@ -90,17 +91,24 @@ export function ReviewHistory({ initialEnd, selectedDate, onSelect, onOpenReport
     const link = document.createElement("a"); link.href = url; link.download = `连续复盘-${data.start}-${data.end}.json`; link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  // "按最近归档选择" must really un-pin: otherwise the ref keeps re-sending the old industry.
+  const chooseIndustry = (value: string) => {
+    if (!value) { pinnedIndustry.current = ""; setRevision(v => v + 1); }
+    setIndustry(value); setExpanded(false);
+  };
   const changeWindow = (value: string) => { setEnd(value); setLocalSelected(value || null); if (value) onSelect(value); };
   const currentMode = modes.find(m => m.key === mode)!;
   return <section className="rh-workspace" aria-label="连续复盘工作区">
     <header className="rh-mast"><div><span className="rh-eyebrow">DAILY REVIEW · THROUGH TIME</span><h2>把每天的复盘，连起来看。</h2><p>先看变化，再回到当日依据。只读归档，不改写过去。</p></div><button type="button" onClick={() => setRevision(v => v + 1)}><RefreshCw size={14}/>刷新连续复盘</button></header>
-    <div className="rh-controls"><label>窗口截止日<input type="date" aria-label="连续复盘截止日" value={end} onChange={e => changeWindow(e.target.value)} /></label><label>交易日窗口<select aria-label="连续复盘窗口" value={days} onChange={e => setDays(Number(e.target.value))}>{[5, 20, 40, 60].map(n => <option key={n} value={n}>{n} 个交易日</option>)}</select></label><label>固定观察行业<select aria-label="连续复盘行业" value={industry || data?.industry || ""} onChange={e => { setIndustry(e.target.value); setExpanded(false); }}><option value="">按最近归档选择</option>{industry && !data?.industries.includes(industry) && <option value={industry}>{industry}</option>}{data?.industries.map(name => <option key={name}>{name}</option>)}</select></label><button type="button" disabled={!data} onClick={download}><Download size={14}/>导出本窗证据 JSON</button></div>
+    <div className="rh-controls"><label>窗口截止日<input type="date" aria-label="连续复盘截止日" value={end} onChange={e => changeWindow(e.target.value)} /></label><label>交易日窗口<select aria-label="连续复盘窗口" value={days} onChange={e => setDays(Number(e.target.value))}>{[5, 20, 40, 60].map(n => <option key={n} value={n}>{n} 个交易日</option>)}</select></label><label>固定观察行业<select aria-label="连续复盘行业" value={industry || data?.industry || ""} onChange={e => chooseIndustry(e.target.value)}><option value="">按最近归档选择</option>{industry && !data?.industries.includes(industry) && <option value={industry}>{industry}</option>}{data?.industries.map(name => <option key={name}>{name}</option>)}</select></label><button type="button" disabled={!data} onClick={download}><Download size={14}/>导出本窗证据 JSON</button></div>
     <div className="rh-boundary">归档视角 · 不是当时可知回放，也不是最新修订行情。点日期只移动光标，不改变整个窗口。导出保留同一份读数、来源与限制；不会自动发送给 AI。</div>
     {error && <div className="rh-error" role="alert">{error}<button type="button" onClick={() => setRevision(v => v + 1)}>重试连续复盘</button></div>}
     {!data && !error && <p role="status">正在对齐日报归档与计划交易日…</p>}
     {data && <>
       <ReviewReadingGuide data={data} selectedDate={chosen}/>
       <div className="rh-window"><b>{data.start} → {data.end}</b><span>归档可读 {data.coverage.available} / {data.coverage.total} 日</span><span>当前光标 {chosen ?? "未选"}</span>{!data.calendar_complete && <strong>部分前序日历未知，窗口未补造</strong>}</div>
+      {data.requested_end !== data.end && <p className="rh-boundary" role="note">所选截止日 {data.requested_end} 不是已收盘的计划交易日，窗口止于此前最近的交易日 {data.end}；没有用其他日期的归档顶替。</p>}
+      {chosen && !data.points.some(p => p.date === chosen) && <p className="rh-boundary" role="note">当前光标 {chosen} 不在本窗口内，下方读数不显示该日；请在表头点选窗口内的交易日。</p>}
       {!data.coverage.available && <p className="rh-empty">这个窗口没有可读的结构化日报。HTML 仍可在原导航台查看；这里不抓取 HTML 猜测数值。</p>}
       <div className="rh-metrics">{data.metrics.map(metric => <article key={metric.key}><span>{metric.label} <small>{metric.unit}</small></span><strong>{format(point?.metrics[metric.key])}</strong><Sparkline values={data.points.map(p => p.metrics[metric.key] ?? null)} selected={data.points.findIndex(p => p.date === chosen)}/><small>{point?.comparison_date && point.deltas[metric.key] != null ? `较 ${point.comparison_date.slice(5)} 差 ${format(point.deltas[metric.key])}${metric.unit === "%" ? " 个百分点" : ` ${metric.unit}`}` : "无可比前日或字段缺失"}</small></article>)}</div>
       <div className="rh-section-head"><h3>01 / 日报里的连续读数</h3><span>图中断点不补零 · 未列入不等于零 · 未知不判断顺位</span></div>

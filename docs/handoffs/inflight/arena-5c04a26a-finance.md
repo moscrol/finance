@@ -44,3 +44,14 @@
 - e2e：首轮 CI 日历 e2e 失败——夹具建了空 `fact_stock_daily`，断板候选按 fail-closed 归为“行情未入库”待核，不再显示为断板。已给夹具补当日行情（合成高标甲有成交未封板 → 已核断板），并新增停牌待核样本（合成停牌戊 → `停牌/无成交`）及断言。本地（npm `@sparticuz/chromium` 替代浏览器）日历 e2e 6/6 通过；主 e2e 45 通过，`workbench.spec.ts` 的 2 个聊天用例在 d340e3a6 基线上本地同样失败，属本地环境问题，以 CI 为准。
 - 真实行情库只读抽样：重点核 `closed_at_limit`（供应商名单缺漏）、`source_mismatch` 频率、停牌高标。
 - 远端 CI、正式门禁、部署与回滚；Workbench Agent 实际消费证据合同；归档版本留存；长河观察记录服务端持久化。
+
+## 第三轮（合并 main e3f88f29 之后）
+
+- 新增只读抽样脚本 `scripts/audit_board_calendar_breaks.py`：复用 `build_board_calendar` 的判定（不另写规则），把每条已核断板 / 待核候选与原始行并列（收盘、涨停价、涨跌幅、成交额、前后两日名单来源），并标记 `near_limit_price`（收盘离涨停价 ≤1 分）、`high_pct_but_not_sealed`、`verify_list_completeness`（closed_at_limit）。缺行保持 “—”/null。测试 `tests/test_audit_board_calendar_breaks.py`。
+  - 真实库运行：`python scripts/audit_board_calendar_breaks.py --db <market_feature_store.duckdb> --start 2026-07-01 --end 2026-09-30 --md /tmp/breaks.md --json /tmp/breaks.json`
+- 连续复盘：
+  - “按最近归档选择”真正解除行业固定（此前 ref 会继续发送旧行业）。
+  - 截止日不是已收盘交易日时提示窗口实际止于哪天；光标不在窗口内时明示。
+  - 迷你走势图标注本窗纵轴范围与缺读数日数，提示不同窗口/指标不可比高低。
+  - JSON Pointer 前缀：合同 `citation_rule` 说明相对连续证据响应根；交接包 `response_contract.pointer_base` 说明包内一律加 `/evidence`。
+- 验证：vitest 25 文件 238 通过；tsc/eslint/ruff/三项 check 通过；本地 e2e：review-evidence 6/6、river 18/18（calendar 6/6 上一轮已过）。

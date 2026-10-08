@@ -22,6 +22,7 @@ it("exports all data kinds and original rows, separately from user interpretatio
   expect(packet.user_instructions.method).toBe(draft.method);
   expect(packet.user_instructions.role).toBe("user_authored_research_guidance_not_market_facts");
   expect(packet.context.selected_date_in_window).toBe(true);
+  expect(packet.response_contract.pointer_base).toContain("/evidence/points/");
   expect(JSON.stringify(data)).toBe(before);
 });
 it("keeps out-of-window selection explicit and rejects incompatible contracts", () => {
