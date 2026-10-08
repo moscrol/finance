@@ -459,6 +459,7 @@ export interface BoardCalendarDay {
     | "calendar_unknown";
   board_groups: BoardCalendarGroup[];
   stock_count: number;
+  high_board_comparison_status?: "available" | "data_missing" | "calendar_unknown" | "not_applicable";
   high_board_breaks?: BoardCalendarHighBoardBreak[];
 }
 

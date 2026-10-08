@@ -144,9 +144,9 @@ def project_review(payload: dict, day: date) -> dict:
             "core_board": payload.get("core_board", [])}
 
 
-def daily_review_snapshot(exports: Path, *, as_of: date) -> dict:
+def daily_review_snapshot(exports: Path, *, as_of: date, include_available_dates: bool = True) -> dict:
     day = as_of.isoformat()
-    base = {"schema_version": 1, "trade_date": day, "available_dates": available_dates(exports),
+    base = {"schema_version": 1, "trade_date": day, "available_dates": available_dates(exports) if include_available_dates else [],
             "knowledge_mode": "archived_report_not_as_known", "status": "missing", "report": None}
     path = exports / f"{day}{SUFFIX}"
     if not path.exists():

@@ -16,7 +16,10 @@ from typing import Any
 
 import duckdb
 
-from market_feature_store.trading_days import trading_day_verdict
+from market_feature_store.trading_days import (
+    previous_scheduled_trading_day,
+    trading_day_verdict,
+)
 
 
 BOARD_TABLE = "fact_limit_advance_daily"
@@ -129,15 +132,16 @@ def _group_boards(rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
 HIGH_BOARD_BREAK_DEFAULT = 5
 
 
-def _previous_market_trading_day(
-    con: duckdb.DuckDBPyConnection, start: date, today: date
-) -> date | None:
-    """The market trading day immediately before ``start`` (≤ today), if any."""
-    row = con.execute(
-        f"SELECT MAX(trade_date) FROM {MARKET_TABLE} WHERE trade_date < ? AND trade_date <= ?",
-        [start, today],
-    ).fetchone()
-    return row[0] if row and row[0] is not None else None
+def _break_comparison_status(day: date, board_dates: set[date]) -> str:
+    """Availability of the two scheduled-day lists, not proof of feed completeness."""
+    if day == date.min or not trading_day_verdict(day).is_trading:
+        return "calendar_unknown"
+    previous = previous_scheduled_trading_day(day)
+    if previous is None:
+        return "calendar_unknown"
+    if day not in board_dates or previous not in board_dates:
+        return "data_missing"
+    return "available"
 
 
 def _high_board_breaks(
@@ -146,7 +150,6 @@ def _high_board_breaks(
     present_by_day: dict[date, set[str]],
     board_data_dates: set[date],
     high_board_min: int,
-    leading_day: date | None = None,
 ) -> tuple[dict[date, list[dict[str, Any]]], list[dict[str, Any]]]:
     """Detect high-board (≥ ``high_board_min``) break events across consecutive days.
 
@@ -160,15 +163,13 @@ def _high_board_breaks(
     stance as the succession coverage rules, where "no row" is never equated
     with "not sealed".
 
-    The pairing sequence is the union of the market trading days, the days the
-    board table actually has rows for, and ``leading_day`` (the market trading
-    day just before the first range day).  A day present only in the board table
-    (missing from the market table) still acts as the ``previous`` for the
-    following day, so a break's height is read from the latest available data
-    rather than an earlier gap.  Only in-range market trading days are ever
-    reported.  Returns per-day break lists (keyed by the break day, height-
-    ordered) and a flattened list in the same day-then-height order for the
-    month view.
+    Each report day is paired with its previous scheduled trading day, using
+    the shared exchange calendar rather than adjacency of database rows.  A
+    missing trading day must not be skipped.  Unknown calendar years cannot
+    establish a pair and yield no event.  Weekends and registered holidays
+    may be crossed.  A predecessor present only in the board table is valid,
+    including before the requested month, but only in-range market days are
+    reported.  Results are ordered by day and then descending break height.
 
     A break whose *break day* is missing from the market table (but present in
     the board table) is not reported: that day is not a reportable trading day,
@@ -182,15 +183,12 @@ def _high_board_breaks(
     leader_succession.py``).  The two share the word 断板 but are different
     quantities; see ``UBIQUITOUS_LANGUAGE.md`` (Flagged ambiguities).
     """
-    report_days = set(trading_dates)
     per_day: dict[date, list[dict[str, Any]]] = {day: [] for day in trading_dates}
-    sequence = sorted(
-        report_days | board_data_dates | ({leading_day} if leading_day is not None else set())
-    )
-    for previous, day in zip(sequence, sequence[1:]):
-        if day not in report_days:
+    for day in trading_dates:
+        if day == date.min or not trading_day_verdict(day).is_trading:
             continue
-        if previous not in board_data_dates or day not in board_data_dates:
+        previous = previous_scheduled_trading_day(day)
+        if previous is None or previous not in board_data_dates or day not in board_data_dates:
             continue
         previous_sealed = sealed_by_day.get(previous, {})
         day_present = present_by_day.get(day, set())
@@ -365,12 +363,17 @@ def build_board_calendar(
             day: [] for day in trading_dates
         }
         high_board_breaks_flat: list[dict[str, Any]] = []
+        break_data_dates: set[date] = set()
         if has_board_table and trading_dates:
-            # Include the market day just before ``start`` so a break landing on the
-            # first day of the range is still detectable.  Unfiltered by board count:
-            # a ≥5-board break must be found even though the view threshold is lower.
-            leading_day = _previous_market_trading_day(con, start, today)
-            window_start = leading_day or start
+            # Read the actual scheduled predecessor of the first report day,
+            # even if the market table has no row for it.  Do not scan back to
+            # an older observed market day or let the view boundary drop it.
+            first_day = trading_dates[0]
+            leading_day = (
+                previous_scheduled_trading_day(first_day)
+                if first_day > date.min else None
+            )
+            window_start = leading_day or first_day
             sealed_by_day: dict[date, dict[str, tuple[str, int, str | None]]] = {}
             present_by_day: dict[date, set[str]] = {}
             for (
@@ -398,22 +401,15 @@ def build_board_calendar(
                     int(b_boards),
                     str(b_theme) if b_theme else None,
                 )
-            # The leading day sits before ``start`` so it is not in ``board_data_dates``;
-            # add it so the first range day can be checked against it.  Its sealed set
-            # is empty unless it truly has rows, so a missing leading day still yields
-            # no break (fail closed).
-            break_data_dates = (
-                board_data_dates | {leading_day}
-                if leading_day is not None
-                else board_data_dates
-            )
+            # Includes ALL rows in the pre-read window, including NULL board
+            # counts, not just the dates inside the requested display range.
+            break_data_dates = set(present_by_day)
             high_board_breaks_by_day, high_board_breaks_flat = _high_board_breaks(
                 trading_dates,
                 sealed_by_day,
                 present_by_day,
                 break_data_dates,
                 hb_min,
-                leading_day,
             )
 
         trading_days = [
@@ -430,6 +426,7 @@ def build_board_calendar(
                     len(group["stocks"]) for group in board_by_date.get(day, [])
                 ),
                 "high_board_breaks": high_board_breaks_by_day.get(day, []),
+                "high_board_comparison_status": _break_comparison_status(day, break_data_dates),
             }
             for day in trading_dates
         ]
@@ -470,6 +467,11 @@ def build_board_calendar(
                         "board_groups": [],
                         "stock_count": 0,
                         "high_board_breaks": [],
+                        "high_board_comparison_status": (
+                            "not_applicable" if calendar_status in {"closed", "future"}
+                            else "calendar_unknown" if calendar_status == "calendar_unknown"
+                            else "data_missing"
+                        ),
                     }
                 )
             if current == end:

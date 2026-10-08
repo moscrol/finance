@@ -177,6 +177,13 @@ function CalendarDayCell({
           </div>
         </section>
       ) : null}
+      {day.calendar_status === "trading" && day.high_board_comparison_status !== "available" && (
+        <p className="board-calendar-coverage">
+          {day.high_board_comparison_status === "data_missing"
+            ? "断板未判定：当日或前一交易日名单缺失"
+            : "断板未判定：交易日历或覆盖状态未知"}
+        </p>
+      )}
       {onOpenLadder && day.calendar_status === "trading" && (
         <button className="board-calendar-expand" type="button" onClick={() => onOpenLadder(day.date)} aria-label={`查看 ${day.date} 连板梯队`}>同日连板 ↗</button>
       )}
@@ -230,6 +237,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
     [calendar, month],
   );
   const tradingCount = calendar?.trading_days.length ?? 0;
+  const comparableCount = calendar?.trading_days.filter(day => day.high_board_comparison_status === "available").length ?? 0;
   const populatedCount = calendar?.trading_days.filter((day) => day.stock_count > 0).length ?? 0;
 
   const toggleExpanded = (date: string) => {
@@ -258,19 +266,30 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
             <button
               type="button"
               aria-label="上个月"
+              disabled={month <= "1900-01"}
               onClick={() => setMonth((current) => shiftMonth(current, -1))}
             >
               <ChevronLeft aria-hidden="true" size={16} />
             </button>
             <strong>{monthLabel(month)}</strong>
+            <input type="month" aria-label="选择月份" value={month} min="1900-01" max="9999-12"
+              onChange={event => {
+                const next = event.target.value;
+                if (/^\d{4}-(0[1-9]|1[0-2])$/.test(next) && next >= "1900-01" && next <= "9999-12") setMonth(next);
+              }} />
             <button
               type="button"
               aria-label="下个月"
+              disabled={month >= "9999-12"}
               onClick={() => setMonth((current) => shiftMonth(current, 1))}
             >
               <ChevronRight aria-hidden="true" size={16} />
             </button>
           </div>
+          <button className="board-calendar-refresh" type="button" disabled={loading}
+            onClick={() => setRetryToken(current => current + 1)}>
+            <RefreshCw aria-hidden="true" size={14} /> {loading ? "读取中…" : "刷新日历"}
+          </button>
           <div className="board-calendar-threshold" role="group" aria-label="连板门槛">
             <SlidersHorizontal aria-hidden="true" size={14} />
             <span>展示</span>
@@ -289,7 +308,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
         </div>
       </header>
 
-      {loading && <div className="board-calendar-loading">正在加载交易日历…</div>}
+      {loading && <div className="board-calendar-loading" role="status">正在加载交易日历…</div>}
       {error && (
         <div className="board-calendar-error" role="alert">
           <AlertTriangle aria-hidden="true" size={16} />
@@ -312,9 +331,13 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
             <div><strong>{tradingCount}</strong><span>个交易日有市场数据</span></div>
             <div><strong>{populatedCount}</strong><span>天有达标个股</span></div>
             <div><strong>{calendar.recommended_min_boards}板</strong><span>系统建议起始门槛</span></div>
-            <div><strong>{calendar.high_board_breaks?.length ?? 0}</strong><span>次 ≥{calendar.high_board_min ?? 5}板 高标断板</span></div>
+            <div><strong>{comparableCount ? (calendar.high_board_breaks?.length ?? 0) : "—"}</strong><span>次 ≥{calendar.high_board_min ?? 5}板 高标断板（已识别）</span></div>
           </section>
-          <div className="board-calendar-grid-scroll">
+          <p className="board-calendar-coverage" role="status">
+            断板可比较 {comparableCount} / {tradingCount} 个有市场数据的交易日。
+            仅基于已入库涨停名单；缺口不计为零，名单有记录不代表已验证完整。窄屏可横向滚动日历。
+          </p>
+          <div className="board-calendar-grid-scroll" tabIndex={0} role="region" aria-label="可横向滚动的连板日历">
             <section className="board-calendar-grid" aria-label={`${monthLabel(month)}交易日历`}>
               {WEEKDAYS.map((weekday) => (
                 <div className="board-calendar-weekday" key={weekday}>

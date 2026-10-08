@@ -155,3 +155,108 @@ def test_default_export_root_follows_finance_ws(tmp_path, monkeypatch):
     app = FastAPI()
     register_daily_river_routes(app)
     assert TestClient(app).get("/api/river/daily-review?as_of=2026-09-24").json()["report"]["facts"]["top3_industry_ratio"] == 42.7
+
+
+def test_history_adjacent_differences_gaps_and_own_matrix(tmp_path):
+    from intelligence.services.river_review_history import review_history
+    for day, amount in [("2026-09-21", 100), ("2026-09-22", 120), ("2026-09-24", 180)]:
+        data = payload(day)
+        data["facts"]["total_amount"] = amount
+        # Every report deliberately has an overlapping historical value.
+        for section in data["sections"]:
+            for block in section["blocks"]:
+                if block["kind"] == "table" and len(block["columns"]) == 3:
+                    block["columns"][1:] = ["09-18", day[5:]]
+        write(tmp_path, data)
+    before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in tmp_path.iterdir()}
+    result = review_history(tmp_path, end=date(2026, 9, 24), days=5, industry="电子")
+    points = {p["date"]: p for p in result["points"]}
+    assert points["2026-09-22"]["deltas"]["total_amount"] == 20
+    assert points["2026-09-23"]["status"] == "missing"
+    assert points["2026-09-24"]["comparison_date"] is None
+    assert points["2026-09-24"]["deltas"] == {}
+    assert points["2026-09-24"]["matrices"]["double_red"]["rows"][2]["value"] == "-2.0%/-10.0/750"
+    assert result["coverage"] == {"available": 3, "total": 5}
+    assert result["knowledge_mode"] == "archived_report_not_as_known"
+    assert before == {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in tmp_path.iterdir()}
+    assert points["2026-09-24"]["provenance"]["sha256"]
+
+
+def test_history_exit_is_not_zero_budget_invalid_and_truncation(tmp_path, monkeypatch):
+    from intelligence.services import river_review_history as history
+    data = payload()
+    data["sections"][3]["blocks"][1]["rows"] *= 90
+    write(tmp_path, data)
+    result = history.review_history(tmp_path, end=date(2026, 9, 24), days=5, industry="电子")
+    assert result["points"][-1]["engines"]["truncated"]
+    assert len(result["points"][-1]["engines"]["rows"]) == 80
+    result = history.review_history(tmp_path, end=date(2026, 9, 24), days=5, industry="机械设备")
+    assert result["points"][-1]["industry_status"] == "not_in_list"
+    assert result["points"][-1]["industry_rank"] is None
+    monkeypatch.setattr(history, "READ_BUDGET", 1)
+    assert history.review_history(tmp_path, end=date(2026, 9, 24), days=5)["points"][-1]["reason"] == "read_budget_exceeded"
+    monkeypatch.setattr(history, "READ_BUDGET", 10000)
+    (tmp_path / "2026-09-24-daily-review.json").write_text("broken")
+    assert history.review_history(tmp_path, end=date(2026, 9, 24), days=5)["points"][-1]["reason"] == "invalid_archive"
+
+
+def test_history_calendar_cross_year_and_unknown(tmp_path):
+    from intelligence.services.river_review_history import review_history
+    result = review_history(tmp_path, end=date(2026, 1, 5), days=5)
+    dates = [p["date"] for p in result["points"]]
+    assert dates == ["2026-01-05"]
+    assert result["calendar_complete"] is False  # Repository calendar has no 2025 coverage.
+    with pytest.raises(ValueError, match="未来"):
+        review_history(tmp_path, end=date(2099, 1, 1))
+    with pytest.raises(ValueError, match="交易日历未知"):
+        review_history(tmp_path, end=date(1900, 1, 1))
+
+
+def test_history_api_validation_and_contract(tmp_path):
+    write(tmp_path, payload())
+    app = FastAPI()
+    register_daily_river_routes(app, review_exports_path=tmp_path)
+    client = TestClient(app)
+    for query in ["days=4", "days=61", "end=invalid", "end=2099-01-01", "industry=", "industry=" + "x" * 161]:
+        assert client.get("/api/river/review-history?" + query).status_code == 422
+    response = client.get("/api/river/review-history?end=2026-09-24&days=5&industry=电子")
+    assert response.status_code == 200
+    assert response.json()["points"][-1]["date"] == "2026-09-24"
+    assert response.json()["points"][-1]["metrics"]["double_red_count"] == 0
+
+
+def test_history_rejects_forced_calendar(tmp_path, monkeypatch):
+    from intelligence.services.river_review_history import review_history
+    monkeypatch.setenv("L2_FORCE_TRADE_DAY", "1")
+    with pytest.raises(ValueError, match="强制"):
+        review_history(tmp_path, end=date(2026, 9, 24), days=5)
+
+
+def test_history_human_agent_contract_is_lossless_and_explicit(tmp_path):
+    from intelligence.services.river_review_history import review_history
+    data = payload()
+    data["facts"].update(total_amount=123.45, advancers_ma5=1500.2, strength_avg_pct=-1.25)
+    write(tmp_path, data)
+    result = review_history(tmp_path, end=date(2026, 9, 24), days=5, industry="电子")
+    contract = result["evidence_contract"]
+    assert contract["version"] == "review-evidence/v1"
+    assert [g["id"] for g in contract["groups"]] == ["market", "industry", "subsector", "engines"]
+    assert contract["groups"][0]["fields"] == [f"metrics.{m['key']}" for m in result["metrics"]]
+    point = result["points"][-1]
+    for group in contract["groups"]:
+        for field in group["fields"]:
+            value = point
+            for part in field.split("."):
+                assert part in value, field
+                value = value[part]
+    assert point["metrics"]["advancers_ma5"] == data["facts"]["advancers_ma5"]
+    assert point["engines"]["rows"] == data["sections"][3]["blocks"][1]["rows"]
+    policy = contract["provenance_policy"]
+    assert policy["hash_algorithm"] == "SHA-256"
+    assert policy["point_in_time_guaranteed"] is False
+    for key in ["industry_classification_version", "formula_version", "calendar_version", "archive_revision_id", "upstream_provider"]:
+        assert policy[key] is None
+    # No unsupported claim that missing formula or revision versions are known.
+    assert "not_in_list" in contract["missing_semantics"]
+    assert "truncated" in contract["missing_semantics"]
+    assert "evidence_contract" in json.loads(json.dumps(result, ensure_ascii=False))
