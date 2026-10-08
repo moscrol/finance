@@ -149,7 +149,9 @@ class EpisodeFinalizer:
 
         ``on_prompt(system, user)`` 在向模型开口之前收到这段独立 prompt 的正文——Episode 用它
         落 ``prompt_assembled{source: finalizer}``（模型可见即已落账，运行底座 P0 已知边界 a）。
-        默认 None：不接线的调用方行为不变。
+        ``on_prompt`` 默认 None：不接回调的调用方行为不变。
+        ``finish_format`` 未提供时沿原材料 owner 选描述；显式 None 保留旧输入的
+        格式缺省；已提供的 Mapping 沿用调用方从最初原生输入选出的描述。
         """
 
         # Original direct callers already used the material owner's projection.
