@@ -34,6 +34,7 @@ from intelligence.services.ask import (
     render_conversation_answer,
     synthesize_prepared_answer,
 )
+from intelligence.services.ask_blocks import MainlineContextSnapshot
 from intelligence.services.entity_anchor import EntityAnchor
 from intelligence.services.llm_refine import SynthesisResult
 from intelligence.services.kb_rag import (
@@ -1353,11 +1354,10 @@ class AnswerOrchestratorTests(unittest.TestCase):
                 side_effect=fake_synthesize,
             ),
             mock.patch(
-                "intelligence.services.ask._market_review_mainline_context_block_for_llm",
-                return_value=(
-                    "## 市场复盘主线数据边界\n"
-                    "- 当日市场总览截至 2026-07-10；主线题材快照仅截至 2026-06-30。\n"
-                    "- 当前交易日主线未知。"
+                "intelligence.services.ask.market_review_mainline_context_snapshot",
+                return_value=MainlineContextSnapshot(
+                    status="stale", market_date="2026-07-10", snapshot_date="2026-06-30",
+                    gap_messages=("当前交易日主线未知。",),
                 ),
             ),
         ):
@@ -1503,6 +1503,7 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         def fake_synthesize(messages: list[dict], **_: object):
             captured["prompt"] = str(messages[1]["content"])
+            captured["system"] = str(messages[0]["content"])
             return None, "mocked"
 
         duckdb = __import__("duckdb")
@@ -1567,7 +1568,11 @@ class AnswerOrchestratorTests(unittest.TestCase):
 
         self.assertIn("主线题材结构数据块 [D4]", captured["prompt"])
         self.assertIn("共封装光学(CPO)", captured["prompt"])
-        self.assertIn("缩量强修复/存量抱团", captured["prompt"])
+        self.assertTrue(result.answer_spec.verified_facts)
+        self.assertFalse(any("判读[" in claim.text for claim in result.answer_spec.verified_facts))
+        self.assertIn("FY-A01", captured["system"])
+        self.assertIn('"query_basis"', captured["prompt"])
+        self.assertIn("上涨、成交额环比下降", captured["prompt"])
         self.assertTrue(any(c.tag == "D4" for c in result.citations))
 
 

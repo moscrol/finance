@@ -2289,7 +2289,9 @@ class TurnOrchestrator:
             current_continuing = is_contextual_follow_up(
                 query, understand_query(query, today=runtime_today, temporal_contract=current_temporal),
                 inherited_intent,
-            )
+            ) or inherit_history_followup(
+                query, inherited_intent.history_intent if inherited_intent is not None else None,
+            ) is not None
             if (len(current_users) == 1 and current_users[0].content == query
                     and current_run.session_id == conversation_id):
                 current_temporal = compile_temporal_contract(
@@ -2495,10 +2497,14 @@ class TurnOrchestrator:
             user_follow_up = is_contextual_follow_up(
                 query, understand_query(query, today=runtime_today, temporal_contract=current_temporal),
                 inherited_intent,
-            )
+            ) or inherit_history_followup(
+                query, inherited_intent.history_intent if inherited_intent is not None else None,
+            ) is not None
             if user_follow_up and turn_intent.inherited_from_turn is None:
                 turn_intent = replace(turn_intent, inherited_from_turn=inherited_turn_id)
-            continuing = turn_intent.inherited_from_turn is not None
+            # Domain inheritance from a controller does not grant a temporal
+            # continuation. Only the original user source can declare one.
+            continuing = user_follow_up
             previous_verified = (inherited_turn_id is not None
                                  and turn_intent.inherited_from_turn == inherited_turn_id and prior_run_verified)
             temporal = compile_temporal_contract(

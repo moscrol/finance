@@ -112,10 +112,19 @@ def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monk
     try:
         con.execute("create table fact_market_daily(trade_date date, market_stage varchar, total_amount double, sh_index_pct_chg double)")
         con.execute("create table fact_mainline_theme_daily(trade_date date, theme_name varchar, sector_count integer, min_sort integer)")
+        con.execute("""create table fact_mainline_sector_daily(
+            trade_date date, theme_code varchar, theme_name varchar, sector_ts_code varchar, sector_name varchar,
+            sort_no integer, today_pct double, limit_up_count integer, net_inflow_1d double, amount double,
+            cycle_status varchar, cycle_level varchar, startup_date_small date, high_status_label varchar,
+            near_breakout_label varchar)""")
+        con.execute("""create table fact_sector_daily(
+            trade_date date,sector_ts_code varchar,sw_l1 varchar,pct_chg double,diff_ratio double,amount double)""")
         if source_state != "empty":
             source_date = "2026-07-23" if source_state == "stale" else "2026-07-24"
             con.execute("insert into fact_market_daily values (?, '反弹阶段', 22000, 1.2)", [source_date])
             con.execute("insert into fact_mainline_theme_daily values (?, '临时主线', 2, 1)", [source_date])
+            con.execute("insert into fact_mainline_sector_daily (trade_date,theme_code,theme_name,sector_ts_code,sector_name) "
+                        "values (?, 'LOCAL', '临时主线', 'S1', '临时板块')", [source_date])
     finally:
         con.close()
     if source_state == "missing":
@@ -183,7 +192,7 @@ def test_audited_local_queries_run_against_only_temporary_sources(tmp_path, monk
     assert indexed.evidence and "临时公告确认订单20" in indexed.evidence[0].detail
     mainline = registry.execute("mainline_context", {}, context=context, step_id="local-mainline")
     if source_state == "current":
-        assert mainline.evidence and "临时主线" in mainline.observation
+        assert mainline.evidence and "临时主线" in mainline.evidence[0].detail
     else:
         assert mainline.evidence == ()
     memory = registry.execute("memory_lookup", "甲公司", context=context, step_id="local-memory")

@@ -326,6 +326,44 @@ def test_inclusive_history_calendar_boundaries_and_all_historical_themes(tmp_pat
     assert "非截止日主线排名" in ask_blocks.render_mainline_context_snapshot(snapshot)
 
 
+@pytest.mark.parametrize("strict", [False, True])
+def test_real_history_window_limits_mainline_aggregates_without_losing_current_coverage(tmp_path, strict):
+    from intelligence.services.query_understanding import understand_query
+
+    rows = [("合法主线", f"S{i}", f"板块{i}", i) for i in range(9)]
+    db_path = _database(tmp_path, rows, trade_date="2026-09-30")
+    _write(db_path, "insert into fact_mainline_sector_daily "
+           "(trade_date,theme_code,theme_name,sector_ts_code,sector_name) values "
+           "('2026-09-10','OUT','OUT_OF_WINDOW_THEME_43210','OUT1','旧板块'), "
+           "('2026-09-29','合法主线','合法主线','EARLY1','合法边界')")
+    query = ("只看2026-09-29至2026-09-30窗口内的A股主线，做事后复盘；资料截至区间结束日"
+             if strict else "复盘2026年9月30日A股，资料截至2026年10月7日")
+    frame = understand_query(query, today=date(2026, 10, 8)).task_frame
+    context = build_episode_context(frame, task_id=f"strict-d4-{strict}", capabilities=("mainline_context",),
+                                    today="2026-10-08", latest_data_date="2026-10-07")
+    registry = episode_tools.build_episode_registry(
+        frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki", l3_runner=None,
+        fixture_policy=episode_tools.SealedFixturePolicy(market_db_path=db_path),
+    )
+    observation = registry.execute("mainline_context", {}, context=context, step_id="strict-d4")
+    model = FinanceResearchHarness().project_tool_result(observation, evidence_so_far=observation.evidence,
+                                                        seen_prose=set()).model_content
+    basis = json.loads(model)["query_basis"]
+    assert basis["snapshot_date"] == "2026-09-30"
+    assert basis["total_rows"] == 9 and basis["total_groups"] == 1
+    assert (basis["groups"][0]["preview_rows"], basis["groups"][0]["omitted_rows"]) == (8, 1)
+    assert len(observation.evidence) == 8
+    histories = {row["theme_name"]: row for row in basis["history"]}
+    assert histories["合法主线"]["day_count"] == 2
+    assert histories["合法主线"]["first_date"] == "2026-09-29"
+    assert histories["合法主线"]["sector_rows"] == 10
+    assert ("OUT_OF_WINDOW_THEME_43210" in model) is (not strict)
+    assert basis["history_window"] == {
+        "start": "2026-09-29" if strict else "2026-09-10", "end": "2026-09-30",
+        "lookback_days": 1 if strict else 20, "unit": "calendar_days", "inclusive_start": True, "inclusive_end": True,
+    }
+
+
 def test_future_upper_bound_and_market_review_staleness_do_not_deliver_old_facts(tmp_path):
     db_path = _database(tmp_path, [("未来主题", "FUTURE", "未来板块", 1)])
     _write(db_path,

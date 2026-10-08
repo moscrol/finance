@@ -963,7 +963,10 @@ def build_episode_context(
         )
     )
     if information_cutoff is not None:
-        cutoff = InformationCutoff(min(cutoff.as_of_date, information_cutoff.as_of_date), cutoff.source)
+        cutoff = InformationCutoff(
+            min(cutoff.as_of_date, information_cutoff.as_of_date),
+            "requested" if "requested" in {cutoff.source, information_cutoff.source} else cutoff.source,
+        )
     if frame.history_intent is not None and frame.history_intent.information_cutoff:
         cutoff = InformationCutoff(
             min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.information_cutoff)),
@@ -1020,7 +1023,10 @@ def pin_episode_context_temporal(
         InformationCutoff(date.fromisoformat(temporal.information_cutoff), "requested")
         if temporal.information_cutoff else _default_information_cutoff(today=today, latest_data_date=None)
     )
-    cutoff = InformationCutoff(min(context.information_cutoff.as_of_date, upper.as_of_date), upper.source)
+    cutoff = InformationCutoff(
+        min(context.information_cutoff.as_of_date, upper.as_of_date),
+        "requested" if "requested" in {context.information_cutoff.source, upper.source} else upper.source,
+    )
     history = frame.history_intent
     for bound in (
         history.information_cutoff if history else None,

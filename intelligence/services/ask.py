@@ -139,6 +139,7 @@ from intelligence.services.ask_types import (  # noqa: F401  (re-export 兼容�
     _stage_timeout,
     _synthesis_timeout,
 )
+from intelligence.services import ask_blocks
 from intelligence.services.ask_blocks import (  # noqa: F401
     _append_block_outcome,
     _confidence_score,
@@ -184,6 +185,9 @@ from intelligence.services.ask_synthesis import (  # noqa: F401
     _build_answer_spec_for_result,
     _build_base_answer_spec_from_sections,
     _claims_from_data_block,
+    _claims_from_mainline_snapshot,
+    _mainline_snapshot_guidance,
+    _append_mainline_model_scope,
     _prepare_answer_spec_synthesis,
     _presentable_lines,
     synthesize_prepared_answer,
@@ -1003,11 +1007,13 @@ def _answer_market_review(
     result.market_summary = _daily_market_overview_block_for_llm(
         options.market_db_path
     )
-    mainline_context = _market_review_mainline_context_block_for_llm(
+    mainline_snapshot = market_review_mainline_context_snapshot(
         options.query,
         None,
         options.market_db_path,
     )
+    mainline_result = episode_tools.mainline_snapshot_tool_result(mainline_snapshot)
+    mainline_context = "\n".join(f"{item.title}：{item.detail}" for item in mainline_result.evidence)
     # 第二条腿：盘面说哪个方向在走，知识库说我对这个方向研究到什么程度。
     # 缺了它，日常复盘就只有盘面数字，用户自己积累的概念页与公司暴露一条也进不来。
     knowledge_anchor = (
@@ -1041,7 +1047,7 @@ def _answer_market_review(
         if part
     ]
     result.found_market = bool(evidence_parts)
-    if not evidence_parts:
+    if not evidence_parts and mainline_snapshot.status != "stale":
         result.warnings.append("最新交易日的正式日报和市场数据均不可用")
         result.answer_spec = _build_base_answer_spec_from_sections(
             result,
@@ -1060,11 +1066,7 @@ def _answer_market_review(
                 f"截至 {result.trade_date or options.date or '当前可用日期'}，"
                 "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
             ),
-            risk_lines=tuple(
-                line
-                for line in _presentable_lines(mainline_context)
-                if any(token in line for token in ("缺", "未知", "滞后", "风险"))
-            ),
+            risk_lines=mainline_result.gaps,
             action_lines=(
                 "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
             ),
@@ -1136,11 +1138,7 @@ def _answer_market_review(
             f"截至 {result.trade_date or options.date or '当前可用日期'}，"
             "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
         ),
-        risk_lines=tuple(
-            line
-            for line in _presentable_lines(mainline_context)
-            if any(token in line for token in ("缺", "未知", "滞后", "风险"))
-        ),
+        risk_lines=mainline_result.gaps,
         action_lines=(
             "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
         ),
@@ -1170,9 +1168,13 @@ def _answer_market_review(
         )
     user_prompt += research_reasoning.guidance("market_review")
     messages = [
-        {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
+        {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT + (
+            "\n\n" + _mainline_snapshot_guidance(mainline_snapshot) if mainline_snapshot.guidance else ""
+        )},
         {"role": "user", "content": user_prompt},
     ]
+    if mainline_snapshot.status in {"available", "stale"}:
+        _append_mainline_model_scope(messages, mainline_snapshot)
     result.prepared_synthesis_messages = messages
     result.prepared_synthesis_is_market_review = True
     if options.synthesize:
@@ -4608,24 +4610,24 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
 
         def _build_d4():
-            block = (
-                _market_review_mainline_context_block_for_llm(
-                    options.query,
-                    theme,
-                    options.market_db_path,
-                )
-                if is_market_overview
-                else _mainline_context_block_for_llm(
-                    options.query,
-                    theme,
-                    options.market_db_path,
-                )
-            )
-            return block, Citation(
+            temporal = question_plan.query_envelope.temporal_contract
+            upper_bounds = [bound for bound in (
+                temporal.market_target.end if temporal and temporal.market_target else None,
+                temporal.information_cutoff if temporal else None,
+            ) if bound]
+            snapshot = (
+                ask_blocks.market_review_mainline_context_snapshot if is_market_overview
+                else ask_blocks.mainline_context_snapshot
+            )(options.query, theme, options.market_db_path,
+              as_of=min(upper_bounds) if upper_bounds else None)
+            citation = Citation(
                 "D4",
                 "本地 DuckDB 主线题材结构数据块",
                 "同日主线结构；若快照滞后则仅提供数据边界",
             )
+            if snapshot.status in {"empty", "unavailable"}:
+                return ask_planner.CollectedBlock("", citation)
+            return ask_planner.CollectedBlock(ask_blocks.render_mainline_context_snapshot(snapshot), citation, snapshot)
 
         providers.append(
             ask_planner.DataBlockProvider(
@@ -4686,7 +4688,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
         for outcome in outcomes:
             structured_claims.extend(
-                _claims_from_data_block(
+                _claims_from_mainline_snapshot(outcome.mainline_snapshot, claim_theme)
+                if outcome.mainline_snapshot is not None else _claims_from_data_block(
                     outcome.block,
                     outcome.tag,
                     outcome.label,
@@ -4783,6 +4786,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             citations=citations,
             quality_context=quality_context,
             is_market_review=is_market_review,
+            mainline_snapshot=next((outcome.mainline_snapshot for outcome in outcomes
+                                    if outcome.mainline_snapshot is not None), None),
         )
         result.prepared_synthesis_is_market_review = is_market_review
         if options.synthesize:

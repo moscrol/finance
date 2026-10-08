@@ -1233,6 +1233,11 @@ def _decide_turn_semantics(
     )
     if history_followup is not None and conversation_materials is None:
         conversation_materials = ConversationMaterials(unavailable=True)
+    if conversation_materials is None:
+        from intelligence.services.user_task import classify_top_level_regions
+
+        if classify_top_level_regions(query).uncertain_reasons:
+            conversation_materials = ConversationMaterials()
     # Source-aware material turns are resolved before pending-frame recovery,
     # lexicons and generic routing. An old research intent is not a permission.
     # Exception: a pending material-contract clarification means this message

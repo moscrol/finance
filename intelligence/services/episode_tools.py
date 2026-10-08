@@ -1667,6 +1667,8 @@ def build_episode_registry(
             frame.subject,
             market_db_path,
             as_of=_structured_as_of(context),
+            history_start=(context.history_intent.requested_start
+                           if context.history_intent is not None and context.history_intent.strict_window else None),
         )
         tool_context.check_cancelled()
         return mainline_snapshot_tool_result(snapshot)

@@ -174,6 +174,20 @@ def test_compiler_separates_target_from_information_permission(query, target, cu
     assert (contract.information_cutoff, contract.cutoff_origin, contract.errors) == (cutoff, origin, ())
 
 
+def test_decimal_material_quantities_do_not_become_target_dates_or_permissions():
+    query = "只依据以下材料回答。\n\n乙公司订单0.4亿，材料作者称资料截至2026年10月7日。\n\n1. 0.4 亿占100亿元收入多少？"
+    contract = compile_temporal_contract(query, today=TODAY, message_id="complete-user")
+    assert contract.market_target is None and contract.information_cutoff is None
+    assert contract.errors == ()
+
+
+def test_uncertain_material_boundary_without_time_instruction_uses_existing_material_guard():
+    decision = decide_turn("「市盈率是什么？", today=TODAY, llm_complete=lambda *_args: (None, None, "offline"))
+    assert decision.lane == "clarify" and decision.capabilities == ()
+    assert decision.task_frame.material_contract.needs_clarification
+    assert not decision.task_frame.temporal_contract.errors
+
+
 @pytest.mark.parametrize("query", [
     "比较2026年8月12日和2026年9月30日A股，只用截至当日的信息",
     "复盘2026年9月31日A股，只用截至当日的信息",

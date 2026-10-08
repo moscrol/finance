@@ -23,7 +23,7 @@ _FULL_DATE_RE = re.compile(
     r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
 )
 _YEARLESS_DATE_RE = re.compile(
-    r"(?<!\d)(\d{1,2})(?:月|[./])(\d{1,2})日?(?![\d%个万亿千倍])"
+    r"(?<!\d)(?!0\.)(\d{1,2})(?:月|[./])(\d{1,2})日?(?!\d)(?!\s*[%个万亿千倍])"
 )
 _YEARLESS_QUANTITY_PREFIX_RE = re.compile(r"[涨跌幅率价值为达到约是了升降]$|\d$|[.．]$")
 _SHORT_RANGE_END = re.compile(
@@ -282,12 +282,24 @@ def _target_window(
     return None, ()
 
 
+def _temporal_user_text(query: str) -> tuple[str, tuple[str, ...], str]:
+    from intelligence.services.user_task import split_user_message, top_level_message_text
+
+    parts = split_user_message(query)
+    regions = parts.regions
+    visible, uncertain = top_level_message_text(query)
+    control = regions.control_text if regions else visible
+    if not uncertain and parts.materials:
+        instructions = [span.visible_text for span in regions.instructions if span.scope == "message"] if regions else []
+        visible, _ = top_level_message_text("\n".join([*instructions, parts.question]))
+    return visible, uncertain, control
+
+
 def compile_temporal_contract(
     query: str, *, today: date, message_id: str | None = None,
     previous: TemporalContract | None = None, continuing: bool = False,
 ) -> TemporalContract:
     """Freeze full current user input before any resolver/model sees it."""
-    from intelligence.services.user_task import top_level_message_text
     from intelligence.services.honesty_gates import _standing_information_date
 
     if type(today) is not date or not isinstance(query, str):
@@ -295,7 +307,7 @@ def compile_temporal_contract(
     if previous is not None and not isinstance(previous, TemporalContract):
         raise ValueError("invalid previous temporal contract")
     source = TemporalSource(message_id, message_digest(query), query)
-    visible, uncertain = top_level_message_text(query)
+    visible, uncertain, control = _temporal_user_text(query)
     instructions = cutoff_instruction_clauses(visible)
     goal_text = list(visible)
     for start, end, _kind, _raw in instructions:
@@ -305,7 +317,7 @@ def compile_temporal_contract(
         inherited=previous.market_target if continuing and previous else None,
     )
     errors = list(target_errors)
-    if uncertain:
+    if uncertain and (cutoff_instruction_clauses(control) or _standing_information_date(control)):
         errors.append("时间指令与材料边界不明确，请将授权和材料分开提供")
     candidates: list[tuple[str, CutoffOrigin, str | None]] = []
     for _start, _end, kind, raw in instructions:
@@ -362,10 +374,11 @@ def compile_static_temporal_contract(
     Full-year goals and ordinary follow-ups can retain an already verified
     permit without inventing an original execution date.
     """
-    from intelligence.services.user_task import top_level_message_text
     from intelligence.services.honesty_gates import _standing_information_date
 
-    visible, _uncertain = top_level_message_text(query)
+    visible, uncertain, control = _temporal_user_text(query)
+    if uncertain and (cutoff_instruction_clauses(control) or _standing_information_date(control)):
+        return None
     if cutoff_instruction_clauses(visible) or _standing_information_date(visible):
         return None
     full = list(_FULL_DATE_RE.finditer(visible))

@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
@@ -294,10 +294,12 @@ def mainline_context_snapshot(
     lookback_days: int = 20,
     *,
     as_of: str | None = None,
+    history_start: str | None = None,
 ) -> MainlineContextSnapshot:
     """Read the latest D4 sector date <= as_of, preserving the existing theme match."""
     return _load_mainline_context_snapshot(
         query, theme, market_db_path, lookback_days, as_of=as_of, market_review=False,
+        history_start=history_start,
     )
 
 
@@ -307,10 +309,11 @@ def market_review_mainline_context_snapshot(
     market_db_path: str | Path | None,
     *,
     as_of: str | None = None,
+    history_start: str | None = None,
 ) -> MainlineContextSnapshot:
     """D4 for market review: sector facts must match the bounded market-data date."""
     return _load_mainline_context_snapshot(
-        query, theme, market_db_path, 20, as_of=as_of, market_review=True,
+        query, theme, market_db_path, 20, as_of=as_of, market_review=True, history_start=history_start,
     )
 
 
@@ -339,6 +342,7 @@ def _load_mainline_context_snapshot(
     *,
     as_of: str | None,
     market_review: bool,
+    history_start: str | None = None,
 ) -> MainlineContextSnapshot:
     """One readonly transaction; full joined aggregates and per-theme row previews.
 
@@ -402,7 +406,11 @@ def _load_mainline_context_snapshot(
                     **common,
                 )
             cutoff = latest - timedelta(days=int(lookback_days))
-            common.update(history_start=str(cutoff), history_end=str(latest))
+            if history_start is not None:
+                cutoff = max(cutoff, date.fromisoformat(history_start))
+                common["lookback_days"] = max(0, (latest - cutoff).days)
+            common.update(history_start=str(cutoff) if cutoff <= latest else None,
+                          history_end=str(latest) if cutoff <= latest else None)
             if market_review and latest != market_date:
                 if "fact_mainline_theme_daily" in tables:
                     theme_date = con.execute(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.services.query_resolution import QueryResolver
 from intelligence.services.research_contract import TurnIntent
 from intelligence.services.turn_controller import TurnDecision, decide_turn
+from intelligence.services.temporal_contract import compile_temporal_contract
 
 
 CASES_PATH = Path(__file__).parent / "fixtures" / "workbench_routing_golden.json"
@@ -61,6 +63,7 @@ def _previous_intent(value: object) -> TurnIntent | None:
         comparison_entities=(),
         inherited_from_turn=None,
         evidence_atom_ids=("golden-atom",),
+        temporal_contract=compile_temporal_contract(value["question"], today=date.today(), message_id="golden-user"),
     )
 
 
