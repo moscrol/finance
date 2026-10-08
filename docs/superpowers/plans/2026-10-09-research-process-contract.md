@@ -12,11 +12,13 @@
 
 设计见同日research-process-contract-design.md。继承f584作者Task1；此前ordinary-finish计划的Task2/3并入本计划B，不自动独立续跑。只一名source writer。原用户部署授权持续有效，judge off/预算/时间/资料范围不变；任何实质发现先修，不带红发布。
 
+执行状态：Task A代码`b0c28266`已通过独立Spec（19离线控制）与Standards。候选定向107P与原3guards 3P分别留收据；旧f976的410P/3S不移签。首轮Spec的有效样本说明/取消后恢复凭据两发现已修，原失败保留。Task B接续，C/D尚未执行；真实首答工具仅PREPARE_ONLY。
+
 ## Task A：结果owner语义与共享真实投影
 
 **Files:** Modify `intelligence/services/episode_tools.py` D4/FinanceQuery projection；`finance_query.py`仅读取现有dataset/field语义所需的纯入口；`research_tool_registry.py`已有结果类型/传播；`research_harness.py`真实投影；`runtime/headless_tool_gateway.py`单一消费接线。Test `intelligence/tests/test_research_source_context.py`（create）、`test_headless_tool_gateway.py`及`test_finance_query_basis.py`。只有必要时新增一个纯语义Module，不定义新公共总控。
 
-- [ ] 真owner→registry→Harness和headless RED。测试用本地夹具，不读生产库。实际响应在失败/partial/stale仍保留原状态与范围，两个消费者共享同一query_basis/source_context；缺资格保持unknown，不以旧结果默认认证。
+- [x] 真owner→registry→Harness和headless RED。测试用本地夹具，不读生产库。实际响应在失败/partial/stale仍保留原状态与范围，两个消费者共享同一query_basis/source_context；缺资格保持unknown，不以旧结果默认认证。
 
 ```python
 projection = harness.project_tool_result(observation, evidence_so_far=observation.evidence,
@@ -27,13 +29,15 @@ assert model['query_basis'] == observation.query_basis
 assert model['source_context'] == observation.source_context
 ```
 
-- [ ] 在现有类型尾部添加默认空source_context（如实际需要）；producer从typed snapshot/spec生成，不从prose解析。未知source不造kind/qualification；source_context不进入evidence或owned认证。D4 v1 descriptor/query_basis/refs保持；不同观测日期数≠连续、群组行数≠唯一实体、量价≠指数贡献。FinanceQuery所选聚合含义来自dataset/field原owner。
-- [ ] headless复用Harness投影，删除独立payload拼装；保留transport budgets/request_id/取消/当前grant。记录响应后确认送达，不依赖尚未发生的CLI消费。无事实结果仍保留已知execution context，不用len(evidence)改status。
-- [ ] 初始资料角色沿已有输入集中说明；不扩KB/memory/PLAN/progress配置。真实截断/空查/资料限定及先验不升格反例跨消费者通过；only-path tests+Ruff+pathspeccommit。独立Spec→Standards后才能B。
+- [x] 在现有类型尾部添加默认空source_context（如实际需要）；producer从typed snapshot/spec生成，不从prose解析。未知source不造kind/qualification；source_context不进入evidence或owned认证。D4 v1 descriptor/query_basis/refs保持；不同观测日期数≠连续、群组行数≠唯一实体、量价≠指数贡献。FinanceQuery所选聚合含义来自dataset/field原owner。
+- [x] headless复用Harness投影，删除独立payload拼装；保留transport budgets/request_id/取消/当前grant。记录响应后确认送达，不依赖尚未发生的CLI消费。无事实结果仍保留已知execution context，不用len(evidence)改status。
+- [x] 初始资料角色沿已有输入集中说明；不扩KB/memory/PLAN/progress配置。真实截断/空查/资料限定及先验不升格反例跨消费者通过；only-path tests+Ruff+pathspeccommit。独立Spec→Standards后才能B。
 
 ## Task B：开场、修订、收尾与恢复共享作者合同
 
-**Files:** Modify `intelligence/services/episode_protocol.py`、`research_harness.py`、`runtime/agent_episode.py`、`runtime/episode_finalizer.py`、`runtime/episode_restore.py`仅必要现有字段/接线；headless runtime仅真正消费需要时。Create `intelligence/tests/test_finish_authoring_runtime.py`；复用material/owned/restore邻域。
+**Files:** Modify `intelligence/services/episode_protocol.py`、`research_harness.py`、`runtime/agent_episode.py`、`runtime/episode_finalizer.py`、`intelligence/services/episode_restore.py`仅必要现有字段/接线；headless runtime仅真正消费需要时。Create `intelligence/tests/test_finish_authoring_runtime.py`；复用material/owned/restore邻域。
+
+接线选择：steering_message与Finalizer.recover各用窄可选finish_format参数，REPAIR_GOAL沿既有同名参数；选择身份只从最初durable prompt，absence为旧ordinary。格式不授源，无参保兼容。restore只签现有恢复决策/原始消息与同进程repair/carry，不新增冷启动driver。旧a412字节守卫迁为真正旧保存前缀恢复针，保持原gold与10/8固定cutoff。
 
 - [ ] 真实Episode捕获client RED，第一system无相反旧模板、动态user的finish_format来自finish_author_contract。新普通无ref仍可完成自由parts，legacy合法payload无receipt；material/prior_evidence原owner不变。
 
