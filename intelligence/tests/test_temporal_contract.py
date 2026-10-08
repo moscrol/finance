@@ -989,6 +989,116 @@ def test_injected_controller_cannot_expand_bound_by_dropping_real_continuation(t
     assert SENTINEL not in json.dumps(model, ensure_ascii=False)
 
 
+@pytest.mark.parametrize(("damage", "new_cutoff", "window_end", "consumer_cutoff"), [
+    (None, "2026-09-10", "2026-09-15", "2026-09-10"),
+    ("pointer", "2026-09-10", "2026-09-15", "2026-09-10"),
+    ("pointer_and_contract", "2026-09-10", "2026-09-15", "2026-09-10"),
+    ("new_permission", "2026-09-12", "2026-09-15", "2026-09-12"),
+    ("new_permission", "2026-09-08", "2026-09-15", "2026-09-08"),
+    ("new_permission", "2026-09-12", "2026-09-10", "2026-09-10"),
+])
+def test_real_history_only_followup_recovers_lost_fields_with_same_source_and_audit(
+    tmp_path, monkeypatch, damage, new_cutoff, window_end, consumer_cutoff,
+):
+    from intelligence.runtime import conversation_orchestrator as runtime
+    from intelligence.services.conversation_store import ConversationStore
+    from intelligence.services.run_store import RunStore
+    from intelligence.tests.test_market_context_contract import _database, _write
+    from intelligence.workbench_skills.registry import SkillRegistry
+    from intelligence.services.episode_tools import SealedFixturePolicy, build_episode_registry
+
+    end = date.fromisoformat(window_end)
+    first = (f"以2026年9月10日为信息截止日，只研究2026年1月1日至{end.month}月{end.day}日的本地历史数据，"
+             "不联网补数；复盘这波农业怎么走出来的。")
+    second = "以前有没有类似，失败案例也看看"
+    store = ConversationStore("history-audit", root=tmp_path / "messages")
+    runs = RunStore("history-audit", root=tmp_path / "runs")
+    cid = store.create_conversation().conversation_id
+    db = _database(tmp_path, [("ELIGIBLE_910", "S1", "合法9/10", 1)], trade_date="2026-09-10")
+    for day, label in (("2026-09-08", "ELIGIBLE_908"), ("2026-09-12", "ELIGIBLE_912"),
+                       ("2026-09-13", "FUTURE_913"), ("2026-09-30", SENTINEL)):
+        _write(db, "insert into fact_market_daily (trade_date) values (?)", [day])
+        _write(db, "insert into fact_mainline_sector_daily "
+               "(trade_date,theme_code,theme_name,sector_ts_code,sector_name) values (?,?,?,?,?)",
+               [day, label, label, "S1", label])
+    captured = []
+
+    class Reached(BaseException):
+        pass
+
+    def controller(raw, **kwargs):
+        return decide_turn(raw, **kwargs, resolver=LocalResolver(), llm_complete=lambda *_args: (None, None, "offline H2"))
+
+    class Adapter:
+        def handle(self, *, frame, control):
+            assert control.terminal_kind == "research"
+            context = build_episode_context(frame, task_id=f"h2:{uuid4()}", capabilities=("mainline_context",),
+                                            today=date.today().isoformat(), latest_data_date="2026-09-30")
+            registry = build_episode_registry(frame, context, finance_root=tmp_path, knowledge_wiki=tmp_path / "wiki",
+                l3_runner=None, fixture_policy=SealedFixturePolicy(market_db_path=db))
+            observation = registry.execute("mainline_context", {}, context=context, step_id="h2-audit")
+            model = FinanceResearchHarness().project_tool_result(observation, evidence_so_far=observation.evidence,
+                                                                seen_prose=set()).model_content
+            captured.append((frame, control, context, observation, model))
+            raise Reached
+
+    monkeypatch.setattr(runtime, "run_stance_pack", lambda *_args, **_kwargs: None)
+    orchestrator = runtime.TurnOrchestrator(repo_root=tmp_path, conversation_store=store, run_store=runs,
+        skill_registry=SkillRegistry(), turn_controller_fn=controller, continuous_turn_adapter=Adapter(),
+        answer_query_fn=lambda *_args: pytest.fail("history control must stay in Episode"))
+    bound = date.fromisoformat(new_cutoff)
+    final = (second + f"，只使用截至{bound.year}年{bound.month}月{bound.day}日的信息。"
+             if damage == "new_permission" else second)
+    queries = (first, second, final)
+    if damage == "new_permission" and new_cutoff == "2026-09-12" and window_end == "2026-09-15":
+        queries = (*queries, second)
+    permission_user_id = None
+    for index, query in enumerate(queries):
+        run_id, user_id, assistant_id = _prepare_turn(store, runs, cid, query)
+        with pytest.raises(Reached):
+            orchestrator.run_turn(conversation_id=cid, run_id=run_id, assistant_message_id=assistant_id,
+                                 query=query, skill_mode="auto", selected_skill_ids=[])
+        frame, control, context, observation, model = captured[-1]
+        assert frame.temporal_contract is control.turn_intent.temporal_contract is context.temporal_contract
+        assert frame.history_intent == control.turn_intent.history_intent == context.history_intent
+        assert len([step for step in runs.load_trace(run_id) if step["name"] == "temporal_compilation"]) == 1
+        assert SENTINEL not in model and "FUTURE_913" not in model
+        payload = control.turn_intent.to_dict()
+        if index == 1 and damage is not None:
+            payload["inherited_from_turn"] = None
+            if damage == "pointer_and_contract":
+                payload.pop("temporal_contract")
+        if index == 2:
+            permission_user_id = user_id
+            if len(queries) == 4:
+                # A legacy history copy is not a second permission authority.
+                # Keep the actual run/source/audit; lose only persisted fields.
+                payload["inherited_from_turn"] = None
+                payload.pop("temporal_contract")
+                payload["history_intent"]["information_cutoff"] = "2026-09-10"
+        store.revise_message(cid, assistant_id, content="离线消费者捕获；未发布答案。", status="completed", turn_intent=payload)
+        runs.finish_run(run_id, "completed")
+        if index == 1:
+            previous = captured[0][1].turn_intent
+            assert not runtime.is_contextual_follow_up(query, understand_query(query), previous)
+            assert runtime.inherit_history_followup(query, previous.history_intent) is not None
+    frame, _control, context, observation, model = captured[-1]
+    assert len(captured) == len(queries) and not frame.temporal_contract.errors
+    assert frame.temporal_contract.information_cutoff == new_cutoff
+    assert frame.history_intent.information_cutoff == new_cutoff
+    assert frame.history_intent.strict_window
+    assert frame.history_intent.requested_start == "2026-01-01"
+    assert frame.history_intent.requested_end == window_end
+    assert context.information_cutoff.as_of_date.isoformat() == consumer_cutoff
+    assert {item.source_date for item in observation.evidence} == {consumer_cutoff}
+    assert ("ELIGIBLE_912" in model) == (consumer_cutoff == "2026-09-12")
+    assert frame.temporal_contract.cutoff_source.message_id == (permission_user_id if damage == "new_permission"
+                                                               else captured[0][0].temporal_contract.cutoff_source.message_id)
+    original = final if damage == "new_permission" else first
+    assert frame.temporal_contract.cutoff_source.excerpt == original
+    assert frame.temporal_contract.cutoff_source.message_sha256 == message_digest(original)
+
+
 def test_persisted_none_cannot_erase_ancestor_user_permission(tmp_path, monkeypatch):
     captured, _calls, _conversations, _runs, result, _prior_source, _id = _run_orchestrator(
         tmp_path, monkeypatch, prior="frozen_chain", damage="dropped_persisted_permission",

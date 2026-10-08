@@ -126,6 +126,7 @@ from intelligence.services.lane_generation import (
 )
 from intelligence.services import perspective_lab
 from intelligence.services.query_understanding import (
+    QueryEnvelope,
     envelope_from_task_frame,
     project_task_frame,
     understand_query,
@@ -1693,6 +1694,15 @@ def _temporal_contract_digest(contract: TemporalContract) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+def _temporal_continuation_requested(
+    query: str, envelope: QueryEnvelope, previous_intent: TurnIntent | None,
+) -> bool:
+    """Use the existing source-aware follow-up rules at every temporal seam."""
+    return is_contextual_follow_up(query, envelope, previous_intent) or inherit_history_followup(
+        query, previous_intent.history_intent if previous_intent is not None else None,
+    ) is not None
+
+
 def record_temporal_compilation(
     run_store: RunStore, *, run_id: str, source: Message,
     today: date, temporal_contract: TemporalContract,
@@ -1803,7 +1813,7 @@ def _recover_temporal_authority(
             except ValueError:
                 candidate_intent = None
             provisional = original_contract(records[0])
-            if provisional is not None and is_contextual_follow_up(
+            if provisional is not None and _temporal_continuation_requested(
                 records[0].content,
                 understand_query(records[0].content, today=today, temporal_contract=provisional),
                 candidate_intent,
@@ -2286,12 +2296,10 @@ class TurnOrchestrator:
             )
             if inherited_intent is not None:
                 inherited_intent = replace(inherited_intent, temporal_contract=previous_temporal)
-            current_continuing = is_contextual_follow_up(
+            current_continuing = _temporal_continuation_requested(
                 query, understand_query(query, today=runtime_today, temporal_contract=current_temporal),
                 inherited_intent,
-            ) or inherit_history_followup(
-                query, inherited_intent.history_intent if inherited_intent is not None else None,
-            ) is not None
+            )
             if (len(current_users) == 1 and current_users[0].content == query
                     and current_run.session_id == conversation_id):
                 current_temporal = compile_temporal_contract(
@@ -2441,7 +2449,7 @@ class TurnOrchestrator:
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
-                        and is_contextual_follow_up(
+                        and _temporal_continuation_requested(
                             query,
                             legacy_envelope,
                             inherited_intent,
@@ -2494,12 +2502,10 @@ class TurnOrchestrator:
             # not permission to widen a real top-level user follow-up. Reuse
             # the established source-aware predicate on the original query,
             # never on the controller's rewritten goal or timeframe.
-            user_follow_up = is_contextual_follow_up(
+            user_follow_up = _temporal_continuation_requested(
                 query, understand_query(query, today=runtime_today, temporal_contract=current_temporal),
                 inherited_intent,
-            ) or inherit_history_followup(
-                query, inherited_intent.history_intent if inherited_intent is not None else None,
-            ) is not None
+            )
             if user_follow_up and turn_intent.inherited_from_turn is None:
                 turn_intent = replace(turn_intent, inherited_from_turn=inherited_turn_id)
             # Domain inheritance from a controller does not grant a temporal
@@ -2521,6 +2527,7 @@ class TurnOrchestrator:
                 timeframe=task_frame.timeframe,
                 required_outputs=task_frame.required_outputs,
                 task_frame_hash=task_frame.task_frame_hash,
+                history_intent=task_frame.history_intent,
                 temporal_contract=temporal,
             )
             decision = replace(decision, task_frame=task_frame, turn_intent=turn_intent, timeframe=task_frame.timeframe)

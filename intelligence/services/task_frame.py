@@ -602,8 +602,15 @@ def pin_temporal_contract(frame: TaskFrame, temporal: TemporalContract) -> TaskF
     clarification = frame.clarification_question
     if clarification in prior_errors:
         clarification = _clarification_for(ambiguities)
+    history = frame.history_intent
+    if history is not None and temporal.information_cutoff is not None and not temporal.errors:
+        # This is the same user information permission, not an independent
+        # analysis window. The verified frozen permit also owns inheritance;
+        # requested_start/end and strict_window keep their separate meaning.
+        history = replace(history, information_cutoff=temporal.information_cutoff)
     return replace(
         frame, temporal_contract=temporal, timeframe=timeframe, ambiguities=ambiguities,
+        history_intent=history,
         clarification_question=temporal.errors[0] if temporal.errors else clarification,
     )
 
