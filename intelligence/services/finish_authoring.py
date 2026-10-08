@@ -313,7 +313,8 @@ def accepts_finish_format(method: Callable[..., object]) -> bool:
 
     parameters = signature(method).parameters
     return (
-        "finish_format" in parameters and parameters["finish_format"].kind != Parameter.POSITIONAL_ONLY
+        "finish_format" in parameters
+        and parameters["finish_format"].kind in {Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY}
     ) or any(parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values())
 
 

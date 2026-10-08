@@ -306,7 +306,8 @@ def test_old_material_descriptor_location_is_used_by_real_restore_and_finalizer(
     assert context.contract.allowed_capabilities == ()
 
 
-@pytest.mark.parametrize("kind", ["old_signature", "kwargs", "explicit_format", "default", "internal_type_error"])
+@pytest.mark.parametrize("kind", ["old_signature", "kwargs", "explicit_format", "default", "internal_type_error",
+                                  "positional_or_keyword", "positional_only", "varargs_named"])
 def test_real_injected_finalizer_signature_is_compatible_without_retrying_internal_errors(kind):
     from intelligence.runtime.episode_finalizer import EpisodeFinalizer
 
@@ -342,6 +343,29 @@ def test_real_injected_finalizer_signature_is_compatible_without_retrying_intern
                              failure_reason=failure_reason, on_prompt=on_prompt, finish_format=finish_format,
                              evidence_priority=evidence_priority, domain_materials=domain_materials)
 
+    class PositionalKeywordFinalizer(Delegate):
+        def recover(self, finish_format=None, *, task_frame, context, evidence, gaps, failure_reason, on_prompt=None,
+                    evidence_priority=(), domain_materials=None):
+            return self.call(task_frame=task_frame, context=context, evidence=evidence, gaps=gaps,
+                             failure_reason=failure_reason, on_prompt=on_prompt, finish_format=finish_format,
+                             evidence_priority=evidence_priority, domain_materials=domain_materials)
+
+    class PositionalOnlyFinalizer(Delegate):
+        def recover(self, finish_format=None, /, *, task_frame, context, evidence, gaps, failure_reason, on_prompt=None,
+                    evidence_priority=(), domain_materials=None):
+            assert finish_format is None
+            return self.call(task_frame=task_frame, context=context, evidence=evidence, gaps=gaps,
+                             failure_reason=failure_reason, on_prompt=on_prompt,
+                             evidence_priority=evidence_priority, domain_materials=domain_materials)
+
+    class VarargsFinalizer(Delegate):
+        def recover(self, *finish_format, task_frame, context, evidence, gaps, failure_reason, on_prompt=None,
+                    evidence_priority=(), domain_materials=None):
+            assert finish_format == ()
+            return self.call(task_frame=task_frame, context=context, evidence=evidence, gaps=gaps,
+                             failure_reason=failure_reason, on_prompt=on_prompt,
+                             evidence_priority=evidence_priority, domain_materials=domain_materials)
+
     class Model(_Model):
         def complete(self, **kwargs):
             if self.calls < 2:
@@ -352,7 +376,9 @@ def test_real_injected_finalizer_signature_is_compatible_without_retrying_intern
     frame, context = frame_context(task_id=f"finalizer-signature-{kind}")
     model = Model()
     implementations = {"old_signature": OldFinalizer, "kwargs": KwargsFinalizer,
-                       "explicit_format": ExplicitFinalizer, "internal_type_error": ExplicitFinalizer}
+                       "explicit_format": ExplicitFinalizer, "internal_type_error": ExplicitFinalizer,
+                       "positional_or_keyword": PositionalKeywordFinalizer,
+                       "positional_only": PositionalOnlyFinalizer, "varargs_named": VarargsFinalizer}
     finalizer = EpisodeFinalizer(Writer()) if kind == "default" else implementations[kind]()
     outcome = ContinuousAgentEpisode(model, finalizer=finalizer).run(task_frame=frame, context=context, registry=_registry(model.source))
     if kind == "internal_type_error":
@@ -362,11 +388,52 @@ def test_real_injected_finalizer_signature_is_compatible_without_retrying_intern
                    for event in outcome.events)
     else:
         assert outcome.stop_reason == "finalization_recovered" and len(requests) == 1
-        if kind == "old_signature":
+        if kind in {"old_signature", "positional_only", "varargs_named"}:
             assert len(calls) == 1 and "finish_format" not in calls[0]
         else:
             expected = finish_author_contract(context).prompt_payload()
             assert json.loads(requests[0][1]["content"])["finish_format"] == expected
+
+
+@pytest.mark.parametrize("kind", ["positional_only", "positional_or_keyword", "varargs_named", "keyword_only", "kwargs"])
+def test_real_steering_interface_obeys_all_five_parameter_kinds(kind):
+    from intelligence.services.finish_authoring import describe_finish_format
+    from intelligence.services.research_harness import steering_message_for_author
+
+    calls = []
+
+    class PositionalOnly(FinanceResearchHarness):
+        def steering_message(self, kind, finish_format=None, /, *, detail):
+            calls.append(finish_format)
+            return "custom message"
+
+    class PositionalKeyword(FinanceResearchHarness):
+        def steering_message(self, kind, finish_format=None, *, detail):
+            calls.append(finish_format)
+            return describe_finish_format("custom message", finish_format)
+
+    class Varargs(FinanceResearchHarness):
+        def steering_message(self, kind, *finish_format, detail):
+            assert finish_format == ()
+            calls.append(None)
+            return "custom message"
+
+    class KeywordOnly(FinanceResearchHarness):
+        def steering_message(self, kind, *, detail, finish_format=None):
+            calls.append(finish_format)
+            return describe_finish_format("custom message", finish_format)
+
+    class Kwargs(FinanceResearchHarness):
+        def steering_message(self, kind, **kwargs):
+            calls.append(kwargs["finish_format"])
+            return describe_finish_format("custom message", kwargs["finish_format"])
+
+    implementations = {"positional_only": PositionalOnly, "positional_or_keyword": PositionalKeyword,
+                       "varargs_named": Varargs, "keyword_only": KeywordOnly, "kwargs": Kwargs}
+    expected = finish_author_contract(frame_context()[1]).prompt_payload()
+    result = steering_message_for_author(implementations[kind](), "invalid_finish", detail="reason", finish_format=expected)
+    assert calls == [None if kind in {"positional_only", "varargs_named"} else expected]
+    assert json.loads(result.rsplit("\n", 1)[-1])["finish_format"] == expected
 
 
 @pytest.mark.parametrize("value", [None, False, "", "missing"])
