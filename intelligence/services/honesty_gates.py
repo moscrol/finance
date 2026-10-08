@@ -17,6 +17,10 @@ from intelligence.services.research_contract import InformationCutoff
 from intelligence.services.task_frame import TaskFrame
 from intelligence.services.asof_prefetch import standing_iso_from_query
 from intelligence.services.user_task import top_level_message_text
+from intelligence.services.temporal_contract import (
+    _CUTOFF_DATE, _EXPLICIT_CUTOFF_RE, _explicit_cutoff_candidates,
+    compile_temporal_contract, lexical_date,
+)
 
 # 主库已退役、既非表也非视图的旧名 → canonical fact_*。问句命中旧名时，
 # 交付层必须明说「表不存在」并给出替代，不能让模型改口成「把表贴过来」。
@@ -138,42 +142,10 @@ def retired_table_disclosure(query: str) -> str | None:
     return None
 
 
-_CUTOFF_DATE = r"(?:\d{4}-\d{2}-\d{2}|\d{4}年\d{1,2}月\d{1,2}日)"
-_EXPLICIT_CUTOFF_RE = re.compile(
-    rf"(?:截至|截止(?:到)?)\s*(?P<until>{_CUTOFF_DATE})"
-    rf"|(?:以|将)\s*(?P<asof>{_CUTOFF_DATE})\s*(?:为|作为)\s*信息截止(?:点|日|时间)"
-    rf"|信息截止(?:点|日|时间)\s*(?:为|是|[:：=])?\s*(?P<label>{_CUTOFF_DATE})"
-    rf"|(?P<history>{_CUTOFF_DATE})\s*(?:为|作为)?\s*信息截止日"
-)
-
-
 def _cutoff_instruction_text(query: str) -> str:
     # Apply provenance to BOTH the explicit and legacy standing-date parsers.
     visible, _uncertain = top_level_message_text(query)
     return visible
-
-
-def _explicit_cutoff_candidates(text: str) -> list[str]:
-    """Raw explicit cutoff dates in already-partitioned text, after the negation,
-    date-role and range-start rules. One loop for every reader of this boundary."""
-    candidates: list[str] = []
-    for clause in re.findall(r"[^，,。；;\n]+", text):
-        for match in _EXPLICIT_CUTOFF_RE.finditer(clause):
-            prefix = clause[:match.start()].strip()
-            if re.search(r"(?:不要|不得|不应|并非|不是|不能|无需|别).*$", prefix):
-                continue
-            if match.group("until") and re.search(
-                r"(?:报告期|会计期|统计期|披露日|发布日期|复查日|复核日|有效期|到期日|期限)[\s:：=为是]*$",
-                prefix,
-            ):
-                continue
-            if re.match(r"\s*[-~—–～至到]+\s*\d", clause[match.end():]):
-                continue  # a range start is not an information upper bound
-            candidates.append(
-                match.group("until") or match.group("asof")
-                or match.group("label") or match.group("history")
-            )
-    return candidates
 
 
 def explicit_information_cutoff_dates(query: str) -> tuple[date | None, ...]:
@@ -197,13 +169,7 @@ def _explicit_information_date(query: str) -> str | None:
 
 
 def _cutoff_date(raw: str) -> date | None:
-    try:
-        if "年" in raw:
-            parts = re.fullmatch(r"(\d{4})年(\d{1,2})月(\d{1,2})日", raw)
-            return date(*(int(p) for p in parts.groups())) if parts else None
-        return date.fromisoformat(raw)
-    except ValueError:
-        return None
+    return lexical_date(raw, today=date.today())
 
 
 def _standing_information_date(text: str) -> str | None:
@@ -221,7 +187,7 @@ def _standing_information_date(text: str) -> str | None:
     return (match.group("iso") or match.group("cn")) if match else standing_iso_from_query(visible)
 
 
-def requested_information_cutoff(
+def _legacy_requested_information_cutoff(
     query: str,
     *,
     today: str | None = None,
@@ -247,6 +213,18 @@ def requested_information_cutoff(
     if runtime_date is not None and requested_date > runtime_date:
         requested_date = runtime_date
     return InformationCutoff(requested_date, "requested")
+
+
+def requested_information_cutoff(query: str, *, today: str | None = None) -> InformationCutoff | None:
+    """Compatibility projection; authoritative factories must also inspect errors."""
+    try:
+        runtime_date = date.fromisoformat(str(today or "")[:10])
+    except ValueError:
+        runtime_date = date.today()
+    temporal = compile_temporal_contract(query, today=runtime_date)
+    if temporal.errors or temporal.information_cutoff is None:
+        return None
+    return InformationCutoff(date.fromisoformat(temporal.information_cutoff), "requested")
 
 
 UNREADABLE = object()

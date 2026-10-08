@@ -35,6 +35,41 @@ FOLLOWUPS = (
 )
 
 
+def _persist_frozen_prior(store, runs, conversation_id, question, repo_root, monkeypatch):
+    """Prepare a prior with the real entry's source-bound execution audit."""
+    from intelligence.runtime import conversation_orchestrator as runtime
+    from intelligence.tests.test_conversation_orchestrator import _prepare_turn
+
+    class Frozen(BaseException):
+        pass
+
+    captured = []
+
+    def compiler(raw, **kwargs):
+        decision = decide_turn(raw, **kwargs, llm_complete=lambda _: (None, None, "offline freeze"))
+        captured.append(decision)
+        return decision
+
+    def stop_after_freeze(*_args, **_kwargs):
+        raise Frozen
+
+    run_id, assistant_id = _prepare_turn(store, runs, conversation_id, question)
+    with monkeypatch.context() as patch:
+        patch.setattr(runtime, "decide_turn", compiler)
+        patch.setattr(runtime.ResearchPlan, "from_intent", stop_after_freeze)
+        with pytest.raises(Frozen):
+            runtime.TurnOrchestrator(repo_root=repo_root, conversation_store=store, run_store=runs).run_turn(
+                conversation_id=conversation_id, run_id=run_id, assistant_message_id=assistant_id,
+                query=question, skill_mode="auto", selected_skill_ids=[],
+            )
+    assert len(captured) == 1
+    assert any(step["name"] == "temporal_compilation" for step in runs.load_trace(run_id))
+    store.revise_message(conversation_id, assistant_id, content="离线原指令冻结；没有发布答案。",
+                         status="completed", turn_intent=captured[0].turn_intent.to_dict())
+    runs.finish_run(run_id, "completed")
+    return captured[0]
+
+
 def _decide(store, conversation, question, previous=None, turn=0):
     history = collect_material_turn_history(store.load_messages(conversation.conversation_id))
     decision = decide_turn(
@@ -126,13 +161,18 @@ def test_real_orchestrator_recovers_scope_from_original_user_messages(tmp_path, 
 
     def controller(raw, **kwargs):
         captured.append(decide_turn(raw, **kwargs, llm_complete=lambda _: (None, None, "offline")))
+        return captured[-1]
+
+    def stop_after_freeze(*_args, **_kwargs):
         raise Reached
 
     # Default controller seam retains authoritative materials; no injected legacy path.
     monkeypatch.setattr(runtime, "decide_turn", controller)
+    monkeypatch.setattr(runtime.ResearchPlan, "from_intent", stop_after_freeze)
     orchestrator = runtime.TurnOrchestrator(repo_root=tmp_path, conversation_store=store, run_store=runs)
+    previous_run = None
     for n, question in enumerate((FIRST, *FOLLOWUPS)):
-        run = runs.create_run(question, "ask", session_id=conv.conversation_id)
+        run = runs.create_run(question, "ask", session_id=conv.conversation_id, parent_run_id=previous_run)
         store.append_message(conv.conversation_id, "user", question, run_id=run.run_id)
         message = store.append_message(conv.conversation_id, "assistant", "", status="running", run_id=run.run_id)
         with pytest.raises(Reached):
@@ -146,6 +186,8 @@ def test_real_orchestrator_recovers_scope_from_original_user_messages(tmp_path, 
         assert d.task_frame.history_intent.information_cutoff == "2026-09-15"
         store.append_message(conv.conversation_id, "assistant", "仅供上下文，不是新的授权。",
                              turn_intent=d.turn_intent.to_dict(), run_id=run.run_id)
+        runs.finish_run(run.run_id, "completed")
+        previous_run = run.run_id
     assert len(captured) == 4
 
 

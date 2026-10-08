@@ -1042,17 +1042,23 @@ def test_market_registry_uses_structured_provider_date_for_every_atom(
         "_market_data_asof",
         lambda *_args, **_kwargs: "2026-07-23",
     )
-    monkeypatch.setattr(
-        episode_tools.ask_blocks,
-        "_market_review_mainline_context_block_for_llm",
-        lambda *_args, **_kwargs: (
-            "最新主线为电子\n2026-07-20启动的电力仍在观察"
-        ),
+    finance = tmp_path / "finance"
+    db_dir = finance / "db"
+    db_dir.mkdir(parents=True)
+    con = duckdb.connect(str(db_dir / "market_feature_store.duckdb"))
+    con.execute((Path(__file__).parents[2] / "market_feature_store/schema.sql").read_text())
+    con.execute("insert into fact_market_daily (trade_date) values ('2026-07-23')")
+    con.execute(
+        "insert into fact_mainline_sector_daily "
+        "(trade_date, theme_code, theme_name, sector_ts_code, sector_name, startup_date_small) "
+        "values ('2026-07-23', 'T1', '电子', 'S1', '电子板块', NULL), "
+        "('2026-07-23', 'T2', '电力', 'S2', '电力板块', '2026-07-20')"
     )
+    con.close()
     registry = build_episode_registry(
         frame,
         context,
-        finance_root=tmp_path / "finance",
+        finance_root=finance,
         knowledge_wiki=tmp_path / "wiki",
         l3_runner=None,
     )

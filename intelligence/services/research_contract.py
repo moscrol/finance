@@ -13,6 +13,7 @@ from threading import RLock
 from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 from weakref import WeakValueDictionary
 
+from intelligence.services.temporal_contract import TemporalContract
 from intelligence.services.query_resolution import (
     QueryResolution,
     classify_reference,
@@ -221,14 +222,21 @@ class TurnIntent:
     pending_task_frame: dict[str, object] | None = None
     clarification_rounds: int = 0
     history_intent: HistoryIntent | None = None
+    temporal_contract: TemporalContract | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        payload = asdict(self)
+        if self.temporal_contract is None:
+            payload.pop("temporal_contract", None)
+        else:
+            payload["temporal_contract"] = self.temporal_contract.to_dict()
+        return payload
 
     @classmethod
     def from_dict(cls, value: object) -> TurnIntent | None:
         if not isinstance(value, dict):
             return None
+        temporal = TemporalContract.from_dict(value["temporal_contract"]) if "temporal_contract" in value else None
         try:
             primary_subject = value.get("primary_subject")
             question_type = value["question_type"]
@@ -308,6 +316,7 @@ class TurnIntent:
             pending_task_frame=pending_task_frame,
             clarification_rounds=clarification_rounds,
             history_intent=history_intent,
+            temporal_contract=temporal,
         )
 
 
@@ -1328,6 +1337,7 @@ class ResearchRunContext:
     # run / 助手消息。由入口在核对过 run 归属之后绑定；None = 没有可信入口
     # （离线驱动、CLI、测试），恢复时按「未绑定」处理，不会与任何门匹配上。
     entry_identity: EpisodeEntryIdentity | None = None
+    temporal_contract: TemporalContract | None = None
 
 
 @dataclass(frozen=True)
@@ -1590,6 +1600,7 @@ def build_turn_intent(
             timeframe=envelope.timeframe,
             operators=envelope.operators,
             required_outputs=envelope.required_outputs,
+            temporal_contract=task_frame.temporal_contract if task_frame is not None else envelope.temporal_contract,
             task_frame_hash=(
                 task_frame.task_frame_hash if task_frame is not None else ""
             ),
@@ -1631,6 +1642,7 @@ def build_turn_intent(
                 previous_intent.required_outputs,
                 envelope.required_outputs,
             ),
+            temporal_contract=task_frame.temporal_contract if task_frame is not None else envelope.temporal_contract,
             task_frame_hash=(
                 task_frame.task_frame_hash if task_frame is not None else ""
             ),
@@ -1667,6 +1679,7 @@ def build_turn_intent(
             if task_frame is not None
             else envelope.required_outputs
         ),
+        temporal_contract=task_frame.temporal_contract if task_frame is not None else envelope.temporal_contract,
         task_frame_hash=(
             task_frame.task_frame_hash if task_frame is not None else ""
         ),

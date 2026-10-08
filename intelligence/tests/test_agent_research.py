@@ -50,6 +50,60 @@ def _scripted_complete(actions: list[dict]):
     return complete
 
 
+def test_empty_metadata_preserves_legacy_tuple_messages_and_serialization(monkeypatch):
+    monkeypatch.setattr(time, "monotonic", lambda: 100.0)
+    legacy = _tool("kb_search")
+
+    def typed(query):
+        evidence, observation, trace = legacy(query)
+        return agent_research.AgentToolOutput(tuple(evidence), observation, trace)
+
+    captures, results = [], []
+    for runner, preload in ((legacy, ()), (typed, (("mainline_context", {}),))):
+        requests = []
+        scripted = _scripted_complete([
+            {"tool": "kb_search", "args": {"query": "旧调用"}},
+            {"tool": "finish", "args": {"sufficient": True, "assessment": "已有证据"}},
+        ])
+
+        def complete(messages, **kwargs):
+            assert len(messages) == 2
+            requests.append(json.dumps(messages, ensure_ascii=False, separators=(",", ":")))
+            return scripted(messages, **kwargs)
+
+        results.append(run_agent_loop(
+            "兼容控制", tools={"kb_search": runner}, steps_budget=2,
+            complete_fn=complete, preloaded_query_basis=preload,
+        ))
+        captures.append(requests)
+    assert captures[0] == captures[1]
+    assert results[0].to_dict() == results[1].to_dict()
+    assert results[0].evidence == results[1].evidence
+    assert "query_basis" not in results[0].to_dict()
+    assert all("query_basis" not in step.to_dict() for step in results[0].steps)
+
+
+def test_loop_owns_nested_prefetch_metadata_without_creating_evidence():
+    basis = {"schema": "d4_mainline_snapshot_v1", "groups": [{"theme_name": "AAA", "total_rows": 1}]}
+    requests = []
+
+    def complete(messages, **_kwargs):
+        requests.append(json.loads(messages[-1]["content"])["tool_query_basis"])
+        if len(requests) == 1:
+            basis["groups"][0]["total_rows"] = 999
+            return '{"tool":"kb_search","args":{"query":"独立观察"}}', None, ""
+        return None, None, "offline model boundary capture"
+
+    result = run_agent_loop(
+        "元数据所有权", tools={"kb_search": _tool("kb_search")},
+        complete_fn=complete, preloaded_query_basis=(("mainline_context", basis),),
+    )
+    assert len(requests) == 2
+    assert requests[0] == requests[1]
+    assert requests[-1][0]["query_basis"]["groups"][0]["total_rows"] == 1
+    assert len(result.evidence) == 1 and result.evidence[0].tool == "kb_search"
+
+
 def test_loop_executes_tools_then_finishes_with_gaps() -> None:
     result = run_agent_loop(
         "科创50的支撑点位在哪",

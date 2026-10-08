@@ -25,7 +25,9 @@ from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.material_delivery import material_pack_turn_seconds
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
-from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_factory import (
+    build_episode_context, legacy_frame_temporal_contract, pin_episode_context_temporal,
+)
 from intelligence.services.episode_issues import (
     Issue,
     IssueCode,
@@ -591,6 +593,11 @@ class ContinuousTurnAdapter:
                 "latest_data_date": self._latest_data_date,
                 "conversation_context": control.conversation_context,
             }
+            temporal = frame.temporal_contract or legacy_frame_temporal_contract(frame, today=self._today)
+            if temporal.errors:
+                raise ValueError("temporal clarification required: " + "；".join(temporal.errors))
+            if _accepts_keyword(self._context_factory, "temporal_contract"):
+                context_kwargs["temporal_contract"] = temporal
             # 视角约束只在激活时进 kwargs：neutral 的 context 构造调用保持
             # 逐字节不变，不认识该参数的注入式 factory 也不会在中立轮炸掉。
             perspective_context = str(
@@ -621,6 +628,7 @@ class ContinuousTurnAdapter:
             context_candidate = self._context_factory(frame, **context_kwargs)
             if not isinstance(context_candidate, ResearchRunContext):
                 raise TypeError("context factory must return ResearchRunContext")
+            context_candidate = pin_episode_context_temporal(context_candidate, frame, temporal, today=self._today)
             # 身份只由入口盖章：context 工厂（含注入替身）写什么都不算，这里无条件覆写。
             # 绑定发生在 episode 号铸出之后，所以一份身份不可能被搬到另一个 episode 上。
             context = replace(
@@ -2223,6 +2231,8 @@ def _episode_context_provenance(
         ),
         "history_results": list(context.history_results),
     }
+    if context.temporal_contract is not None:
+        payload["temporal_contract"] = context.temporal_contract.to_dict()
     if context.prior_evidence is not None:
         payload["prior_evidence"] = context.prior_evidence.receipt()
     pack = getattr(context, "stance_pack", None)

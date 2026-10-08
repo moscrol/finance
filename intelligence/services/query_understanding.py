@@ -20,6 +20,11 @@ from intelligence.services.request_scope import active_request_text
 from intelligence.services.route_table import fine_grained_route_length_ok
 from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
+from intelligence.services.temporal_contract import (
+    TemporalContract, compile_temporal_contract, market_review_requested_date,
+    _FULL_DATE_RE as _FULL_DATE_RE, _YEARLESS_DATE_RE,
+    _YEARLESS_QUANTITY_PREFIX_RE as _YEARLESS_QUANTITY_PREFIX_RE, yearless_date_matches,
+)
 from intelligence.services.user_task import MessageParts, resolve_nicknames, split_user_message
 from intelligence.services.material_contract import compile_material_contract
 
@@ -84,11 +89,7 @@ _DATE_RE = re.compile(
     r"|[-/.]\d{1,2}(?:[-/.]\d{1,2}日?)?"
     r")(?!\d)"
 )
-_REVIEW_DATE_RE = (
-    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
-    r"[-/.]\d{1,2}[-/.]\d{1,2})"
-    r"|\d{1,2}(?:月\d{1,2}日?|[./]\d{1,2}(?![\d%个万亿千倍])))"
-)
+_REVIEW_DATE_RE = rf"(?:{_FULL_DATE_RE.pattern}|{_YEARLESS_DATE_RE.pattern})"
 _DATED_MARKET_REVIEW_RE = re.compile(
     _REVIEW_DATE_RE
     + r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理|分析)"
@@ -129,12 +130,6 @@ _WAVE_SUBJECT_RE = re.compile(
 # 材料评述：贴了材料 + 「站得住 / 靠谱 / 提纯 / 硬事实 / 推测」——评的是材料本身的说法。
 _MATERIAL_CRITIQUE_RE = re.compile(
     r"站得住|靠谱|可信|提纯|硬事实|推测|评述|点评|漏洞|反方|有没有问题|挑出|分开|区分"
-)
-_FULL_DATE_RE = re.compile(
-    r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
-)
-_YEARLESS_DATE_RE = re.compile(
-    r"(?<!\d)(\d{1,2})(?:月|[./])(\d{1,2})日?(?![\d%个万亿千倍])"
 )
 _QUOTED_RE = re.compile(r"[“《\"]([^”》\"]{2,40})[”》\"]")
 _TICKER_RE = re.compile(
@@ -552,6 +547,7 @@ class QueryEnvelope:
     operators: tuple[ResearchOperator, ...] = ()
     required_outputs: tuple[str, ...] = ()
     task_frame: TaskFrame | None = None
+    temporal_contract: TemporalContract | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -560,7 +556,26 @@ class QueryEnvelope:
         payload["task_frame"] = (
             self.task_frame.to_dict() if self.task_frame is not None else None
         )
+        if self.temporal_contract is None:
+            payload.pop("temporal_contract", None)
+        else:
+            payload["temporal_contract"] = self.temporal_contract.to_dict()
         return payload
+
+    @classmethod
+    def from_dict(cls, value: object) -> QueryEnvelope | None:
+        if not isinstance(value, dict):
+            return None
+        temporal = TemporalContract.from_dict(value["temporal_contract"]) if "temporal_contract" in value else None
+        try:
+            payload = dict(value)
+            payload.pop("temporal_contract", None)
+            payload["operators"] = tuple(payload.get("operators", ()))
+            payload["required_outputs"] = tuple(payload.get("required_outputs", ()))
+            payload["task_frame"] = TaskFrame.from_dict(payload["task_frame"]) if payload.get("task_frame") is not None else None
+            return cls(**payload, temporal_contract=temporal)
+        except (KeyError, TypeError):
+            return None
 
 
 def project_task_frame(
@@ -579,6 +594,7 @@ def project_task_frame(
         confidence=frame.confidence,
         required_outputs=frame.required_outputs,
         task_frame=frame,
+        temporal_contract=frame.temporal_contract,
     )
 
 
@@ -607,6 +623,7 @@ def envelope_from_task_frame(
         operators=operators,
         required_outputs=frame.required_outputs,
         task_frame=frame,
+        temporal_contract=frame.temporal_contract,
     )
 
 
@@ -630,45 +647,6 @@ def is_dated_market_review(query: str, envelope: QueryEnvelope) -> bool:
     return _DATED_MARKET_TOPIC_RE.search(query) is not None
 
 
-def market_review_requested_date(
-    query: str,
-    *,
-    today: date | None = None,
-) -> str | None:
-    """确定性解析问题中的复盘日期，返回 ISO 日期。
-
-    无年份写法（7.16 / 7月16日）映射为不晚于今天的最近一个同月同日，
-    不交给 LLM 猜年份；无法构成合法日期时返回 None。
-    """
-    match = _FULL_DATE_RE.search(query)
-    if match is not None:
-        try:
-            return date(
-                int(match.group(1)),
-                int(match.group(2)),
-                int(match.group(3)),
-            ).isoformat()
-        except ValueError:
-            return None
-    match = _YEARLESS_DATE_RE.search(query)
-    if match is None:
-        return None
-    month = int(match.group(1))
-    day = int(match.group(2))
-    anchor = today or date.today()
-    for year in (anchor.year, anchor.year - 1):
-        try:
-            candidate = date(year, month, day)
-        except ValueError:
-            continue
-        if candidate <= anchor:
-            return candidate.isoformat()
-    return None
-
-
-_YEARLESS_QUANTITY_PREFIX_RE = re.compile(r"[涨跌幅率价值为达到约是了升降]$|\d$|[.．]$")
-
-
 def _single_metric_or_listing(text: str) -> bool:
     """单指标取值（多少 / 几家）或名单明细（哪些 / 列出）——不是「一份复盘」。"""
 
@@ -684,10 +662,8 @@ def _yearless_timeframe(text: str, *, today: date | None = None) -> str | None:
     """「8.18 / 8月18日」→ ISO 日期；前面是数量词（涨幅8.5）的不算。"""
 
     compact = re.sub(r"\s+", "", str(text or ""))
-    match = _YEARLESS_DATE_RE.search(compact)
+    match = next(iter(yearless_date_matches(compact)), None)
     if match is None:
-        return None
-    if _YEARLESS_QUANTITY_PREFIX_RE.search(compact[: match.start()]):
         return None
     return market_review_requested_date(match.group(0), today=today)
 
@@ -1463,7 +1439,10 @@ def understand_query(
     *,
     matched_theme: str | None = None,
     anchor: EntityAnchor | None = None,
+    today: date | None = None,
+    temporal_contract: TemporalContract | None = None,
 ) -> QueryEnvelope:
+    temporal = temporal_contract or compile_temporal_contract(query, today=today or date.today())
     raw_text = str(query or "").strip()
     # 贴了材料的消息：正则路由只看问题部分。材料正文里的题材别名、六位数字、日期
     # 会把「这篇研报站得住吗」路由成题材研究或当日复盘（2026-09-09 基线实测）。
@@ -1504,8 +1483,9 @@ def understand_query(
             time_horizon=time_horizon,
             operators=operators,
             required_outputs=required_outputs,
+            temporal_contract=temporal,
         )
-        frame = build_task_frame(raw_text, legacy)
+        frame = build_task_frame(raw_text, legacy, today=today, temporal_contract=temporal)
         # ``QueryEnvelope`` remains a backwards-compatible adapter.  Its
         # historical raw/date/operator fields stay byte-for-byte stable while
         # all new consumers use the attached canonical frame.

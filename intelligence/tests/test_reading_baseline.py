@@ -103,13 +103,14 @@ def test_every_registered_block_is_actually_wired() -> None:
     """登记了规则的块必须真的在某个数据块里被 extend——否则是「配置生效、模型没看到」。
 
     这道门守的是本批最容易出的错：规则表加了一项，但忘了在渲染函数里接线，
-    单测全绿、模型永远看不到。用源码搜接线点，不依赖跑通数据库。
+    单测全绿、模型永远看不到。兼容直接文本与原 ReadingRule 结构接线；
+    D4 的真实消费者和 ON/OFF 另由 test_market_context_contract 验证。
     """
     services = pathlib.Path(__file__).resolve().parents[1] / "services"
     wired = set()
     for path in services.glob("*.py"):
         wired.update(
-            re.findall(r'block_rule_lines\(\s*"([^"]+)"', path.read_text(encoding="utf-8"))
+            re.findall(r'block_rule(?:_lines|s)\(\s*"([^"]+)"', path.read_text(encoding="utf-8"))
         )
     missing = sorted(set(reading_baseline.registered_blocks()) - wired)
     assert not missing, f"这些块登记了判读规则但没有接线：{missing}"

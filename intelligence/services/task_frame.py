@@ -11,9 +11,11 @@ import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass, replace
+from datetime import date
 from typing import TYPE_CHECKING, Callable
 
 from intelligence.services.trading_calendar import question_non_trading_note
+from intelligence.services.temporal_contract import TemporalContract, compile_temporal_contract
 from intelligence.services.material_contract import MaterialContract, compile_material_contract
 from intelligence.services.conversation_materials import ConversationMaterials
 from intelligence.services.user_task import (
@@ -161,6 +163,7 @@ class TaskFrame:
     # type default. Without this history rebase cannot distinguish the two.
     # This is contract state, not a claim of natural-language user authority.
     required_output_additions: tuple[str, ...] = ()
+    temporal_contract: TemporalContract | None = None
 
     def _payload(self) -> dict[str, object]:
         payload = asdict(self)
@@ -173,6 +176,10 @@ class TaskFrame:
             payload.pop("material_contract", None)
         if not self.required_output_additions:
             payload.pop("required_output_additions", None)
+        if self.temporal_contract is None:
+            payload.pop("temporal_contract", None)
+        else:
+            payload["temporal_contract"] = self.temporal_contract.to_dict()
         if self.conversation_materials is None:
             payload.pop("conversation_materials", None)
         else:
@@ -222,10 +229,17 @@ class TaskFrame:
         """Expose the migration projection without making TaskFrame a route owner."""
         return UserTask.from_task_frame(self, context)
 
+    def to_model_dict(self) -> dict[str, object]:
+        payload = self.to_dict()
+        if self.temporal_contract is not None:
+            payload["temporal_contract"] = self.temporal_contract.to_model_dict()
+        return payload
+
     @classmethod
     def from_dict(cls, value: object) -> TaskFrame | None:
         if not isinstance(value, dict):
             return None
+        temporal = TemporalContract.from_dict(value["temporal_contract"]) if "temporal_contract" in value else None
         try:
             required_outputs = value.get("required_outputs", ())
             additions = value.get("required_output_additions", ())
@@ -299,6 +313,7 @@ class TaskFrame:
                     ConversationMaterials.from_dict(value["conversation_materials"])
                     if "conversation_materials" in value else None
                 ),
+                temporal_contract=temporal,
             )
         except (KeyError, TypeError, ValueError):
             return None
@@ -334,6 +349,8 @@ def build_task_frame(
     conversation_materials: ConversationMaterials | None = None,
     source_turn: int = 0,
     history_continuation: bool = False,
+    today: date | None = None,
+    temporal_contract: TemporalContract | None = None,
 ) -> TaskFrame:
     """Compile rules first, then optionally merge one constrained LLM draft.
 
@@ -346,6 +363,9 @@ def build_task_frame(
     bind its complete user-message records, never parse roles from prompt text.
     """
 
+    temporal = temporal_contract or envelope.temporal_contract or compile_temporal_contract(
+        raw_question, today=today or date.today(),
+    )
     question = str(raw_question or "").strip()
     # 材料与问题分开：路由、目标、日历、产出物都只看问题部分；raw_question 仍是
     # 完整原文（模型需要读材料本身）。没有材料时 core == question，一切照旧。
@@ -560,13 +580,39 @@ def build_task_frame(
         material_contract=material_contract,
         conversation_materials=conversation_materials,
     )
-    if llm_complete is None:
+    frame = pin_temporal_contract(frame, temporal)
+    if llm_complete is None or temporal.errors:
         return frame
     try:
         content, _provider, _reason = llm_complete(_alignment_messages(frame))
     except Exception:
         return frame
     return align_task_frame(frame, content)
+
+
+def pin_temporal_contract(frame: TaskFrame, temporal: TemporalContract) -> TaskFrame:
+    """Code-owned replacement: resolver/model supplements cannot grant time scope."""
+    if not isinstance(temporal, TemporalContract):
+        raise ValueError("invalid frozen temporal contract")
+    prior_errors = frame.temporal_contract.errors if frame.temporal_contract is not None else ()
+    ambiguities = _merge_strings(tuple(e for e in frame.ambiguities if e not in prior_errors), temporal.errors)
+    timeframe = frame.timeframe
+    if temporal.market_target is not None:
+        timeframe = temporal.market_target.timeframe
+    clarification = frame.clarification_question
+    if clarification in prior_errors:
+        clarification = _clarification_for(ambiguities)
+    history = frame.history_intent
+    if history is not None and temporal.information_cutoff is not None and not temporal.errors:
+        # This is the same user information permission, not an independent
+        # analysis window. The verified frozen permit also owns inheritance;
+        # requested_start/end and strict_window keep their separate meaning.
+        history = replace(history, information_cutoff=temporal.information_cutoff)
+    return replace(
+        frame, temporal_contract=temporal, timeframe=timeframe, ambiguities=ambiguities,
+        history_intent=history,
+        clarification_question=temporal.errors[0] if temporal.errors else clarification,
+    )
 
 
 def align_task_frame(frame: TaskFrame, content: str | None) -> TaskFrame:
@@ -591,7 +637,11 @@ def align_task_frame(frame: TaskFrame, content: str | None) -> TaskFrame:
     valid_assumptions = _string_tuple(assumptions)
     valid_ambiguities = _string_tuple(ambiguities)
     merged_ambiguities = _merge_strings(frame.ambiguities, valid_ambiguities)
-    clarification = _clarification_for(merged_ambiguities)
+    clarification = (
+        frame.temporal_contract.errors[0]
+        if frame.temporal_contract is not None and frame.temporal_contract.errors
+        else _clarification_for(merged_ambiguities)
+    )
     # 输入理解三项也允许模型补充（键缺省即忽略；控制器提示词是否要求它们见
     # blocked/05 B05-2）。规则抽出的在前，模型只能追加，不能改写。
     premises = _merge_strings(frame.user_premises, _string_tuple(value.get("user_premises")))
@@ -958,7 +1008,7 @@ def _alignment_messages(frame: TaskFrame) -> list[dict[str, str]]:
         },
         {
             "role": "user",
-            "content": json.dumps(frame.to_dict(), ensure_ascii=False),
+            "content": json.dumps(frame.to_model_dict(), ensure_ascii=False),
         },
     ]
 

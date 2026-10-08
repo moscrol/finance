@@ -200,7 +200,7 @@ class EpisodeFinalizer:
     ) -> dict[str, object]:
         selected = _compact_evidence(evidence, evidence_priority=evidence_priority)
         payload = {
-            "task_frame": task_frame.to_dict(),
+            "task_frame": task_frame.to_model_dict(),
             "required_outputs": [
                 {
                     "output_id": item.output_id,

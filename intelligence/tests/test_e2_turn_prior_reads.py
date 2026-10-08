@@ -69,12 +69,15 @@ def test_post_controller_prior_reads_obey_material_only(
     store = ConversationStore("alice", root=tmp_path / "conversations")
     runs = RunStore("alice", root=tmp_path / "runs")
     conversation = store.create_conversation()
+    prior_run = runs.create_run(query, "ask", session_id=conversation.conversation_id)
+    store.append_message(conversation.conversation_id, "user", query, run_id=prior_run.run_id)
     old = store.append_message(
         conversation.conversation_id, "assistant", "旧回答仅用于测试历史坐标。",
-        run_id="old-run", turn_intent=intent.to_dict(),
+        run_id=prior_run.run_id, turn_intent=intent.to_dict(),
     )
+    runs.finish_run(prior_run.run_id, "completed")
     inherited = replace(intent, inherited_from_turn=old.message_id)
-    run = runs.create_run(query, "ask", session_id=conversation.conversation_id)
+    run = runs.create_run(query, "ask", session_id=conversation.conversation_id, parent_run_id=prior_run.run_id)
     store.append_message(conversation.conversation_id, "user", query, run_id=run.run_id)
     message = store.append_message(
         conversation.conversation_id, "assistant", "", status="running", run_id=run.run_id,
@@ -93,7 +96,7 @@ def test_post_controller_prior_reads_obey_material_only(
 
     def answer_spec(_run_id):
         attempts["answer_spec"] += 1
-        assert _run_id == "old-run"
+        assert _run_id == prior_run.run_id
         return {"research_artifacts": [{"sentinel": "old-provider-artifact"}]}
 
     def stance_read(*args, **kwargs):
