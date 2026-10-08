@@ -29,6 +29,8 @@
 
 catalogue在共享harness投影时派生；只有实际送达后由现有acknowledge_tool_result登记到本回合。允许一个尾置的、默认空的私有context来源缓存，或等价回合内既有对象；不得用全局可变缓存、不得修改AgentEvidence v5 atom字段。恢复时从原获准tool_result重建，重新检查当前授权/cutoff与source identity，缓存本身不是授予权限。
 
+保留现有project_tool_result签名：其不带context，None仅用于已dispatch观测的纯显示派生，不授权、不缓存、不赋receipt。只读取成功观测的公开已允许源卡及其同源query_basis；每条信号须有匹配事实键的已批准卡，过滤项和私有telemetry不能补回来源。只有counts或无批准明细时不发ref；部分批准时仅认证该部分。ACK用真实context重编译后登记；准入、恢复和公开重核还须检查当时当前权限，未ACK的ref为未知，旧token/receipt不授新用户或run权限。
+
 ## 同一次finish中的选择
 
 普通finish允许一个可选`answer_parts`：数组成员为字符串（自由文字）或封闭对象`{"result_ref": "…"}`。refs由程序发布，模型不提交value/truth/unit或手写来源。parts存在时draft必须空，且不能同时render_from_claims；有且只有一个正文生成者。旧None/缺字段沿旧路径，普通和材料旧schema消息/字节保持；材料authoring不被新分支绕过。
