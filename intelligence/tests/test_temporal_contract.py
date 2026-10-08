@@ -67,7 +67,7 @@ def _context(query=QUESTION):
     )
 
 
-def _sentinel_registry(tmp_path):
+def _sentinel_registry(tmp_path, *, tool="news_search"):
     db_path = tmp_path / "canonical.duckdb"
     con = duckdb.connect(str(db_path))
     con.execute((Path(__file__).parents[2] / "market_feature_store/schema.sql").read_text())
@@ -78,7 +78,7 @@ def _sentinel_registry(tmp_path):
         with duckdb.connect(str(db_path), read_only=True) as con:
             row = con.execute("select trade_date, amount_ma20 from fact_market_daily").fetchone()
         item = AgentEvidence(
-            tool="news_search", title=SENTINEL, detail=f"未来数值={row[1]}",
+            tool=tool, title=SENTINEL, detail=f"未来数值={row[1]}",
             source="offline-fixture", source_date=str(row[0]), evidence_tier="news",
         )
         return ToolRunResult(
@@ -86,11 +86,11 @@ def _sentinel_registry(tmp_path):
             query_basis={"preview": SENTINEL},
         )
 
-    return ResearchToolRegistry((ToolSpec("news_search", "news_search", "fixture", "local", "current", runner),))
+    return ResearchToolRegistry((ToolSpec(tool, tool, "fixture", "local", "current", runner),))
 
 
-def _consume(registry, context):
-    observation = registry.execute("news_search", {"query": "离线核验"}, context=context, step_id="sentinel:1")
+def _consume(registry, context, *, tool="news_search"):
+    observation = registry.execute(tool, {"query": "离线核验"}, context=context, step_id="sentinel:1")
     projection = FinanceResearchHarness().project_tool_result(
         observation, evidence_so_far=observation.evidence, seen_prose=set(),
     )
@@ -257,6 +257,194 @@ def _prepare_turn(conversations, runs, conversation_id, query):
     return run.run_id, user.message_id, assistant.message_id
 
 
+class _LiveTemporalChain:
+    """Complete users/runs through the real adapter, stopping at shared output."""
+
+    def __init__(self, tmp_path, monkeypatch):
+        from intelligence.runtime import conversation_orchestrator as entry
+        from intelligence.services.conversation_store import ConversationStore
+        from intelligence.services.run_store import RunStore
+
+        self.entry, self.monkeypatch = entry, monkeypatch
+        self.conversations = ConversationStore("live-temporal", root=tmp_path / "conversation")
+        self.runs = RunStore("live-temporal", root=tmp_path / "runs")
+        self.cid = self.conversations.create_conversation().conversation_id
+        self.registry = _sentinel_registry(tmp_path, tool="evidence_search")
+        self.captured, self.controllers = [], []
+        self.root = tmp_path
+
+    def turn(self, query, *, runtime_day, message_day=None):
+        from types import SimpleNamespace
+
+        from intelligence.runtime.continuous_turn_adapter import ContinuousTurnAdapter
+        from intelligence.services import conversation_store
+        from intelligence.services.research_contract import TurnIntent
+        from intelligence.workbench_skills.registry import SkillRegistry
+
+        clock = message_day or runtime_day
+        self.monkeypatch.setattr(conversation_store, "_now_iso", lambda: clock.isoformat() + "T23:59:59.900000+08:00")
+        self.monkeypatch.setattr(self.entry, "date", SimpleNamespace(today=lambda: runtime_day, fromisoformat=date.fromisoformat))
+        self.monkeypatch.setattr(self.entry, "run_stance_pack", lambda *_args, **_kwargs: None)
+        run_id, user_id, assistant_id = _prepare_turn(self.conversations, self.runs, self.cid, query)
+        before, calls_before = len(self.captured), len(self.controllers)
+        owner = self
+
+        def controller(query, **kwargs):
+            owner.controllers.append(kwargs["temporal_contract"])
+            resolver = SimpleNamespace(resolve=lambda text: QueryResolution(understand_query(text, today=runtime_day), None))
+            decision = decide_turn(
+                query, today=kwargs["today"], temporal_contract=kwargs["temporal_contract"],
+                previous_intent=kwargs["previous_intent"], previous_turn_id=kwargs["previous_turn_id"],
+                resolver=resolver, llm_complete=lambda *_args: (None, None, "offline live chain"),
+            )
+            return replace(decision, task_frame=replace(decision.task_frame, material_contract=None))
+
+        def late_factory(frame, **kwargs):
+            context = build_episode_context(frame, **kwargs)
+            return replace(context, information_cutoff=InformationCutoff(runtime_day, "runtime_default"))
+
+        class Consumer:
+            def run(self, *, task_frame, context, registry):
+                observation, model = _consume(registry, context, tool="evidence_search")
+                owner.captured.append((task_frame, context, observation, model))
+                raise RuntimeError("actual consumer boundary captured offline, no answer publication")
+
+        class Verifier:
+            def verify(self, **_kwargs):
+                pytest.fail("live temporal chain must stop before model verification")
+
+        adapter = ContinuousTurnAdapter(
+            runtime=Consumer(), semantic_verifier=Verifier(), mode="on", context_factory=late_factory,
+            registry_factory=lambda *_args, **_kwargs: self.registry,
+            today=runtime_day.isoformat(), latest_data_date=runtime_day.isoformat(),
+        )
+        result = self.entry.TurnOrchestrator(
+            repo_root=self.root, conversation_store=self.conversations, run_store=self.runs,
+            skill_registry=SkillRegistry(), turn_controller_fn=controller, continuous_turn_adapter=adapter,
+            answer_query_fn=lambda *_args: pytest.fail("live chain must stay in Episode"),
+        ).run_turn(conversation_id=self.cid, run_id=run_id, assistant_message_id=assistant_id,
+                   query=query, skill_mode="auto", selected_skill_ids=[])
+        trace = next(t for t in self.runs.load_trace(run_id) if t["name"] == "turn_controller")
+        payload = json.loads(trace["output_summary"])
+        intent = TurnIntent.from_dict(payload["turn_intent"])
+        self.conversations.revise_message(self.cid, assistant_id, content="离线消费者边界停止",
+                                         status="completed", turn_intent=intent.to_dict())
+        self.runs.finish_run(run_id, "completed")
+        return {"run_id": run_id, "user_id": user_id, "assistant_id": assistant_id, "intent": intent,
+                "captured": self.captured[before:], "controller_calls": len(self.controllers) - calls_before,
+                "trace": payload, "result": result}
+
+
+@pytest.mark.parametrize(("query", "runtime_day", "message_day", "expected"), [
+    ("复盘2026年9月30日的A股，只用截至今天的信息。", TODAY, TODAY, "2026-10-07"),
+    ("复盘2026年9月30日的A股，只用截至今天的信息。", TODAY, date(2026, 10, 6), "2026-10-07"),
+    ("复盘2026年9月30日的A股，资料截至2026年10月9日。", TODAY, date(2026, 10, 6), "2026-10-07"),
+    ("复盘1/1的A股，只用截至当日的信息。", date(2027, 1, 1), date(2026, 12, 31), "2027-01-01"),
+])
+def test_true_execution_day_survives_queued_midnight_and_yearless_year_boundary(
+    tmp_path, monkeypatch, query, runtime_day, message_day, expected,
+):
+    from datetime import timedelta
+
+    chain = _LiveTemporalChain(tmp_path, monkeypatch)
+    first = chain.turn(query, runtime_day=runtime_day, message_day=message_day)
+    assert first["captured"]
+    frozen = first["intent"].temporal_contract
+    assert frozen.information_cutoff == expected
+    audits = [step for step in chain.runs.load_trace(first["run_id"]) if step["name"] == "temporal_compilation"]
+    assert len(audits) == 1
+    proof = json.loads(audits[0]["output_summary"])
+    assert proof["runtime_today"] == runtime_day.isoformat()
+    assert proof["source_message_id"] == first["user_id"]
+    assert proof["run_id"] == first["run_id"]
+    assert "temporal_compilation" not in json.dumps(chain.runs.load_stream_events(first["run_id"]), ensure_ascii=False)
+    second = chain.turn("那这个判断有哪些反证？", runtime_day=runtime_day + timedelta(days=1))
+    assert len(second["captured"]) == 1, second["trace"]
+    frame, context, _observation, _model = second["captured"][0]
+    assert context.information_cutoff.as_of_date.isoformat() == expected
+    assert frame.temporal_contract.market_target == frozen.market_target
+    assert frame.temporal_contract.cutoff_source == frozen.cutoff_source
+    assert frame.temporal_contract is context.temporal_contract
+    assert not frame.temporal_contract.errors
+
+
+def _corrupt_compilation_audit(chain, turn, damage):
+    traces = chain.runs.load_trace(turn["run_id"])
+    audit = next(step for step in traces if step["name"] == "temporal_compilation")
+    if damage == "missing":
+        traces.remove(audit)
+    elif damage == "duplicate":
+        traces.append(dict(audit))
+    else:
+        payload = json.loads(audit["output_summary"])
+        key, value = {
+            "schema": ("extra", True), "version": ("schema_version", True),
+            "run": ("run_id", "run_unrelated"), "conversation": ("conversation_id", "conv_unrelated"),
+            "source": ("source_message_id", "unrelated-user"), "source_hash": ("source_message_sha256", "0" * 64),
+            "contract_hash": ("temporal_contract_sha256", "0" * 64),
+            "fake_day": ("runtime_today", "2026-10-08"), "date_schema": ("runtime_today", "2026-10-7"),
+        }[damage]
+        payload[key] = value
+        audit["output_summary"] = json.dumps(payload, ensure_ascii=False)
+    chain.runs.trace_path(turn["run_id"]).write_text("".join(json.dumps(step, ensure_ascii=False) + "\n" for step in traces))
+
+
+@pytest.mark.parametrize("damage", ["missing", "duplicate", "schema", "version", "run", "conversation",
+                                   "source", "source_hash", "contract_hash", "fake_day", "date_schema"])
+def test_unverified_execution_audit_clarifies_before_controller_and_real_consumers(tmp_path, monkeypatch, damage):
+    chain = _LiveTemporalChain(tmp_path, monkeypatch)
+    first = chain.turn("复盘2026年9月30日的A股，只用截至今天的信息。", runtime_day=TODAY)
+    assert first["captured"]
+    _corrupt_compilation_audit(chain, first, damage)
+    follow = chain.turn("那这个判断有哪些反证？", runtime_day=date(2026, 10, 8))
+    assert follow["controller_calls"] == 0
+    assert follow["captured"] == []
+    assert follow["intent"].temporal_contract.errors
+    assert follow["trace"]["decision"]["capabilities"] == []
+
+
+@pytest.mark.parametrize("query", [
+    "复盘2026年9月30日的A股，只用截至今天的信息。",
+    "复盘2026年9月30日的A股，资料截至2026年10月9日。",
+])
+def test_stored_permission_date_cannot_expand_beyond_bound_execution_audit(tmp_path, monkeypatch, query):
+    chain = _LiveTemporalChain(tmp_path, monkeypatch)
+    first = chain.turn(query, runtime_day=TODAY)
+    assert first["captured"]
+    forged = replace(first["intent"].temporal_contract, information_cutoff="2026-10-08")
+    chain.conversations.revise_message(chain.cid, first["assistant_id"], content="旧答不授权日期",
+                                       status="completed", turn_intent=replace(first["intent"], temporal_contract=forged).to_dict())
+    follow = chain.turn("那这个判断有哪些反证？", runtime_day=date(2026, 10, 8))
+    assert follow["captured"] == []
+    assert follow["controller_calls"] == 0
+    assert follow["intent"].temporal_contract.errors
+
+
+def test_new_explicit_user_permission_survives_missing_execution_anchor(tmp_path, monkeypatch):
+    chain = _LiveTemporalChain(tmp_path, monkeypatch)
+    first = chain.turn("复盘2026年9月30日的A股，只用截至今天的信息。", runtime_day=TODAY)
+    assert first["captured"]
+    _corrupt_compilation_audit(chain, first, "missing")
+    follow = chain.turn("继续，只用截至2026年10月7日的信息。", runtime_day=date(2026, 10, 8))
+    assert len(follow["captured"]) == 1, follow["trace"]
+    assert follow["intent"].temporal_contract.cutoff_source.message_id == follow["user_id"]
+    assert follow["captured"][0][1].information_cutoff.as_of_date == TODAY
+
+
+def test_clock_independent_legacy_goal_without_permission_needs_no_execution_audit(tmp_path, monkeypatch):
+    chain = _LiveTemporalChain(tmp_path, monkeypatch)
+    first = chain.turn("复盘2026年9月30日的A股。", runtime_day=TODAY)
+    assert first["captured"]
+    _corrupt_compilation_audit(chain, first, "missing")
+    chain.conversations.revise_message(chain.cid, first["assistant_id"], content="旧无字段原件",
+                                       status="completed", turn_intent=replace(first["intent"], temporal_contract=None).to_dict())
+    follow = chain.turn("那这个判断有哪些反证？", runtime_day=date(2026, 10, 8))
+    assert len(follow["captured"]) == 1, follow["trace"]
+    temporal = follow["intent"].temporal_contract
+    assert not temporal.errors and temporal.information_cutoff is None
+    assert temporal.market_target.end == "2026-09-30"
+
+
 def _run_orchestrator(tmp_path, monkeypatch, *, prior="none", new_query=QUESTION, damage=None):
     from intelligence.runtime import conversation_orchestrator as service
     from intelligence.runtime.continuous_turn_adapter import ContinuousTurnResult
@@ -292,6 +480,9 @@ def _run_orchestrator(tmp_path, monkeypatch, *, prior="none", new_query=QUESTION
         else:
             old_run, old_user, old_assistant = _prepare_turn(conversations, runs, conversation.conversation_id, original_query)
         temporal = compile_temporal_contract(original_query, today=original_today, message_id=old_user)
+        source_record = next(m for m in conversations.load_messages(conversation.conversation_id) if m.message_id == old_user)
+        service.record_temporal_compilation(runs, run_id=old_run, source=source_record,
+                                            today=original_today, temporal_contract=temporal)
         if damage == "unrelated_source_run":
             unrelated_user = next(m for m in conversations.load_messages(conversation.conversation_id)
                                   if m.role == "user" and m.run_id != old_run)
@@ -330,6 +521,9 @@ def _run_orchestrator(tmp_path, monkeypatch, *, prior="none", new_query=QUESTION
                                                             previous=temporal, continuing=True),
                 llm_complete=lambda *_args: (None, None, "offline bridge"),
             ).turn_intent.to_dict()
+            source_record = next(m for m in conversations.load_messages(conversation.conversation_id) if m.message_id == bridge_user)
+            service.record_temporal_compilation(runs, run_id=_bridge_run, source=source_record, today=TODAY,
+                                                temporal_contract=TemporalContract.from_dict(bridge["temporal_contract"]))
             if prior.startswith("legacy"):
                 bridge.pop("temporal_contract")
             if damage == "dropped_persisted_permission":

@@ -349,3 +349,38 @@ def compile_temporal_contract(
             previous.relative_anchor_sha256, previous.errors,
         )
     return TemporalContract(target)
+
+
+def compile_static_temporal_contract(
+    query: str, *, message_id: str | None = None,
+    previous: TemporalContract | None = None, continuing: bool = False,
+) -> TemporalContract | None:
+    """Recover only user semantics that provably never consult an execution day.
+
+    Every permission has a runtime upper clamp, and yearless goals consult the
+    runtime year. Neither can be reconstructed without a trusted audit anchor.
+    Full-year goals and ordinary follow-ups can retain an already verified
+    permit without inventing an original execution date.
+    """
+    from intelligence.services.user_task import top_level_message_text
+    from intelligence.services.honesty_gates import _standing_information_date
+
+    visible, _uncertain = top_level_message_text(query)
+    if cutoff_instruction_clauses(visible) or _standing_information_date(visible):
+        return None
+    full = list(_FULL_DATE_RE.finditer(visible))
+    compressed = [_SHORT_RANGE_END.match(visible, match.end()) for match in full]
+    for match in _YEARLESS_DATE_RE.finditer(visible):
+        if any(start.start() <= match.start() < start.end() for start in full):
+            continue
+        if any(end is not None and end.start() <= match.start() < end.end() for end in compressed):
+            continue
+        prefix = visible[:match.start()]
+        if (_YEARLESS_QUANTITY_PREFIX_RE.search(re.sub(r"\s+", "", prefix))
+                or _NEGATION.search(re.split(r"[，,。；;\n]", prefix)[-1])):
+            continue
+        return None
+    # The guards prove that this compiler path does not read its day. This
+    # constant is not an inferred execution date and grants no new permission.
+    return compile_temporal_contract(query, today=date.min, message_id=message_id,
+                                     previous=previous, continuing=continuing)

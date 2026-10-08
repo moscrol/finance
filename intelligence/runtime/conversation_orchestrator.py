@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import hashlib
 import inspect
 import json
 import os
@@ -1687,6 +1688,62 @@ def build_conversation_context(
     )
 
 
+def _temporal_contract_digest(contract: TemporalContract) -> str:
+    payload = json.dumps(contract.to_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def record_temporal_compilation(
+    run_store: RunStore, *, run_id: str, source: Message,
+    today: date, temporal_contract: TemporalContract,
+) -> None:
+    """Record code-owned compilation proof in the existing private run trace.
+
+    Deliberately bypass the streaming trace wrapper: the execution day and
+    provenance belong to recovery/audit, not public model or UI event payloads.
+    """
+    run = run_store.load_run(run_id)
+    if (source.role != "user" or source.status != "completed" or source.run_id != run_id
+            or source.conversation_id != run.session_id):
+        raise ValueError("temporal compilation requires the original run user")
+    run_store.append_step(
+        run_id, step_id="temporal_intent", name="temporal_compilation", status="completed",
+        output_summary=json.dumps({
+            "schema_version": 1, "runtime_today": today.isoformat(), "run_id": run_id,
+            "conversation_id": source.conversation_id, "source_message_id": source.message_id,
+            "source_message_sha256": message_digest(source.content),
+            "temporal_contract_sha256": _temporal_contract_digest(temporal_contract),
+        }, ensure_ascii=False),
+    )
+
+
+def _temporal_compilation_anchor(
+    run_store: RunStore, source: Message, *, today: date,
+) -> tuple[date, str] | None:
+    steps = [step for step in run_store.load_trace(source.run_id)
+             if step.get("name") == "temporal_compilation" or step.get("step_id") == "temporal_intent"]
+    if not steps:
+        return None
+    if (len(steps) != 1 or steps[0].get("name") != "temporal_compilation"
+            or steps[0].get("step_id") != "temporal_intent" or steps[0].get("status") != "completed"):
+        raise ValueError("ambiguous temporal compilation proof")
+    payload = json.loads(steps[0]["output_summary"])
+    keys = {"schema_version", "runtime_today", "run_id", "conversation_id", "source_message_id",
+            "source_message_sha256", "temporal_contract_sha256"}
+    if (not isinstance(payload, dict) or set(payload) != keys
+            or type(payload["schema_version"]) is not int or payload["schema_version"] != 1
+            or payload["run_id"] != source.run_id or payload["conversation_id"] != source.conversation_id
+            or payload["source_message_id"] != source.message_id
+            or payload["source_message_sha256"] != message_digest(source.content)
+            or not isinstance(payload["temporal_contract_sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", payload["temporal_contract_sha256"]) is None):
+        raise ValueError("invalid temporal compilation binding")
+    anchor = date.fromisoformat(payload["runtime_today"])
+    if anchor.isoformat() != payload["runtime_today"] or anchor > today:
+        raise ValueError("invalid temporal compilation day")
+    return anchor, payload["temporal_contract_sha256"]
+
+
 def _recover_temporal_authority(
     intent: TurnIntent | None, prior_message: Message | None,
     messages: Sequence[Message], *, today: date, run_store: RunStore,
@@ -1707,16 +1764,21 @@ def _recover_temporal_authority(
     records = [m for m in users if m.run_id == prior_message.run_id]
     if len(records) != 1:
         return None
+    try:
+        compilation = _temporal_compilation_anchor(run_store, records[0], today=today)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None
 
     def original_contract(
         record: Message, *, previous: TemporalContract | None = None, continuing: bool = False,
     ) -> TemporalContract | None:
-        try:
-            original_today = date.fromisoformat(record.created_at[:10])
-        except (ValueError, TypeError):
-            return None
-        return compile_temporal_contract(record.content, today=min(today, original_today),
-                                         message_id=record.message_id, previous=previous, continuing=continuing)
+        if compilation is None:
+            from intelligence.services.temporal_contract import compile_static_temporal_contract
+
+            return compile_static_temporal_contract(record.content, message_id=record.message_id,
+                                                    previous=previous, continuing=continuing)
+        return compile_temporal_contract(record.content, today=compilation[0], message_id=record.message_id,
+                                         previous=previous, continuing=continuing)
 
     parent_message = None
     parent_intent = None
@@ -1754,6 +1816,8 @@ def _recover_temporal_authority(
                                   continuing=parent_message is not None)
     if effective is None or effective.errors:
         return None
+    if compilation is not None and _temporal_contract_digest(effective) != compilation[1]:
+        return None
     temporal = intent.temporal_contract
     if temporal is not None:
         proven_sources = [effective.cutoff_source]
@@ -1779,12 +1843,13 @@ def _recover_temporal_authority(
                 original = (
                     effective if source == effective.cutoff_source
                     else previous if previous is not None and source == previous.cutoff_source
-                    else original_contract(matching[0])
+                    else None
                 )
             else:
                 original = (
                     effective if effective.market_target is not None and source == effective.market_target.source
-                    else original_contract(matching[0])
+                    else previous if previous is not None and previous.market_target is not None
+                    and source == previous.market_target.source else None
                 )
             if original is None or original.errors:
                 return None
@@ -2456,6 +2521,10 @@ class TurnOrchestrator:
             if temporal.errors:
                 decision = replace(decision, lane="clarify", needs_retrieval=False, needs_memory=False,
                                    needs_template=False, capabilities=(), clarification_questions=(temporal.errors[0],))
+            if (not temporal.errors and len(current_users) == 1 and current_users[0].content == query
+                    and current_run.session_id == conversation_id):
+                record_temporal_compilation(self.run_store, run_id=run_id, source=current_users[0],
+                                            today=runtime_today, temporal_contract=temporal)
             research_plan = ResearchPlan.from_intent(turn_intent)
             # 单一事实源：controller 返回的 decision 已与 turn_intent 对齐
             # （见 turn_controller._attach_turn_intent）。仅当 controller 未
