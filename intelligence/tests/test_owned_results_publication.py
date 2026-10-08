@@ -185,3 +185,31 @@ def test_final_publication_rechecks_current_source_even_after_owned_removal(monk
     assert rejected.judge_status == "rejected" and rejected.status == "partial"
     assert rejected.owned_coverage is None
     assert "owned_coverage" not in rejected.to_dict()
+
+
+@pytest.mark.parametrize("reason", ["authority", "changed_owned"])
+def test_owned_rejection_caller_uses_the_shared_incomplete_verification_view(monkeypatch, reason):
+    from intelligence.services.session_projection import CAUSE_VERIFICATION_INCOMPLETE, TerminalFacts, view
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")
+    frame, context, outcome = _native_parts(lambda parts: [{"result_ref": next(p["result_ref"] for p in parts
+        if "医药生物主题中的免疫治疗" in p["text"])}])
+    semantic = SemanticEpisodeVerifier().verify(
+        frame=frame, structurally_verified=verify_episode_outcome(context.contract, outcome),
+        context=context, deadline=context.deadline,
+    )
+    if reason == "authority":
+        current = replace(context, contract=replace(context.contract, allowed_capabilities=()))
+        result = recheck_owned_public_delivery(semantic, context=current, projected=outcome.draft)
+        detail = "本轮结果的来源权限无法确认，暂不能发布该回答。"
+        assert result.owned_coverage is None
+        assert "owned_answer: source_not_authorized" in result.issues
+    else:
+        result = recheck_owned_public_delivery(semantic, context=context, projected=outcome.draft.replace("不满足", "满足"))
+        detail = "本轮程序结果在公开处理后发生变化，暂不能发布该回答。"
+        assert result.owned_coverage["owned_changed"] == 1
+        assert "owned_answer: public_owned_node_changed" in result.issues
+    assert result.status == "partial" and result.judge_status == "rejected"
+    assert result.public_answer == view(TerminalFacts(
+        cause=CAUSE_VERIFICATION_INCOMPLETE, question=frame.raw_question, gap_body=detail,
+    ))

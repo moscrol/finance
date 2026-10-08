@@ -1042,11 +1042,17 @@ def recheck_owned_public_delivery(
         coverage = _public_owned_coverage(proof, public, context=context)
     except OwnedResultError as exc:
         return replace(outcome, status="partial", judge_status="rejected", owned_coverage=None,
-                       public_answer="本轮结果的来源权限无法确认，暂不能发布该回答。",
+                       public_answer=view(TerminalFacts(
+                           cause=CAUSE_VERIFICATION_INCOMPLETE, question=context.contract.question,
+                           gap_body="本轮结果的来源权限无法确认，暂不能发布该回答。",
+                       )),
                        issues=tuple(dict.fromkeys((*outcome.issues, "owned_answer: " + exc.reason))))
     if coverage is not None and coverage["owned_changed"]:
         return replace(outcome, status="partial", judge_status="rejected", owned_coverage=coverage,
-                       public_answer="本轮程序结果在公开处理后发生变化，暂不能发布该回答。",
+                       public_answer=view(TerminalFacts(
+                           cause=CAUSE_VERIFICATION_INCOMPLETE, question=context.contract.question,
+                           gap_body="本轮程序结果在公开处理后发生变化，暂不能发布该回答。",
+                       )),
                        issues=tuple(dict.fromkeys((*outcome.issues, "owned_answer: public_owned_node_changed"))))
     return replace(outcome, owned_coverage=coverage)
 
