@@ -21,6 +21,7 @@ def main() -> None:
         rows = [
             ("2026-08-28", "000001.SZ", "合成高标甲", 5),
             ("2026-08-31", "000001.SZ", "合成高标甲", 6),
+            ("2026-08-31", "000005.SZ", "合成停牌戊", 5),
             ("2026-09-01", "000002.SZ", "合成高标乙", 6),
             ("2026-09-22", "000003.SZ", "合成缺口丙", 5),
             ("2026-09-24", "000004.SZ", "合成低板丁", 2),
@@ -28,6 +29,16 @@ def main() -> None:
         rows += [("2026-09-01", f"6000{i:02d}.SH", f"合成样本{i}", 3) for i in range(10)]
         con.executemany(
             "INSERT INTO fact_limit_advance_daily (trade_date, stock_ts_code, stock_name, boards) VALUES (?, ?, ?, ?)", rows,
+        )
+        # 个股行情：断板候选必须用当日行情核实，否则只能标“未核/待核”。
+        # 合成高标甲当日有成交、未封涨停 → 已核断板；合成停牌戊当日无行情行 → 停牌/无成交（待核）。
+        con.executemany(
+            "INSERT INTO fact_stock_daily (trade_date, stock_ts_code, stock_name, close, pre_close, pct_chg, amount) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("2026-09-01", "000001.SZ", "合成高标甲", 10.45, 11.00, -5.0, 120_000_000.0),
+                ("2026-09-01", "000002.SZ", "合成高标乙", 12.10, 11.00, 10.0, 90_000_000.0),
+            ],
         )
 
 

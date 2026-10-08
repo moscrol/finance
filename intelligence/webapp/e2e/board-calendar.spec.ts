@@ -9,6 +9,10 @@ test("calendar reads real API data, preserves gaps, refreshes and links the sele
   await page.getByLabel("选择月份").fill("2026-09");
   const first = page.getByRole("article", { name: "2026-09-01" });
   await expect(first.getByText("断 6板 合成高标甲")).toBeVisible();
+  await expect(first.getByText("断 6板 合成高标甲 · 未核")).toHaveCount(0);
+  // 离开名单但当日无行情 = 停牌/无成交，只能待核，不能算断板。
+  await expect(first.getByRole("region", { name: "断板待核" }).getByText("5板 合成停牌戊 · 停牌/无成交")).toBeVisible();
+  await expect(first.getByText(/断 5板 合成停牌戊/)).toHaveCount(0);
   await expect(first.getByText("6-000002 合成高标乙")).toHaveClass(/--x5/);
   await first.getByRole("button", { name: /展开其余/ }).click();
   await expect(first.getByText("3-600009 合成样本9")).toBeVisible();

@@ -41,6 +41,6 @@
 - 门禁脚本：check_path_literals / check_regex_routes / check_unread_fields 通过。
 
 ## 未验证 / 仍欠
-- Playwright 两组专项未在本沙箱运行（无法下载 Chromium）；日历 e2e 夹具无 `fact_stock_daily`，断板芯片会带“· 未核”后缀（子串断言仍应通过），待 CI 实跑确认。
+- e2e：首轮 CI 日历 e2e 失败——夹具建了空 `fact_stock_daily`，断板候选按 fail-closed 归为“行情未入库”待核，不再显示为断板。已给夹具补当日行情（合成高标甲有成交未封板 → 已核断板），并新增停牌待核样本（合成停牌戊 → `停牌/无成交`）及断言。本地（npm `@sparticuz/chromium` 替代浏览器）日历 e2e 6/6 通过；主 e2e 45 通过，`workbench.spec.ts` 的 2 个聊天用例在 d340e3a6 基线上本地同样失败，属本地环境问题，以 CI 为准。
 - 真实行情库只读抽样：重点核 `closed_at_limit`（供应商名单缺漏）、`source_mismatch` 频率、停牌高标。
 - 远端 CI、正式门禁、部署与回滚；Workbench Agent 实际消费证据合同；归档版本留存；长河观察记录服务端持久化。
