@@ -66,7 +66,7 @@ from intelligence.services.episode_history_compaction import (
     history_compaction_enabled,
     history_keep_batches,
 )
-from intelligence.services.finish_authoring import saved_finish_format
+from intelligence.services.finish_authoring import accepts_finish_format, saved_finish_format
 from intelligence.services.mode_governor import ModeDecision
 from intelligence.services.provider_observability import (
     ProviderTrace,
@@ -3917,13 +3917,15 @@ class ContinuousAgentEpisode:
                 )
                 if isinstance(priority, tuple) and priority:
                     recovery_options["evidence_priority"] = priority
+            finish_format = saved_finish_format(ledger.events, context=context)
+            if accepts_finish_format(self._finalizer.recover):
+                recovery_options["finish_format"] = finish_format
             turn = self._finalizer.recover(
                 task_frame=task_frame,
                 context=context,
                 evidence=tuple(accumulator.evidence),
                 gaps=tuple(accumulator.gaps),
                 failure_reason=failure_reason,
-                finish_format=saved_finish_format(ledger.events, context=context),
                 # 兜底合成那段独立 prompt 也是模型可见内容：落账（source=finalizer），
                 # 但不进 episode 的消息历史，派生器对它跳过。
                 on_prompt=record_recovery_prompt,

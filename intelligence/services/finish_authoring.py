@@ -7,7 +7,7 @@ detached immutable products. It performs no IO and certifies no free prose.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 import json
@@ -263,14 +263,16 @@ def saved_finish_format(
     if not isinstance(payload, dict):
         return None
     grounding = payload.get("material_grounding")
-    old_format = grounding.get("finish_format") if isinstance(grounding, dict) else None
-    description = payload.get("finish_format", old_format)
-    if description is None and "finish_format" not in payload:
+    old_present = isinstance(grounding, dict) and "finish_format" in grounding
+    top_present = "finish_format" in payload
+    if not top_present and not old_present:
         return None
+    old_format = grounding["finish_format"] if old_present else None
+    description = payload["finish_format"] if top_present else old_format
     if (not isinstance(description, dict) or set(description) != {"format", "wire_template", "rule"}
             or any(not isinstance(value, str) or not value for value in description.values())):
         raise FinishAuthoringError("bad_claim_binding", "saved author format is corrupt")
-    if old_format is not None and old_format != description:
+    if old_present and old_format != description:
         raise FinishAuthoringError("bad_claim_binding", "saved author format has conflicting sources")
     current = finish_author_contract(context).prompt_payload()
     if current is None or description["format"] != current["format"]:
@@ -303,6 +305,16 @@ def describe_finish_format(message: str, finish_format: Mapping[str, object] | N
     if finish_format is None:
         return message
     return message + "\n" + json.dumps({"finish_format": _thaw(_freeze(finish_format))}, ensure_ascii=False)
+
+
+def accepts_finish_format(method: Callable[..., object]) -> bool:
+    """Check this one optional keyword without executing or retrying a hook."""
+    from inspect import Parameter, signature
+
+    parameters = signature(method).parameters
+    return (
+        "finish_format" in parameters and parameters["finish_format"].kind != Parameter.POSITIONAL_ONLY
+    ) or any(parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values())
 
 
 def _normalize_natural_language_layout(value: str) -> str:

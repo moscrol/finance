@@ -304,3 +304,103 @@ def test_old_material_descriptor_location_is_used_by_real_restore_and_finalizer(
     finalizer = json.loads(calls[0][1]["content"])
     assert finalizer["finish_format"] == finalizer["material_grounding"]["finish_format"] == expected
     assert context.contract.allowed_capabilities == ()
+
+
+@pytest.mark.parametrize("kind", ["old_signature", "kwargs", "explicit_format", "default", "internal_type_error"])
+def test_real_injected_finalizer_signature_is_compatible_without_retrying_internal_errors(kind):
+    from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+
+    calls, requests = [], []
+
+    class Writer:
+        def complete(self, *, messages, **_kwargs):
+            requests.append(messages)
+            return ModelTurn(json.dumps(finish_payload(draft="同日主线观察已核对。")), ())
+
+    class Delegate:
+        def call(self, **kwargs):
+            calls.append(kwargs)
+            if kind == "internal_type_error":
+                raise TypeError("inside finalizer implementation")
+            return EpisodeFinalizer(Writer()).recover(**kwargs)
+
+    class OldFinalizer(Delegate):
+        def recover(self, *, task_frame, context, evidence, gaps, failure_reason, on_prompt=None,
+                    evidence_priority=(), domain_materials=None):
+            return self.call(task_frame=task_frame, context=context, evidence=evidence, gaps=gaps,
+                             failure_reason=failure_reason, on_prompt=on_prompt,
+                             evidence_priority=evidence_priority, domain_materials=domain_materials)
+
+    class KwargsFinalizer(Delegate):
+        def recover(self, **kwargs):
+            return self.call(**kwargs)
+
+    class ExplicitFinalizer(Delegate):
+        def recover(self, *, task_frame, context, evidence, gaps, failure_reason, on_prompt=None,
+                    evidence_priority=(), domain_materials=None, finish_format=None):
+            return self.call(task_frame=task_frame, context=context, evidence=evidence, gaps=gaps,
+                             failure_reason=failure_reason, on_prompt=on_prompt, finish_format=finish_format,
+                             evidence_priority=evidence_priority, domain_materials=domain_materials)
+
+    class Model(_Model):
+        def complete(self, **kwargs):
+            if self.calls < 2:
+                return super().complete(**kwargs)
+            self.calls += 1
+            return ModelTurn("", (), error="provider_error")
+
+    frame, context = frame_context(task_id=f"finalizer-signature-{kind}")
+    model = Model()
+    implementations = {"old_signature": OldFinalizer, "kwargs": KwargsFinalizer,
+                       "explicit_format": ExplicitFinalizer, "internal_type_error": ExplicitFinalizer}
+    finalizer = EpisodeFinalizer(Writer()) if kind == "default" else implementations[kind]()
+    outcome = ContinuousAgentEpisode(model, finalizer=finalizer).run(task_frame=frame, context=context, registry=_registry(model.source))
+    if kind == "internal_type_error":
+        assert len(calls) == 1 and requests == []
+        assert outcome.stop_reason == "finalization_recovery_failed"
+        assert any(event.kind == "model_error" and event.payload.get("reason") == "finalization_recovery_exception:TypeError"
+                   for event in outcome.events)
+    else:
+        assert outcome.stop_reason == "finalization_recovered" and len(requests) == 1
+        if kind == "old_signature":
+            assert len(calls) == 1 and "finish_format" not in calls[0]
+        else:
+            expected = finish_author_contract(context).prompt_payload()
+            assert json.loads(requests[0][1]["content"])["finish_format"] == expected
+
+
+@pytest.mark.parametrize("value", [None, False, "", "missing"])
+@pytest.mark.parametrize("top_present", [False, True])
+def test_real_restore_distinguishes_missing_material_format_from_present_invalid_values(value, top_present):
+    from intelligence.tests.test_material_answer_authoring import history_setup
+
+    frame, context = history_setup()
+    store, registry = MemoryEpisodeStore(), ResearchToolRegistry(())
+    drive = ContinuousAgentEpisode(_Model(), store=store).manual_drive(task_frame=frame, context=context, registry=registry)
+    drive.run_until("model_pending")
+    drive.close()
+    events, state = store.load(context.contract.task_id)
+    assert len(events) == 5
+    initial = next(event for event in events if event.kind == "prompt_assembled")
+    payload = json.loads(initial.payload["user"])
+    expected = payload["finish_format"]
+    if not top_present:
+        payload.pop("finish_format")
+    if value == "missing":
+        payload["material_grounding"].pop("finish_format")
+    else:
+        payload["material_grounding"]["finish_format"] = value
+    raw = json.dumps(payload, ensure_ascii=False)
+    changed = replace(initial, payload={**initial.to_dict()["payload"], "user": raw, "user_sha256": sha256(raw.encode()).hexdigest()})
+    damaged = MemoryEpisodeStore()
+    damaged.append(context.contract.task_id, tuple(changed if event is initial else event for event in events))
+    damaged.put_state(context.contract.task_id, state)
+    before = damaged.load(context.contract.task_id)
+    if value == "missing":
+        restored = ContinuousAgentEpisode.restore(context.contract.task_id, damaged, context=context, registry=registry)
+        assert restored.disposition == "resumable"
+        assert saved_finish_format(restored.events, context=context) == (expected if top_present else None)
+    else:
+        with pytest.raises(RestoreUnavailable, match="author"):
+            ContinuousAgentEpisode.restore(context.contract.task_id, damaged, context=context, registry=registry)
+        assert damaged.load(context.contract.task_id) == before

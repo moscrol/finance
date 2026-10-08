@@ -102,7 +102,7 @@ from intelligence.services.agent_runtime import (
     public_agent_evidence,
 )
 from intelligence.services.episode_messages import EpisodeMessage
-from intelligence.services.finish_authoring import describe_finish_format
+from intelligence.services.finish_authoring import accepts_finish_format, describe_finish_format
 from intelligence.services.empty_pool_fallback import (
     EmptyToolCall,
     fallback_already_attempted,
@@ -645,14 +645,8 @@ def steering_message_for_author(
     finish_format: Mapping[str, object] | None,
 ) -> str:
     """Keep existing custom signatures callable without masking their errors."""
-    from inspect import Parameter, signature
-
     method = harness.steering_message
-    parameters = signature(method).parameters
-    accepts_format = (
-        "finish_format" in parameters and parameters["finish_format"].kind != Parameter.POSITIONAL_ONLY
-    ) or any(parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values())
-    if finish_format is not None and accepts_format:
+    if finish_format is not None and accepts_finish_format(method):
         return method(kind, detail=detail, finish_format=finish_format)
     return describe_finish_format(method(kind, detail=detail), finish_format)
 
