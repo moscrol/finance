@@ -4457,7 +4457,8 @@ p {
 }
 
 .board-calendar-day.closed,
-.board-calendar-day.future {
+.board-calendar-day.future,
+.board-calendar-day.pending {
   color: var(--faint);
   background: rgba(245, 243, 239, 0.84);
 }
@@ -4583,6 +4584,18 @@ p {
 
 .board-calendar-group-title--break {
   color: #6f6a61;
+}
+
+/* 待核：离开名单但不能判为断板（停牌 / ST 口径 / 来源切换 / 名单疑缺）。
+   虚线边框与断板实线区分；#6b5d3f on #fbf7ee ≈ 6.4:1。 */
+.board-calendar-stock--unresolved {
+  background: #fbf7ee;
+  border: 1px dashed #c9b88f;
+  color: #6b5d3f;
+}
+
+.board-calendar-group-title--unresolved {
+  color: #6b5d3f;
 }
 
 .board-calendar-legend-swatch {

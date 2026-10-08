@@ -39,7 +39,10 @@ export function RiverWorkbench({ focusDate = null, onFocusDate, initialEntity = 
   const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
   const [timeline, setTimeline] = useState<Timeline | null>(null);
   const [kline, setKline] = useState<Kline | null>(null);
+  const [klineError, setKlineError] = useState(false);
   const [timelineError, setTimelineError] = useState<string | null>(null);
+  // Bumped by 刷新 / 重试 so a custom window re-reads its tracks too, not only the date directory.
+  const [refreshToken, setRefreshToken] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(focusDate);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -67,25 +70,30 @@ export function RiverWorkbench({ focusDate = null, onFocusDate, initialEntity = 
     return { start, end: days[days.length - 1] };
   }, [meta, windowDays, customRange]);
 
+  const rangeStart = range?.start ?? null;
+  const rangeEnd = range?.end ?? null;
   useEffect(() => {
-    if (!entity || !range) return;
+    if (!entity || !rangeStart || !rangeEnd) return;
     let cancelled = false;
     setLoading(true);
     setTimeline(null);
     setKline(null);
+    setKlineError(false);
     setTimelineError(null);
-    getKline(range.start, range.end, entity.id)
+    getKline(rangeStart, rangeEnd, entity.id)
       .then((k) => {
         if (!cancelled) setKline(k);
       })
       .catch(() => {
-        if (!cancelled) setKline(null);
+        if (!cancelled) { setKline(null); setKlineError(true); }
       });
-    getTimeline(entity.name, range.start, range.end)
+    getTimeline(entity.name, rangeStart, rangeEnd)
       .then((t) => {
         if (cancelled) return;
         setTimeline(t);
-        setSelectedDay((current) => (current && t.days.some((d) => d.date === current) ? current : t.end));
+        // Keep an explicitly chosen day even when this window has no row for
+        // it; the page says so instead of silently jumping to the latest day.
+        setSelectedDay((current) => current ?? t.end);
       })
       .catch((err: Error) => {
         if (!cancelled) {
@@ -99,7 +107,9 @@ export function RiverWorkbench({ focusDate = null, onFocusDate, initialEntity = 
     return () => {
       cancelled = true;
     };
-  }, [entity, range]);
+  }, [entity, rangeStart, rangeEnd, refreshToken]);
+  const refresh = () => { loadMeta(); setRefreshToken((n) => n + 1); };
+  const selectedMissing = Boolean(timeline && selectedDay && !timeline.days.some((d) => d.date === selectedDay));
 
   const pickDay = (date: string, open = true) => {
     setSelectedDay(date);
@@ -142,14 +152,14 @@ export function RiverWorkbench({ focusDate = null, onFocusDate, initialEntity = 
           <strong>时间记忆长河</strong>
           <span>六类数据按交易日对齐 · 每条标明哪天的数据、何时知道、来源、缺了什么 · 读取路径无模型</span>
         </div>
-        <button type="button" onClick={loadMeta}>
+        <button type="button" onClick={refresh}>
           <RefreshCw aria-hidden="true" size={12} /> 刷新
         </button>
       </div>
 
       <div className="river-controls">
         {meta && (
-          <EntityPicker value={entity} asOf={meta.latest} hot={meta.hot_entities} onChange={(e) => {
+          <EntityPicker value={entity} asOf={selectedDay ?? meta.latest} hotAsOf={meta.latest} hot={meta.hot_entities} onChange={(e) => {
             setEntity(e);
             setDrawerOpen(false);
           }} />
@@ -205,11 +215,13 @@ export function RiverWorkbench({ focusDate = null, onFocusDate, initialEntity = 
         )}
       </div>
 
-      {metaError && <div className="global-error" role="alert"><span>{metaError}</span></div>}
+      {metaError && <div className="global-error" role="alert"><span>交易日目录读取失败：{metaError}</span><button type="button" onClick={refresh}>重试</button></div>}
 
       <div className="river-body">
         <div className="river-main">
-          {timelineError && <div className="slice-error" role="alert">{timelineError}</div>}
+          {timelineError && <div className="slice-error" role="alert">六轨读取失败：{timelineError} <button type="button" className="river-link" onClick={() => setRefreshToken((n) => n + 1)}>重试六轨</button></div>}
+          {selectedMissing && <div className="river-hint" role="status">所选日 {selectedDay} 不在本窗口返回的六轨数据中（可能缺档或不在窗口内）；未替换为最新日。</div>}
+          {klineError && timeline && <div className="river-hint" role="status">上证 K 线底座读取失败，六轨按原数据显示；未用其他区间的 K 线补齐。<button type="button" className="river-link" onClick={() => setRefreshToken((n) => n + 1)}>重试</button></div>}
           {loading && !timeline && <div className="surface-loading">正在对齐六轨…</div>}
           {timeline && (
             <>

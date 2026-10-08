@@ -28,7 +28,8 @@ export function ReviewReadingGuide({ data, selectedDate }: { data: ReviewHistory
   };
   return <section className="rh-reading" aria-label="人和Agent共用证据">
     <header><span className="rh-eyebrow">SAME EVIDENCE · TWO WAYS TO READ</span><h3>你看图表，Agent 读同种数据。</h3><p>不是让 Agent 看 dashboard，也不是只给它一段摘要。下面四类证据与页面读数来自同一接口；先对齐名称，再说明怎样联立。以下问题是阅读提示，不是自动判断。</p></header>
-    <div className="rh-reading-map">{contract.groups.map((group, i) => <article key={group.id}><span className="rh-eyebrow">0{i + 1}</span><h4>{group.label}</h4><p>{group.question}</p><details><summary>对应字段与边界</summary><code>{group.fields.join(" · ")}</code><p>{group.boundary}</p></details></article>)}</div>
+    <div className="rh-reading-map">{contract.groups.map((group, i) => <article key={group.id}><span className="rh-eyebrow">0{i + 1}</span><h4>{group.label}</h4><p>{group.question}</p><details><summary>对应字段与边界</summary><code>{group.fields.join(" · ")}</code><p>{group.boundary}</p>{group.selection && <p><b>入选条件：</b>{group.selection}</p>}</details></article>)}</div>
+    {contract.selection_bias && <p className="rh-boundary" role="note">{contract.selection_bias}</p>}
     <p className="rh-muted">{contract.scope}。前三项只是名单预览，交接包保留接口返回的全部行与截断标志；不因页面折叠或矩阵切换而省略数据。</p>
     <details className="rh-dictionary"><summary>数据字典 · 指标、缺失含义与来源限制</summary>
       <div className="rh-scroll"><table className="rh-table"><caption>市场读数：原日报 facts，不按本窗重算</caption><thead><tr><th>页面名称</th><th>单位</th><th>Agent 字段</th><th>原日报字段</th></tr></thead><tbody>{data.metrics.map(m => <tr key={m.key}><th>{m.label}</th><td>{m.unit}</td><td><code>points[].metrics.{m.key}</code></td><td><code>{m.source_field}</code></td></tr>)}</tbody></table></div>

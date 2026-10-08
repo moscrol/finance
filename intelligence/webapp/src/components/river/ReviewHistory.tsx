@@ -18,7 +18,29 @@ function Sparkline({ values, selected }: { values: (number | null)[]; selected: 
     {values.map((v, i) => v === null ? <path key={i} d={`M${x(i) - 1} 46h2`} stroke="#baada0" /> : <circle key={i} cx={x(i)} cy={y(v)} r={i === selected ? 3.8 : 1.6} fill="currentColor" />)}
   </svg>;
 }
+// Distinct markers so "not in scope", "listed but empty", "no column" and
+// "no archive" never collapse into the same dash a human would read as zero.
+const MATRIX_MARK: Record<string, string> = { not_in_scope: "未覆盖", empty: "无行", not_reported: "未报" };
+const ENGINE_NOTE: Record<string, string> = {
+  empty: "列入前三但归档写明暂无可排序个股，不是未列入。",
+  not_in_scope: "该行业当日不在成交前三，日报按设计不生成发动机表；不是零，也不是退出。",
+  not_reported: "行业在前三但归档没有可投影的发动机表，未用其他行业补位。",
+  unknown: "成交前三榜单缺失，无法判断是否应有发动机表。",
+};
+function matrixCell(point: HistoryPoint, mode: string, name: string) {
+  if (point.status === "missing") return "缺档";
+  if (point.status !== "available") return "不可读";
+  const matrix = point.matrices[mode];
+  if (!matrix || matrix.status !== "available") return MATRIX_MARK[matrix?.status ?? "not_reported"] ?? "未报";
+  const rows = matrix.rows.filter(r => String(r.name) === name);
+  if (rows.length > 1) return "重复名称，查原表";
+  if (!rows.length) return matrix.truncated ? "截断外" : "未列";
+  return format(rows[0].value);
+}
 function engineNames(point: HistoryPoint) {
+  if (point.status !== "available") return "—";
+  if (point.engines_status === "empty") return "列入但暂无";
+  if (point.engines_status === "not_in_scope") return "未覆盖";
   if (!point.engines?.rows.length) return "未列名单";
   const index = point.engines.columns.indexOf("股票");
   return index < 0 ? "有明细，见原列" : point.engines.rows.slice(0, 3).map(row => format(row[index])).join("、");
@@ -91,12 +113,13 @@ export function ReviewHistory({ initialEnd, selectedDate, onSelect, onOpenReport
       </tbody></table></div>
       <div className="rh-section-head"><h3>02 / {data.industry || "行业"} · 子板块轨迹</h3><div className="rh-tabs" role="group" aria-label="连续矩阵类型">{modes.map(m => <button type="button" aria-pressed={mode === m.key} key={m.key} onClick={() => { setMode(m.key); setExpanded(false); }}>{m.label}</button>)}</div></div>
       <p className="rh-muted">{currentMode.note}。每列只用当天报告的当天列，不以后来报告补旧值；原名相同不证明实体身份跨期一致。</p>
-      {names.length ? <><div className="rh-scroll" tabIndex={0} role="region" aria-label="连续子板块矩阵"><table className="rh-table"><thead><tr><th>原日报名称</th>{data.points.map(p => <th key={p.date}>{p.date.slice(5)}</th>)}</tr></thead><tbody>{names.slice(0, expanded ? undefined : 12).map(name => <tr key={name}><th>{name}</th>{data.points.map(p => { const rows = p.matrices[mode]?.rows.filter(r => String(r.name) === name) ?? []; return <td key={p.date}>{rows.length > 1 ? "重复名称，查原表" : format(rows[0]?.value)}</td>; })}</tr>)}</tbody></table></div>{names.length > 12 && <button type="button" onClick={() => setExpanded(v => !v)}>{expanded ? "收起子板块" : `展开 ${names.length} 行`}</button>}</> : <p className="rh-empty">这些归档没有所选行业的当日矩阵值，不表示该行业为零。</p>}
+      <p className="rh-muted">单元格标记：未覆盖 = 当日不是重点行业，日报不生成该矩阵；无行 = 已入选但矩阵为空；未报 = 缺当日列；未列 = 当日矩阵有表但无此名称；缺档 = 无当日归档。均不等于零。</p>
+      {names.length ? <><div className="rh-scroll" tabIndex={0} role="region" aria-label="连续子板块矩阵"><table className="rh-table"><thead><tr><th>原日报名称</th>{data.points.map(p => <th key={p.date}>{p.date.slice(5)}</th>)}</tr></thead><tbody>{names.slice(0, expanded ? undefined : 12).map(name => <tr key={name}><th>{name}</th>{data.points.map(p => { const value = matrixCell(p, mode, name); return <td key={p.date} className={p.matrices[mode]?.status === "available" && p.status === "available" ? "" : "gap"}>{value}</td>; })}</tr>)}</tbody></table></div>{names.length > 12 && <button type="button" onClick={() => setExpanded(v => !v)}>{expanded ? "收起子板块" : `展开 ${names.length} 行`}</button>}</> : <p className="rh-empty">这些归档没有所选行业的当日矩阵值，不表示该行业为零。</p>}
       <section className="rh-evidence" aria-label="连续复盘同日证据"><header><div><span className="rh-eyebrow">03 / BACK TO THE SOURCE</span><h3>{chosen ?? "请选择日期"} · 同日依据</h3></div>{chosen && <button type="button" onClick={() => onOpenReport(chosen)}>打开当日完整复盘 <ArrowUpRight size={14}/></button>}</header>
         {!point ? <p>所选日不在当前窗口，日期未被替换。请调整窗口或打开该日归档。</p> : point.status !== "available" ? <p>{point.status === "missing" ? "当日缺少结构化归档" : `当日归档不可读：${point.reason}`}，未用别的日期补位。</p> : <>
           <dl><div><dt>归档来源</dt><dd>{point.provenance?.source_path ?? "未知"}</dd></div><div><dt>报告形成时间</dt><dd>{point.provenance?.generated_at ?? "未知，不按交易日推定"}</dd></div><div><dt>内容 SHA256</dt><dd>{point.provenance?.sha256 ?? "未知"}</dd></div></dl>
           <p className="rh-muted">哈希用于核对版本，不证明来源真实或当时已知。差值只是原字段的算术差；公式历史版本未完整记录。</p>
-          {point.engines?.rows.length ? <div className="rh-scroll"><table className="rh-table"><caption>{data.industry} · 当日发动机原表</caption><thead><tr>{point.engines.columns.map((c, i) => <th key={i}>{c}</th>)}</tr></thead><tbody>{point.engines.rows.map((row, i) => <tr key={i}>{row.map((v, j) => <td key={j}>{format(v)}</td>)}</tr>)}</tbody></table></div> : <p>归档未列出该行业发动机名单，不以其他行业补位。</p>}
+          {point.engines?.rows.length ? <div className="rh-scroll"><table className="rh-table"><caption>{data.industry} · 当日发动机原表</caption><thead><tr>{point.engines.columns.map((c, i) => <th key={i}>{c}</th>)}</tr></thead><tbody>{point.engines.rows.map((row, i) => <tr key={i}>{row.map((v, j) => <td key={j}>{format(v)}</td>)}</tr>)}</tbody></table></div> : <p>{ENGINE_NOTE[point.engines_status ?? "unknown"] ?? "归档未列出该行业发动机名单，不以其他行业补位。"}</p>}
           {(point.engines?.truncated || Object.values(point.matrices).some(m => m.truncated)) && <p>部分表格达到返回行数上限，请打开当日完整复盘核对全部行。</p>}
           {point.warnings.length > 0 && <details><summary>当日报告提示 · {point.warnings.length} 条</summary><ul>{point.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></details>}
         </>}

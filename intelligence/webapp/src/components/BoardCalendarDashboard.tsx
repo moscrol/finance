@@ -8,12 +8,26 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getBoardCalendar } from "../api";
-import type { BoardCalendar, BoardCalendarDay } from "../types";
+import type { BoardCalendar, BoardCalendarDay, BoardCalendarUnresolvedReason } from "../types";
 
 const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
 const DEFAULT_VISIBLE_STOCKS = 8;
 // 超过 5 板（即 ≥6 板）的个股是"高标"，单独用一套色相标注，避免淹没在常规米色筹码里。
 const HIGH_BOARD_THRESHOLD = 5;
+
+const UNRESOLVED_SHORT: Record<BoardCalendarUnresolvedReason, string> = {
+  source_mismatch: "来源切换",
+  quote_day_missing: "行情未入库",
+  no_trade: "停牌/无成交",
+  st_scope: "ST口径",
+  closed_at_limit: "名单疑缺",
+};
+
+const COMPARISON_NOTE: Record<string, string> = {
+  data_missing: "断板未判定：当日或前一交易日名单缺失",
+  source_mismatch: "断板未判定：前后两日名单来源不同，口径不可比",
+  calendar_unknown: "断板未判定：交易日历或覆盖状态未知",
+};
 
 function monthLabel(month: string): string {
   const [year, monthNumber] = month.split("-");
@@ -45,6 +59,7 @@ function weekdayOffset(month: string): number {
 function dayStatus(day: BoardCalendarDay, minBoards: number): string {
   if (day.calendar_status === "closed") return "休市";
   if (day.calendar_status === "future") return "待发生";
+  if (day.calendar_status === "pending") return "今日 · 收盘数据待入库";
   if (day.calendar_status === "market_data_missing") {
     return "交易日 · 市场数据缺失";
   }
@@ -122,12 +137,14 @@ function CalendarDayCell({
   expanded,
   onToggle,
   onOpenLadder,
+  unresolvedReasons,
 }: {
   day: BoardCalendarDay;
   minBoards: number;
   expanded: boolean;
   onToggle: () => void;
   onOpenLadder?: (date: string) => void;
+  unresolvedReasons?: BoardCalendar["unresolved_reasons"];
 }) {
   const isQuietTradingDay =
     day.calendar_status === "trading" &&
@@ -152,6 +169,8 @@ function CalendarDayCell({
         <p className="board-calendar-empty">
           {day.calendar_status === "future"
             ? "尚未发生，不判断行情"
+            : day.calendar_status === "pending"
+              ? "今日数据尚未入库，不是缺档"
             : day.calendar_status === "closed"
               ? "非交易日"
               : day.calendar_status === "market_data_missing"
@@ -169,9 +188,25 @@ function CalendarDayCell({
               <span
                 key={breakStock.stock_ts_code}
                 className="board-calendar-stock board-calendar-stock--break"
-                title={`${breakStock.stock_name} · ${breakStock.stock_ts_code} · 断于 ${breakStock.height_at_break} 板${breakStock.theme ? ` · ${breakStock.theme}` : ""}`}
+                title={`${breakStock.stock_name} · ${breakStock.stock_ts_code} · 断于 ${breakStock.height_at_break} 板${breakStock.theme ? ` · ${breakStock.theme}` : ""}${breakStock.verification === "traded" ? ` · 已核行情：当日有成交未封板${breakStock.close_pct_chg != null ? `，收 ${breakStock.close_pct_chg.toFixed(2)}%` : ""}` : " · 未核个股行情"}`}
               >
-                断 {breakStock.height_at_break}板 {breakStock.stock_name}
+                断 {breakStock.height_at_break}板 {breakStock.stock_name}{breakStock.verification === "unverified" ? " · 未核" : ""}
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {day.calendar_status === "trading" && day.high_board_unresolved?.length ? (
+        <section className="board-calendar-group board-calendar-unresolved-group" aria-label="断板待核">
+          <span className="board-calendar-group-title board-calendar-group-title--unresolved">待核</span>
+          <div className="board-calendar-stocks">
+            {day.high_board_unresolved.map((item) => (
+              <span
+                key={item.stock_ts_code}
+                className="board-calendar-stock board-calendar-stock--unresolved"
+                title={`${item.stock_name} · ${item.stock_ts_code} · 前一交易日 ${item.height_at_break} 板，今日不在名单，但不能判为断板：${unresolvedReasons?.[item.reason] ?? UNRESOLVED_SHORT[item.reason]}`}
+              >
+                {item.height_at_break}板 {item.stock_name} · {UNRESOLVED_SHORT[item.reason] ?? item.reason}
               </span>
             ))}
           </div>
@@ -179,9 +214,7 @@ function CalendarDayCell({
       ) : null}
       {day.calendar_status === "trading" && day.high_board_comparison_status !== "available" && (
         <p className="board-calendar-coverage">
-          {day.high_board_comparison_status === "data_missing"
-            ? "断板未判定：当日或前一交易日名单缺失"
-            : "断板未判定：交易日历或覆盖状态未知"}
+          {COMPARISON_NOTE[day.high_board_comparison_status ?? "calendar_unknown"] ?? COMPARISON_NOTE.calendar_unknown}
         </p>
       )}
       {onOpenLadder && day.calendar_status === "trading" && (
@@ -202,10 +235,17 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
   });
   const [selectedMinBoards, setSelectedMinBoards] = useState<number | null>(null);
   const [calendar, setCalendar] = useState<BoardCalendar | null>(null);
+  const [loadedMonth, setLoadedMonth] = useState<string | null>(null);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(() => new Set());
   const [retryToken, setRetryToken] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Same-date navigation from another page must move the calendar too, not
+  // only the first mount.
+  useEffect(() => {
+    if (focusDate && /^\d{4}-\d{2}/.test(focusDate)) setMonth(focusDate.slice(0, 7));
+  }, [focusDate]);
 
   useEffect(() => {
     let disposed = false;
@@ -216,6 +256,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
       .then((next) => {
         if (disposed) return;
         setCalendar(next);
+        setLoadedMonth(month);
       })
       .catch((caught) => {
         if (!disposed) {
@@ -232,12 +273,16 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
   }, [month, retryToken, selectedMinBoards]);
 
   const minBoards = selectedMinBoards ?? calendar?.min_boards ?? 3;
+  // Only lay out a response that belongs to the month on screen; otherwise the
+  // previous month's days would briefly sit under the new month's weekday offset.
+  const calendarMatchesMonth = calendar !== null && loadedMonth === month;
   const gridDays = useMemo(
-    () => (calendar ? [...Array(weekdayOffset(month)).fill(null), ...calendar.calendar_days] : []),
-    [calendar, month],
+    () => (calendar && calendarMatchesMonth ? [...Array(weekdayOffset(month)).fill(null), ...calendar.calendar_days] : []),
+    [calendar, calendarMatchesMonth, month],
   );
   const tradingCount = calendar?.trading_days.length ?? 0;
   const comparableCount = calendar?.trading_days.filter(day => day.high_board_comparison_status === "available").length ?? 0;
+  const unresolvedCount = calendar?.high_board_unresolved?.length ?? 0;
   const populatedCount = calendar?.trading_days.filter((day) => day.stock_count > 0).length ?? 0;
 
   const toggleExpanded = (date: string) => {
@@ -318,7 +363,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
           </button>
         </div>
       )}
-      {!loading && calendar && (
+      {!loading && calendar && calendarMatchesMonth && (
         <>
           <section className={`board-calendar-notice ${calendar.status}`}>
             {calendar.status === "partial" ? <AlertTriangle aria-hidden="true" size={15} /> : <CircleHelp aria-hidden="true" size={15} />}
@@ -335,6 +380,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
           </section>
           <p className="board-calendar-coverage" role="status">
             断板可比较 {comparableCount} / {tradingCount} 个有市场数据的交易日。
+            {unresolvedCount > 0 && `另有 ${unresolvedCount} 只高标离开名单但不能判为断板（停牌、ST口径、来源切换或名单疑缺），标为“待核”。`}
             仅基于已入库涨停名单；缺口不计为零，名单有记录不代表已验证完整。窄屏可横向滚动日历。
           </p>
           <div className="board-calendar-grid-scroll" tabIndex={0} role="region" aria-label="可横向滚动的连板日历">
@@ -352,6 +398,7 @@ export function BoardCalendarDashboard({ focusDate, onOpenLadder }: {
                     expanded={expandedDates.has(day.date)}
                     onToggle={() => toggleExpanded(day.date)}
                     onOpenLadder={onOpenLadder}
+                    unresolvedReasons={calendar.unresolved_reasons}
                     key={day.date}
                   />
                 ) : (

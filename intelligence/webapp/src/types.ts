@@ -437,6 +437,9 @@ export interface BoardCalendarHighBoardBreak {
   /** 断板前一日的连板数（即这只高标断于几板）。 */
   height_at_break: number;
   theme: string | null;
+  /** traded = 当日有成交且未封涨停（已核行情）；unverified = 无个股行情表可核。 */
+  verification?: "traded" | "unverified";
+  close_pct_chg?: number | null;
 }
 
 export type BoardCalendarStatus =
@@ -444,7 +447,19 @@ export type BoardCalendarStatus =
   | "closed"
   | "future"
   | "market_data_missing"
-  | "calendar_unknown";
+  | "calendar_unknown"
+  | "pending";
+
+export type BoardCalendarUnresolvedReason =
+  | "source_mismatch"
+  | "quote_day_missing"
+  | "no_trade"
+  | "st_scope"
+  | "closed_at_limit";
+
+export interface BoardCalendarUnresolvedBreak extends BoardCalendarHighBoardBreak {
+  reason: BoardCalendarUnresolvedReason;
+}
 
 export interface BoardCalendarDay {
   date: string;
@@ -456,11 +471,13 @@ export interface BoardCalendarDay {
     | "board_data_missing"
     | "not_applicable"
     | "market_data_missing"
-    | "calendar_unknown";
+    | "calendar_unknown"
+    | "pending";
   board_groups: BoardCalendarGroup[];
   stock_count: number;
-  high_board_comparison_status?: "available" | "data_missing" | "calendar_unknown" | "not_applicable";
+  high_board_comparison_status?: "available" | "data_missing" | "calendar_unknown" | "not_applicable" | "source_mismatch" | "pending";
   high_board_breaks?: BoardCalendarHighBoardBreak[];
+  high_board_unresolved?: BoardCalendarUnresolvedBreak[];
 }
 
 export interface BoardCalendar {
@@ -475,6 +492,8 @@ export interface BoardCalendar {
   calendar_days: BoardCalendarDay[];
   trading_days: BoardCalendarDay[];
   high_board_breaks?: BoardCalendarHighBoardBreak[];
+  high_board_unresolved?: BoardCalendarUnresolvedBreak[];
+  unresolved_reasons?: Partial<Record<BoardCalendarUnresolvedReason, string>>;
   high_board_min?: number;
 }
 

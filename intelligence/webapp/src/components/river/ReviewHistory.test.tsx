@@ -51,3 +51,22 @@ it("exports the same structured response with its gaps and provenance", async ()
   const text = await new Promise<string>(resolve => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsText(create.mock.calls[0][0] as Blob); });
   expect(JSON.parse(text)).toEqual({ ...fixture(), selected_date: "2026-09-24" });
 });
+it("marks why a matrix or engine table is absent instead of a bare dash", async () => {
+  const data = fixture("计算机");
+  const [missing, available] = data.points;
+  data.points = [
+    { ...missing, date: "2026-09-22" },
+    { ...available, date: "2026-09-23", engines_status: "not_in_scope", industry_status: "not_in_list", industry_rank: null,
+      matrices: { double_red: { status: "not_in_scope", rows: [], truncated: false } } },
+    { ...available, date: "2026-09-24", engines_status: "empty",
+      matrices: { double_red: { status: "available", rows: [{ name: "芯片", value: "1.0%" }], truncated: false } } },
+  ];
+  data.coverage = { available: 2, total: 3 };
+  vi.stubGlobal("fetch", vi.fn(async () => response({ ...data, start: "2026-09-22" })));
+  render(<ReviewHistory {...props} initialEnd="2026-09-24" selectedDate="2026-09-24"/>);
+  const row = (await screen.findByText("芯片", { selector: "th" })).closest("tr")!;
+  expect([...row.querySelectorAll("td")].map(td => td.textContent)).toEqual(["缺档", "未覆盖", "1.0%"]);
+  expect(screen.getByText("列入但暂无")).toBeInTheDocument();
+  expect(screen.getAllByText("未覆盖")).toHaveLength(2); // matrix cell + engine row
+  expect(screen.getByText(/列入前三但归档写明暂无可排序个股/)).toBeVisible();
+});

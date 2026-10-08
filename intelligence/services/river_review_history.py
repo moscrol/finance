@@ -56,8 +56,20 @@ def _sessions(end: date, count: int) -> tuple[list[date], bool]:
 
 
 def _matrix_day(report: dict, mode: str, industry: str, day: str) -> dict:
+    """The selected industry's own-day column, with *why* it may be absent.
+
+    The generator only builds sub-sector matrices for ``facts.focus_sw_l1``;
+    an industry outside that list has no matrix by design (``not_in_scope``),
+    which is different from a listed industry whose matrix has no rows
+    (``empty``) or whose matrix lacks this day's column (``not_reported``).
+    """
+    focus = report["facts"].get("focus_sw_l1") or []
     matches = [m for m in report["matrices"][mode] if m["industry"] == industry]
     matrix = matches[0] if len(matches) == 1 else None
+    if industry not in focus and (not matrix or not matrix["rows"]):
+        return {"status": "not_in_scope", "rows": [], "truncated": False, "total_rows": 0}
+    if matrix and not matrix["rows"] and len(matches) == 1:
+        return {"status": "empty", "rows": [], "truncated": False, "total_rows": 0}
     if not matrix or day not in matrix["dates"]:
         return {"status": "not_reported", "rows": [], "truncated": False}
     column = matrix["dates"].index(day) + 1
@@ -114,7 +126,7 @@ def review_history(exports: Path, *, end: date | None = None, days: int = 20, in
             "date": day, "status": "unavailable" if day in failures else snapshot.get("status", "missing"),
             "reason": failures.get(day), "provenance": snapshot.get("provenance"),
             "metrics": {}, "deltas": {}, "top_industries": [], "industry_rank": None,
-            "industry_status": "unknown", "engines": None, "matrices": {},
+            "industry_status": "unknown", "engines": None, "engines_status": "unknown", "matrices": {},
             "warnings": [], "comparison_date": None,
             "detail_url": f"/api/river/daily-review?as_of={day}",
         }
@@ -137,6 +149,15 @@ def review_history(exports: Path, *, end: date | None = None, days: int = 20, in
                 e = engines[0]
                 point["engines"] = {"columns": e["columns"], "rows": e["rows"][:ROW_LIMIT],
                                     "truncated": len(e["rows"]) > ROW_LIMIT, "total_rows": len(e["rows"])}
+                point["engines_status"] = "available"
+            elif chosen in report.get("engine_empty_industries", []):
+                point["engines_status"] = "empty"  # listed, but the report had no sortable stocks
+            elif point["industry_status"] == "not_in_list":
+                point["engines_status"] = "not_in_scope"  # engine tables only cover the top-3 industries
+            elif point["industry_status"] == "ranked":
+                point["engines_status"] = "not_reported"
+            else:
+                point["engines_status"] = "unknown"
             point["warnings"] = report["warnings"] + report["diagnostics"]
             idx = sessions.index(session)
             previous = sessions[idx - 1].isoformat() if idx > 0 else None

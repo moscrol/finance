@@ -260,3 +260,38 @@ def test_history_human_agent_contract_is_lossless_and_explicit(tmp_path):
     assert "not_in_list" in contract["missing_semantics"]
     assert "truncated" in contract["missing_semantics"]
     assert "evidence_contract" in json.loads(json.dumps(result, ensure_ascii=False))
+
+
+def test_history_separates_why_evidence_is_absent(tmp_path):
+    """入选范围外 / 入选但为空 / 有值 三种情况分开表达，不都变成“未列出”。"""
+    from intelligence.services.river_review_history import review_history
+    data = payload()
+    data["facts"]["top_amount_sw_l1"] = ["电子", "计算机"]
+    engines = data["sections"][3]["blocks"]
+    engines += [{"kind": "heading", "text": "计算机"}, {"kind": "text", "text": "当日暂无可排序的行业个股发动机。"}]
+    write(tmp_path, data)
+
+    def last(industry):
+        return review_history(tmp_path, end=date(2026, 9, 24), days=5, industry=industry)["points"][-1]
+
+    electronics = last("电子")
+    assert electronics["engines_status"] == "available"
+    assert electronics["matrices"]["double_red"]["status"] == "available"
+    assert electronics["matrices"]["stock_highs"]["status"] == "empty"  # focus industry, report wrote "没有映射"
+
+    computers = last("计算机")
+    assert computers["industry_status"] == "ranked"
+    assert computers["engines"] is None
+    assert computers["engines_status"] == "empty"  # listed in top-3 but no sortable stocks
+    assert computers["matrices"]["double_red"]["status"] == "not_in_scope"  # not a focus industry
+
+    machinery = last("机械设备")
+    assert machinery["industry_status"] == "not_in_list"
+    assert machinery["engines_status"] == "not_in_scope"
+    assert machinery["matrices"]["double_red"]["status"] == "empty"
+
+    contract = review_history(tmp_path, end=date(2026, 9, 24), days=5)["evidence_contract"]
+    assert {"not_in_scope", "empty"} <= set(contract["missing_semantics"])
+    assert "selection_bias" in contract
+    assert all("selection" in g for g in contract["groups"] if g["id"] in {"subsector", "engines"})
+    assert any("代码" in key for key in contract["join_keys"])

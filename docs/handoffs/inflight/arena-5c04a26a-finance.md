@@ -1,0 +1,46 @@
+# arena/5c04a26a-finance 在途交接（质检后续优化）
+
+基线：快进合入 `arena/a3bfea49-finance@d340e3a6`（连板日历修复 + 连续复盘 + 人/Agent证据合同），在其上按质检结论推进。未合并到 main、未部署。
+
+## 本轮改了什么
+
+### 连板日历：离开名单 ≠ 断板
+- `board_calendar.py`：断板先算“候选”（前一计划交易日 ≥5 板、当日不在名单），再按个股行情 `fact_stock_daily` 核验：
+  - 当日有成交、收盘低于涨停价 → 断板，`verification="traded"`，附 `close_pct_chg`；
+  - 当日无成交行/成交额 ≤0 → `no_trade`（停牌或缺行情）；
+  - 名称含 ST → `st_scope`（本地名单规则不纳入 ST）；
+  - 收盘仍在涨停价 → `closed_at_limit`（名单疑缺，是“名单完整性”的直接信号）；
+  - 当日个股行情整体未入库 → `quote_day_missing`；
+  - 无行情表的库：保留断板但标 `verification="unverified"`。
+  以上不能确认的进入 `high_board_unresolved`（逐日 + 汇总），不计入断板数。
+- 前后两日名单 `source` 集合不同 → `high_board_comparison_status="source_mismatch"`，候选全部记为 `source_mismatch` 待核，月度状态 `partial`。
+- 今天是计划交易日但收盘未入库 → `calendar_status="pending"`，不再显示“市场数据缺失”，也不把整月打成 `partial`。
+- 前端：断板芯片区分“已核行情/未核”；新增“待核”虚线芯片（原因短标 + 完整原因 title）；摘要写明待核数量；`pending` 独立样式与文案；跨页面带新日期进入时月份跟随；切换月份时不再用新月份的星期偏移排旧月份的格子。
+
+### 时间记忆长河（实际入口 RiverHome → `river/RiverWorkbench.tsx`）
+- 历史日不在窗口返回数据中时保留所选日并显式提示，不再静默跳到最新日（`DailyRiverDashboard` 也去掉了“找不到就显示第一天”的回退）。
+- 刷新同时重取六轨：自定义窗口下不再只刷新日期目录（effect 依赖改为 start/end 值 + 刷新令牌）。
+- 板块候选菜单按所选历史日重新排序（`/api/river/entities?q=&as_of=`），不借用最新日热门名单；读取失败明示。
+- K 线底座失败、六轨失败、目录失败均有原地重试和说明。
+
+### 连续复盘：为什么没有数据要说清楚
+- 矩阵逐日状态：`available` / `empty`（入选但无行）/ `not_in_scope`（当日非重点行业，日报按设计不生成）/ `not_reported`。
+- 发动机新增 `engines_status`：`available` / `empty`（进了前三但原日报写“暂无可排序个股”）/ `not_in_scope`（不在前三）/ `not_reported` / `unknown`。
+- 合同 `review-evidence/v1` 补充：各组 `selection`（入选条件）、`selection_bias`、发动机以“代码”列为跨日对齐键、`not_in_scope`/`empty` 缺失语义。
+- 页面矩阵单元格区分 缺档 / 未覆盖 / 无行 / 未报 / 未列 / 截断外，不再统一显示“—”。
+
+### 发布一致性
+- `intelligence/api/static` 已从当前源码重建（含连续复盘与待核 UI），与新构建逐字节一致。
+- CI 新增“committed static 与源码构建一致”检查。
+- `serve_review_evidence_fixture.py` 改用 `setattr` 覆盖 STATIC_DIR，修复字段契约门禁误报（该门禁在 d340e3a6 上即失败）。
+
+## 已验证（本沙箱，Python 3.11 + requirements-dev.lock，FWP_ALLOW_ANY_PYTHON=1）
+- 后端：日历 + 日报复盘 + Workbench API + 交易日：220 passed；全仓 Ruff 通过。
+- 前端：25 文件 237 passed；tsc、ESLint、vite build 通过。
+- 新测试先在旧代码上确认失败（六轨日期漂移、自定义窗口刷新），再在新代码上通过。
+- 门禁脚本：check_path_literals / check_regex_routes / check_unread_fields 通过。
+
+## 未验证 / 仍欠
+- Playwright 两组专项未在本沙箱运行（无法下载 Chromium）；日历 e2e 夹具无 `fact_stock_daily`，断板芯片会带“· 未核”后缀（子串断言仍应通过），待 CI 实跑确认。
+- 真实行情库只读抽样：重点核 `closed_at_limit`（供应商名单缺漏）、`source_mismatch` 频率、停牌高标。
+- 远端 CI、正式门禁、部署与回滚；Workbench Agent 实际消费证据合同；归档版本留存；长河观察记录服务端持久化。

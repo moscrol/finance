@@ -260,4 +260,58 @@ describe("BoardCalendarDashboard", () => {
     expect(screen.getByLabelText("选择月份")).toHaveValue("2026-09");
   });
 
+
+  it("shows list exits that cannot be called breaks as 待核, with the reason", async () => {
+    const payload = calendarFor("2026-09", 3);
+    const day = payload.calendar_days[0];
+    day.high_board_comparison_status = "available";
+    day.high_board_breaks = [
+      { date: day.date, stock_ts_code: "600001.SH", stock_name: "真断", height_at_break: 6, theme: null, verification: "traded", close_pct_chg: 4.2 },
+    ];
+    day.high_board_unresolved = [
+      { date: day.date, stock_ts_code: "600002.SH", stock_name: "停牌股", height_at_break: 7, theme: null, reason: "no_trade" },
+      { date: day.date, stock_ts_code: "600004.SH", stock_name: "漏名单", height_at_break: 6, theme: null, reason: "closed_at_limit" },
+    ];
+    payload.high_board_breaks = day.high_board_breaks;
+    payload.high_board_unresolved = day.high_board_unresolved;
+    payload.unresolved_reasons = { no_trade: "当日无成交行情（停牌或行情缺失），停牌不等于断板" };
+    mockedGetBoardCalendar.mockResolvedValue(payload);
+    render(<BoardCalendarDashboard focusDate="2026-09-24" />);
+
+    const cell = within(await screen.findByRole("article", { name: day.date }));
+    expect(cell.getByText("断 6板 真断")).toHaveAttribute("title", expect.stringContaining("已核行情"));
+    expect(cell.getByText("待核")).toHaveClass("board-calendar-group-title--unresolved");
+    const suspended = cell.getByText("7板 停牌股 · 停牌/无成交");
+    expect(suspended).toHaveClass("board-calendar-stock--unresolved");
+    expect(suspended).toHaveAttribute("title", expect.stringContaining("停牌不等于断板"));
+    expect(cell.getByText("6板 漏名单 · 名单疑缺")).toBeVisible();
+    expect(screen.getByLabelText("日历摘要")).toHaveTextContent("1次");
+    expect(screen.getByText(/另有 2 只高标离开名单但不能判为断板/)).toBeVisible();
+  });
+
+  it("labels a source switch and today's not-yet-ingested close distinctly", async () => {
+    const payload = calendarFor("2026-09", 3);
+    payload.calendar_days[0].high_board_comparison_status = "source_mismatch";
+    const today: BoardCalendarDay = {
+      date: "2026-09-28", weekday: 0, is_trading_day: false, calendar_status: "pending", data_status: "pending",
+      board_groups: [], stock_count: 0, high_board_breaks: [], high_board_comparison_status: "pending",
+    };
+    payload.calendar_days = [...payload.calendar_days, today];
+    mockedGetBoardCalendar.mockResolvedValue(payload);
+    render(<BoardCalendarDashboard focusDate="2026-09-24" />);
+
+    expect(await screen.findByText("断板未判定：前后两日名单来源不同，口径不可比")).toBeVisible();
+    const pending = within(screen.getByRole("article", { name: "2026-09-28" }));
+    expect(pending.getByText("今日 · 收盘数据待入库")).toBeVisible();
+    expect(pending.getByText("今日数据尚未入库，不是缺档")).toBeVisible();
+    expect(screen.getByRole("article", { name: "2026-09-28" })).toHaveClass("pending");
+  });
+
+  it("follows a later same-date navigation to another month", async () => {
+    const { rerender } = render(<BoardCalendarDashboard focusDate="2026-08-24" />);
+    await screen.findByRole("article", { name: "2026-08-24" });
+    rerender(<BoardCalendarDashboard focusDate="2026-09-24" />);
+    expect(await screen.findByRole("article", { name: "2026-09-24" })).toBeVisible();
+    expect(mockedGetBoardCalendar).toHaveBeenLastCalledWith("2026-09", undefined);
+  });
 });
