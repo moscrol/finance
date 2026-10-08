@@ -22,11 +22,23 @@ import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from contextvars import copy_context
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
 
 from intelligence.services.research_contract import ResearchDeadline
 
+if TYPE_CHECKING:
+    from intelligence.services.ask_blocks import MainlineContextSnapshot
+
 DEFAULT_MAX_WORKERS = 6
+
+
+@dataclass(frozen=True)
+class CollectedBlock:
+    """An ephemeral read product; legacy providers may still return two-tuples."""
+
+    block: str
+    citation: Any
+    mainline_snapshot: MainlineContextSnapshot | None = None
 
 
 @dataclass
@@ -35,7 +47,7 @@ class BlockTask:
 
     tag: str
     label: str
-    build: Callable[[], tuple[str, Any]]
+    build: Callable[[], tuple[str, Any] | CollectedBlock]
 
 
 @dataclass
@@ -50,7 +62,7 @@ class DataBlockProvider:
     name: str
     label: str
     applies: Callable[[], bool]
-    collect: Callable[[], tuple[str, Any]]
+    collect: Callable[[], tuple[str, Any] | CollectedBlock]
 
 
 @dataclass
@@ -61,6 +73,7 @@ class BlockOutcome:
     citation: Any = None
     error: str = ""
     elapsed_ms: int = 0
+    mainline_snapshot: MainlineContextSnapshot | None = None
 
 
 def _run_one(
@@ -75,13 +88,19 @@ def _run_one(
             error="ResearchDeadlineExceeded",
         )
     try:
-        block, citation = task.build()
+        collected = task.build()
+        if isinstance(collected, CollectedBlock):
+            block, citation, snapshot = collected.block, collected.citation, collected.mainline_snapshot
+        else:
+            block, citation = collected
+            snapshot = None
         return BlockOutcome(
             tag=task.tag,
             label=task.label,
             block=block or "",
             citation=citation,
             elapsed_ms=int((time.monotonic() - started) * 1000),
+            mainline_snapshot=snapshot,
         )
     except Exception as exc:  # 单块失败只降级，不拖垮整问
         return BlockOutcome(

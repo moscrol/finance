@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextvars
+import hashlib
 import inspect
 import json
 import os
@@ -13,6 +14,7 @@ from concurrent.futures import (
     TimeoutError as FuturesTimeoutError,
 )
 from dataclasses import asdict, dataclass, replace
+from datetime import date
 from pathlib import Path
 from threading import Event, Lock, Thread
 from typing import Protocol
@@ -124,6 +126,7 @@ from intelligence.services.lane_generation import (
 )
 from intelligence.services import perspective_lab
 from intelligence.services.query_understanding import (
+    QueryEnvelope,
     envelope_from_task_frame,
     project_task_frame,
     understand_query,
@@ -170,6 +173,8 @@ from intelligence.services.conversation_materials import (
 )
 from intelligence.services.material_contract import compile_material_contract
 from intelligence.services.user_task import requests_frozen_previous_answer, split_user_message
+from intelligence.services.temporal_contract import TemporalContract, compile_temporal_contract, message_digest
+from intelligence.services.task_frame import pin_temporal_contract
 from intelligence import userspace
 from intelligence.workbench_skills.contracts import (
     SkillExecutionContext,
@@ -1684,6 +1689,205 @@ def build_conversation_context(
     )
 
 
+def _temporal_contract_digest(contract: TemporalContract) -> str:
+    payload = json.dumps(contract.to_dict(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _temporal_continuation_requested(
+    query: str, envelope: QueryEnvelope, previous_intent: TurnIntent | None,
+) -> bool:
+    """Use the existing source-aware follow-up rules at every temporal seam."""
+    return is_contextual_follow_up(query, envelope, previous_intent) or inherit_history_followup(
+        query, previous_intent.history_intent if previous_intent is not None else None,
+    ) is not None
+
+
+def record_temporal_compilation(
+    run_store: RunStore, *, run_id: str, source: Message,
+    today: date, temporal_contract: TemporalContract,
+) -> None:
+    """Record code-owned compilation proof in the existing private run trace.
+
+    Deliberately bypass the streaming trace wrapper: the execution day and
+    provenance belong to recovery/audit, not public model or UI event payloads.
+    """
+    run = run_store.load_run(run_id)
+    if (source.role != "user" or source.status != "completed" or source.run_id != run_id
+            or source.conversation_id != run.session_id):
+        raise ValueError("temporal compilation requires the original run user")
+    run_store.append_step(
+        run_id, step_id="temporal_intent", name="temporal_compilation", status="completed",
+        output_summary=json.dumps({
+            "schema_version": 1, "runtime_today": today.isoformat(), "run_id": run_id,
+            "conversation_id": source.conversation_id, "source_message_id": source.message_id,
+            "source_message_sha256": message_digest(source.content),
+            "temporal_contract_sha256": _temporal_contract_digest(temporal_contract),
+        }, ensure_ascii=False),
+    )
+
+
+def _temporal_compilation_anchor(
+    run_store: RunStore, source: Message, *, today: date,
+) -> tuple[date, str] | None:
+    steps = [step for step in run_store.load_trace(source.run_id)
+             if step.get("name") == "temporal_compilation" or step.get("step_id") == "temporal_intent"]
+    if not steps:
+        return None
+    if (len(steps) != 1 or steps[0].get("name") != "temporal_compilation"
+            or steps[0].get("step_id") != "temporal_intent" or steps[0].get("status") != "completed"):
+        raise ValueError("ambiguous temporal compilation proof")
+    payload = json.loads(steps[0]["output_summary"])
+    keys = {"schema_version", "runtime_today", "run_id", "conversation_id", "source_message_id",
+            "source_message_sha256", "temporal_contract_sha256"}
+    if (not isinstance(payload, dict) or set(payload) != keys
+            or type(payload["schema_version"]) is not int or payload["schema_version"] != 1
+            or payload["run_id"] != source.run_id or payload["conversation_id"] != source.conversation_id
+            or payload["source_message_id"] != source.message_id
+            or payload["source_message_sha256"] != message_digest(source.content)
+            or not isinstance(payload["temporal_contract_sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", payload["temporal_contract_sha256"]) is None):
+        raise ValueError("invalid temporal compilation binding")
+    anchor = date.fromisoformat(payload["runtime_today"])
+    if anchor.isoformat() != payload["runtime_today"] or anchor > today:
+        raise ValueError("invalid temporal compilation day")
+    return anchor, payload["temporal_contract_sha256"]
+
+
+def _recover_temporal_authority(
+    intent: TurnIntent | None, prior_message: Message | None,
+    messages: Sequence[Message], *, today: date, run_store: RunStore,
+    visited: frozenset[str] = frozenset(),
+) -> TemporalContract | None:
+    """Recover only complete users linked by bounded prior-turn/run pointers."""
+    if intent is None or prior_message is None or prior_message.message_id in visited:
+        return None
+    try:
+        prior_run = run_store.load_run(prior_message.run_id)
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+    if prior_run.session_id != prior_message.conversation_id:
+        return None
+    visited = visited | {prior_message.message_id}
+    users = [m for m in messages if m.role == "user" and m.status == "completed"
+             and m.conversation_id == prior_message.conversation_id]
+    records = [m for m in users if m.run_id == prior_message.run_id]
+    if len(records) != 1:
+        return None
+    try:
+        compilation = _temporal_compilation_anchor(run_store, records[0], today=today)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        return None
+
+    def original_contract(
+        record: Message, *, previous: TemporalContract | None = None, continuing: bool = False,
+    ) -> TemporalContract | None:
+        if compilation is None:
+            from intelligence.services.temporal_contract import compile_static_temporal_contract
+
+            return compile_static_temporal_contract(record.content, message_id=record.message_id,
+                                                    previous=previous, continuing=continuing)
+        return compile_temporal_contract(record.content, today=compilation[0], message_id=record.message_id,
+                                         previous=previous, continuing=continuing)
+
+    parent_message = None
+    parent_intent = None
+    if intent.inherited_from_turn is not None:
+        parents = [m for m in messages if m.message_id == intent.inherited_from_turn
+                   and m.role == "assistant" and m.status == "completed"
+                   and m.conversation_id == prior_message.conversation_id]
+        if len(parents) != 1 or prior_run.parent_run_id != parents[0].run_id:
+            return None
+        parent_message = parents[0]
+        try:
+            parent_intent = TurnIntent.from_dict(parent_message.turn_intent)
+        except ValueError:
+            return None
+    elif prior_run.parent_run_id is not None:
+        parents = [m for m in messages if m.run_id == prior_run.parent_run_id
+                   and m.role == "assistant" and m.status == "completed"
+                   and m.conversation_id == prior_message.conversation_id]
+        if len(parents) == 1:
+            try:
+                candidate_intent = TurnIntent.from_dict(parents[0].turn_intent)
+            except ValueError:
+                candidate_intent = None
+            provisional = original_contract(records[0])
+            if provisional is not None and _temporal_continuation_requested(
+                records[0].content,
+                understand_query(records[0].content, today=today, temporal_contract=provisional),
+                candidate_intent,
+            ):
+                parent_message, parent_intent = parents[0], candidate_intent
+    previous = _recover_temporal_authority(
+        parent_intent, parent_message, messages, today=today, run_store=run_store, visited=visited,
+    )
+    effective = original_contract(records[0], previous=previous,
+                                  continuing=parent_message is not None)
+    if effective is None or effective.errors:
+        return None
+    if compilation is not None and _temporal_contract_digest(effective) != compilation[1]:
+        return None
+    temporal = intent.temporal_contract
+    if temporal is not None:
+        proven_sources = [effective.cutoff_source]
+        if effective.market_target is not None:
+            proven_sources.append(effective.market_target.source)
+        if previous is not None:
+            proven_sources.append(previous.cutoff_source)
+            if previous.market_target is not None:
+                proven_sources.append(previous.market_target.source)
+        sources = [temporal.cutoff_source]
+        if temporal.market_target is not None:
+            sources.append(temporal.market_target.source)
+        for source in sources:
+            if source is None:
+                continue
+            if source not in proven_sources:
+                return None
+            matching = [m for m in users if m.message_id == source.message_id]
+            if (len(matching) != 1 or matching[0].content != source.excerpt
+                    or message_digest(matching[0].content) != source.message_sha256):
+                return None
+            if source == temporal.cutoff_source:
+                original = (
+                    effective if source == effective.cutoff_source
+                    else previous if previous is not None and source == previous.cutoff_source
+                    else None
+                )
+            else:
+                original = (
+                    effective if effective.market_target is not None and source == effective.market_target.source
+                    else previous if previous is not None and previous.market_target is not None
+                    and source == previous.market_target.source else None
+                )
+            if original is None or original.errors:
+                return None
+            if source == temporal.cutoff_source and (
+                original.information_cutoff is None
+                or temporal.information_cutoff > original.information_cutoff
+            ):
+                return None
+            if temporal.market_target is not None and source == temporal.market_target.source and (
+                original.market_target is None
+                or (original.market_target.start, original.market_target.end)
+                != (temporal.market_target.start, temporal.market_target.end)
+            ):
+                return None
+        if temporal.cutoff_origin == "none" and effective.information_cutoff is not None:
+            return None
+        # Membership in the chain proves provenance, not that an older permit
+        # is still effective. Replay each complete user in order so a newer
+        # tightening or relaxation supersedes the ancestor it refers to.
+        if (temporal.information_cutoff != effective.information_cutoff
+                or temporal.cutoff_source != effective.cutoff_source
+                or temporal.relative_anchor_sha256 != effective.relative_anchor_sha256
+                or temporal.market_target != effective.market_target):
+            return effective
+        return temporal
+    return replace(effective, cutoff_origin="legacy_user") if effective.information_cutoff else effective
+
+
 def contextualize_follow_up_query(
     query: str,
     context: ConversationContext,
@@ -1715,7 +1919,15 @@ def previous_turn_intent(
 
 def previous_turn_message(context: ConversationContext) -> Message | None:
     for message in reversed(context.recent_messages):
-        intent = TurnIntent.from_dict(message.turn_intent)
+        try:
+            intent = TurnIntent.from_dict(message.turn_intent)
+        except ValueError:
+            # Preserve the nearest broken persisted permit for the entry's
+            # explicit recovery/clarification boundary; never skip to an older
+            # permissive assistant record.
+            if message.role == "assistant" and message.turn_intent is not None:
+                return message
+            raise
         if intent is not None:
             return message
     return None
@@ -2033,6 +2245,19 @@ class TurnOrchestrator:
         try:
             conversation = self.conversation_store.load_conversation(conversation_id)
             conversation_messages = self.conversation_store.load_messages(conversation_id)
+            current_run = self.run_store.load_run(run_id)
+            runtime_today = date.today()
+            current_users = [m for m in conversation_messages if m.role == "user" and m.run_id == run_id
+                             and m.conversation_id == conversation_id]
+            current_temporal = compile_temporal_contract(
+                query, today=runtime_today,
+                message_id=current_users[0].message_id if len(current_users) == 1 else None,
+            )
+            if (len(current_users) != 1 or current_users[0].content != query
+                    or current_run.session_id != conversation_id):
+                current_temporal = replace(current_temporal, errors=(
+                    *current_temporal.errors, "本轮完整用户消息身份无法核对，请重新提交时间授权",
+                ))
             context = build_conversation_context(
                 conversation,
                 conversation_messages,
@@ -2045,21 +2270,42 @@ class TurnOrchestrator:
             self.conversation_store.update_summary_text(
                 conversation_id, context.summary
             )
-            self._maybe_ingest_workbench_correction(
-                context=context,
-                query=query,
-                conversation_id=conversation_id,
-                run_id=run_id,
-                assistant_message_id=assistant_message_id,
-                warnings=warnings,
-                deadline=research_deadline,
-            )
+            if not current_temporal.errors:
+                self._maybe_ingest_workbench_correction(
+                    context=context, query=query, conversation_id=conversation_id,
+                    run_id=run_id, assistant_message_id=assistant_message_id,
+                    warnings=warnings, deadline=research_deadline,
+                )
             inherited_message = previous_turn_message(context)
-            inherited_intent = (
-                TurnIntent.from_dict(inherited_message.turn_intent)
-                if inherited_message is not None
-                else None
+            prior_temporal_invalid = False
+            try:
+                inherited_intent = TurnIntent.from_dict(inherited_message.turn_intent) if inherited_message is not None else None
+            except ValueError:
+                # A present broken schema is never treated as an absent permit.
+                # The current user can still issue a fresh explicit permission.
+                prior_temporal_invalid = True
+                old_payload = dict(inherited_message.turn_intent or {})
+                old_payload.pop("temporal_contract", None)
+                old_payload.pop("pending_task_frame", None)
+                inherited_intent = TurnIntent.from_dict(old_payload)
+            prior_run_verified = bool(inherited_message is not None
+                                      and inherited_message.run_id == current_run.parent_run_id)
+            previous_temporal = None if prior_temporal_invalid or not prior_run_verified else _recover_temporal_authority(
+                inherited_intent, inherited_message, context.material_messages or (), today=runtime_today,
+                run_store=self.run_store,
             )
+            if inherited_intent is not None:
+                inherited_intent = replace(inherited_intent, temporal_contract=previous_temporal)
+            current_continuing = _temporal_continuation_requested(
+                query, understand_query(query, today=runtime_today, temporal_contract=current_temporal),
+                inherited_intent,
+            )
+            if (len(current_users) == 1 and current_users[0].content == query
+                    and current_run.session_id == conversation_id):
+                current_temporal = compile_temporal_contract(
+                    query, today=runtime_today, message_id=current_users[0].message_id,
+                    previous=previous_temporal, continuing=current_continuing,
+                )
             inherited_turn_id = (
                 inherited_message.message_id if inherited_message is not None else None
             )
@@ -2161,8 +2407,19 @@ class TurnOrchestrator:
             )
             if self._uses_default_turn_controller:
                 controller_options["deadline"] = research_deadline
+            try:
+                parameters = inspect.signature(self.turn_controller).parameters.values()
+            except (TypeError, ValueError):
+                parameters = ()
+            for name, value in (("today", runtime_today), ("temporal_contract", current_temporal)):
+                if self._uses_default_turn_controller or any(
+                    p.kind is inspect.Parameter.VAR_KEYWORD or (p.name == name and p.kind in {
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY,
+                    }) for p in parameters
+                ):
+                    controller_options[name] = value
             controller_started = time.monotonic()
-            decision = self.turn_controller(
+            decision = decide_turn(query, today=runtime_today, temporal_contract=current_temporal) if current_temporal.errors else self.turn_controller(
                 query,
                 context=controller_context,
                 skill_mode=skill_mode,
@@ -2192,13 +2449,14 @@ class TurnOrchestrator:
                     inherited_subject=(
                         inherited_intent.primary_subject
                         if inherited_intent is not None
-                        and is_contextual_follow_up(
+                        and _temporal_continuation_requested(
                             query,
                             legacy_envelope,
                             inherited_intent,
                         )
                         else None
                     ),
+                    today=runtime_today, temporal_contract=current_temporal,
                 )
                 raw_envelope = project_task_frame(task_frame, legacy_envelope)
             else:
@@ -2209,6 +2467,7 @@ class TurnOrchestrator:
                 decision = decide_turn(
                     query, conversation_materials=material_history,
                     previous_intent=inherited_intent, previous_turn_id=inherited_turn_id,
+                    today=runtime_today, temporal_contract=current_temporal,
                 )
                 task_frame = decision.task_frame
                 assert task_frame is not None
@@ -2239,6 +2498,28 @@ class TurnOrchestrator:
                 previous_turn_id=inherited_turn_id,
                 task_frame=task_frame,
             )
+            # A missing continuation field in an injected/legacy decision is
+            # not permission to widen a real top-level user follow-up. Reuse
+            # the established source-aware predicate on the original query,
+            # never on the controller's rewritten goal or timeframe.
+            user_follow_up = _temporal_continuation_requested(
+                query, understand_query(query, today=runtime_today, temporal_contract=current_temporal),
+                inherited_intent,
+            )
+            if user_follow_up and turn_intent.inherited_from_turn is None:
+                turn_intent = replace(turn_intent, inherited_from_turn=inherited_turn_id)
+            # Domain inheritance from a controller does not grant a temporal
+            # continuation. Only the original user source can declare one.
+            continuing = user_follow_up
+            previous_verified = (inherited_turn_id is not None
+                                 and turn_intent.inherited_from_turn == inherited_turn_id and prior_run_verified)
+            temporal = compile_temporal_contract(
+                query, today=runtime_today,
+                message_id=current_users[0].message_id if len(current_users) == 1 else None,
+                previous=previous_temporal if previous_verified else None, continuing=continuing,
+            ) if not current_temporal.errors and continuing != current_continuing else current_temporal
+            task_frame = pin_temporal_contract(task_frame, temporal)
+            raw_envelope = project_task_frame(task_frame, raw_envelope)
             turn_intent = replace(
                 turn_intent,
                 primary_subject=task_frame.subject,
@@ -2246,7 +2527,17 @@ class TurnOrchestrator:
                 timeframe=task_frame.timeframe,
                 required_outputs=task_frame.required_outputs,
                 task_frame_hash=task_frame.task_frame_hash,
+                history_intent=task_frame.history_intent,
+                temporal_contract=temporal,
             )
+            decision = replace(decision, task_frame=task_frame, turn_intent=turn_intent, timeframe=task_frame.timeframe)
+            if temporal.errors:
+                decision = replace(decision, lane="clarify", needs_retrieval=False, needs_memory=False,
+                                   needs_template=False, capabilities=(), clarification_questions=(temporal.errors[0],))
+            if (not temporal.errors and len(current_users) == 1 and current_users[0].content == query
+                    and current_run.session_id == conversation_id):
+                record_temporal_compilation(self.run_store, run_id=run_id, source=current_users[0],
+                                            today=runtime_today, temporal_contract=temporal)
             research_plan = ResearchPlan.from_intent(turn_intent)
             # 单一事实源：controller 返回的 decision 已与 turn_intent 对齐
             # （见 turn_controller._attach_turn_intent）。仅当 controller 未

@@ -247,9 +247,13 @@ def test_real_episode_reaches_next_model_after_future_only_or_mixed_results(tmp_
     assert len(model.calls) == 2 and outcome.stop_reason == "model_finish"
     assert outcome.persistence == ("durable" if durable else "ephemeral")
     assert not any(event.kind == "persistence_failed" for event in outcome.events)
-    assert outcome.evidence[0].source_date == ("2026-07-25" if future_only else "2026-07-24")
     if future_only:
-        assert "晚于问句日 2026-07-24" in outcome.evidence[0].title
+        assert outcome.evidence == ()
+        delivered = json.dumps(model.calls, ensure_ascii=False)
+        assert "2026-07-25" not in delivered
+        assert "不是源里没有" in delivered
+    else:
+        assert outcome.evidence[0].source_date == "2026-07-24"
     if store is not None:
         state = store.load(context.contract.task_id)[1]
         decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(state.evidence_snapshot, episode_id=context.contract.task_id)
@@ -257,7 +261,7 @@ def test_real_episode_reaches_next_model_after_future_only_or_mixed_results(tmp_
         assert decoded.presented_evidence == outcome.evidence
         if future_only:
             assert restored.items() == ()
-            assert not restored.mark_output_covered("direct_assessment", evidence_ids=(outcome.evidence[0].content_hash,))
+            assert not restored.mark_output_covered("direct_assessment", evidence_ids=("evidence-1",))
 
 
 @pytest.mark.parametrize("durable", [False, True])

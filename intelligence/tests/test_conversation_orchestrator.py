@@ -3,6 +3,7 @@ import json
 import time
 import urllib.error
 from dataclasses import asdict, replace
+from datetime import date
 from threading import Event, current_thread
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ from intelligence import userspace
 from intelligence.services import agent_research, answer_model, evidence_registry, llm_refine, output_review
 from intelligence.runtime import conversation_orchestrator as orchestrator_service
 from intelligence.services import perspective_lab
+from intelligence.services.temporal_contract import compile_temporal_contract
 from intelligence.services.ask import (
     AskOptions,
     AskResult,
@@ -796,6 +798,7 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
         clarification_question=None,
         evidence_policy="current_market_scenarios",
         confidence=0.95,
+        temporal_contract=compile_temporal_contract(query, today=date.today()),
     )
     intent = TurnIntent(
         primary_subject=frame.subject,
@@ -807,6 +810,7 @@ def test_continuous_handled_turn_bypasses_legacy_and_persists_public_result(
         timeframe=frame.timeframe,
         required_outputs=frame.required_outputs,
         task_frame_hash=frame.task_frame_hash,
+        temporal_contract=frame.temporal_contract,
     )
 
     def controller(_query: str, **_kwargs: object) -> TurnDecision:
@@ -4541,6 +4545,9 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
     conversation_store = ConversationStore("alice", root=tmp_path / "conversations")
     run_store = RunStore("alice", root=tmp_path / "runs")
     conversation = conversation_store.create_conversation()
+    previous_query = "请个股深挖英维克的液冷业务"
+    previous_run = run_store.create_run(previous_query, "ask", session_id=conversation.conversation_id)
+    run_store.finish_run(previous_run.run_id, "completed")
     previous_intent = TurnIntent(
         primary_subject="英维克",
         secondary_topics=("液冷",),
@@ -4553,17 +4560,18 @@ def test_follow_up_persists_and_routes_inherited_turn_intent(tmp_path) -> None:
     conversation_store.append_message(
         conversation.conversation_id,
         "user",
-        "请个股深挖英维克的液冷业务",
-        run_id="run-previous",
+        previous_query,
+        run_id=previous_run.run_id,
     )
     previous_assistant = conversation_store.append_message(
         conversation.conversation_id,
         "assistant",
         "上一轮回答",
-        run_id="run-previous",
+        run_id=previous_run.run_id,
         invoked_skill_ids=["stock-deep-dive"],
         turn_intent=previous_intent.to_dict(),
     )
+    conversation_store.update_summary(conversation.conversation_id, "", last_run_id=previous_run.run_id)
     run_id, assistant_message_id = _prepare_turn(
         conversation_store,
         run_store,
@@ -5114,6 +5122,7 @@ def test_specialized_owner_uses_same_task_frame_fulfillment_gate(tmp_path) -> No
         clarification_question=None,
         evidence_policy="company_multi_layer_evidence",
         confidence=0.98,
+        temporal_contract=compile_temporal_contract(query, today=date.today()),
     )
     run_id, assistant_message_id = _prepare_turn(
         conversation_store,

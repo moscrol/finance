@@ -431,7 +431,8 @@ def test_real_run_turn_recovers_pending_material_clarification(tmp_path, monkeyp
     )
     assert stored_intent.get("pending_task_frame")
     # Turn 2: the user answers the clarification with the bare material body.
-    answer_run = runs.create_run(BARE_MATERIAL_ANSWER, "ask", session_id=conv.conversation_id)
+    answer_run = runs.create_run(BARE_MATERIAL_ANSWER, "ask", session_id=conv.conversation_id,
+                                 parent_run_id=ask.run_id)
     store.append_message(
         conv.conversation_id, "user", BARE_MATERIAL_ANSWER, run_id=answer_run.run_id
     )

@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from intelligence import userspace
+from market_feature_store.signals import DOUBLE_RED_DESCRIPTION
 from intelligence.adapters.knowledge import KnowledgeAdapter
 from intelligence.paths import default_paths
 from intelligence.services import (
@@ -44,6 +45,7 @@ from intelligence.services import (
     closed_loop_retrieval,
     corrections,
     entity_anchor,
+    episode_tools,
     experience_cards,
     external_market,
     forecast_preflight,
@@ -137,6 +139,7 @@ from intelligence.services.ask_types import (  # noqa: F401  (re-export 兼容�
     _stage_timeout,
     _synthesis_timeout,
 )
+from intelligence.services import ask_blocks
 from intelligence.services.ask_blocks import (  # noqa: F401
     _append_block_outcome,
     _confidence_score,
@@ -153,6 +156,7 @@ from intelligence.services.ask_blocks import (  # noqa: F401
     _market_review_evidence_chain,
     _market_review_knowledge_anchor_block_for_llm,
     _market_review_mainline_context_block_for_llm,
+    market_review_mainline_context_snapshot,
     _market_value_block_for_llm,
     _populate_market_index_comparison,
     _quoted_topic,
@@ -181,6 +185,9 @@ from intelligence.services.ask_synthesis import (  # noqa: F401
     _build_answer_spec_for_result,
     _build_base_answer_spec_from_sections,
     _claims_from_data_block,
+    _claims_from_mainline_snapshot,
+    _mainline_snapshot_guidance,
+    _append_mainline_model_scope,
     _prepare_answer_spec_synthesis,
     _presentable_lines,
     synthesize_prepared_answer,
@@ -1000,11 +1007,13 @@ def _answer_market_review(
     result.market_summary = _daily_market_overview_block_for_llm(
         options.market_db_path
     )
-    mainline_context = _market_review_mainline_context_block_for_llm(
+    mainline_snapshot = market_review_mainline_context_snapshot(
         options.query,
         None,
         options.market_db_path,
     )
+    mainline_result = episode_tools.mainline_snapshot_tool_result(mainline_snapshot)
+    mainline_context = "\n".join(f"{item.title}：{item.detail}" for item in mainline_result.evidence)
     # 第二条腿：盘面说哪个方向在走，知识库说我对这个方向研究到什么程度。
     # 缺了它，日常复盘就只有盘面数字，用户自己积累的概念页与公司暴露一条也进不来。
     knowledge_anchor = (
@@ -1038,7 +1047,7 @@ def _answer_market_review(
         if part
     ]
     result.found_market = bool(evidence_parts)
-    if not evidence_parts:
+    if not evidence_parts and mainline_snapshot.status != "stale":
         result.warnings.append("最新交易日的正式日报和市场数据均不可用")
         result.answer_spec = _build_base_answer_spec_from_sections(
             result,
@@ -1057,11 +1066,7 @@ def _answer_market_review(
                 f"截至 {result.trade_date or options.date or '当前可用日期'}，"
                 "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
             ),
-            risk_lines=tuple(
-                line
-                for line in _presentable_lines(mainline_context)
-                if any(token in line for token in ("缺", "未知", "滞后", "风险"))
-            ),
+            risk_lines=mainline_result.gaps,
             action_lines=(
                 "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
             ),
@@ -1133,11 +1138,7 @@ def _answer_market_review(
             f"截至 {result.trade_date or options.date or '当前可用日期'}，"
             "本轮只确认资料覆盖的市场变化，未覆盖部分保持未知。",
         ),
-        risk_lines=tuple(
-            line
-            for line in _presentable_lines(mainline_context)
-            if any(token in line for token in ("缺", "未知", "滞后", "风险"))
-        ),
+        risk_lines=mainline_result.gaps,
         action_lines=(
             "下一交易日复核量能、涨跌结构和主线承接是否同时改善。",
         ),
@@ -1167,9 +1168,13 @@ def _answer_market_review(
         )
     user_prompt += research_reasoning.guidance("market_review")
     messages = [
-        {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT},
+        {"role": "system", "content": _MARKET_REVIEW_SYSTEM_PROMPT + (
+            "\n\n" + _mainline_snapshot_guidance(mainline_snapshot) if mainline_snapshot.guidance else ""
+        )},
         {"role": "user", "content": user_prompt},
     ]
+    if mainline_snapshot.status in {"available", "stale"}:
+        _append_mainline_model_scope(messages, mainline_snapshot)
     result.prepared_synthesis_messages = messages
     result.prepared_synthesis_is_market_review = True
     if options.synthesize:
@@ -1650,8 +1655,10 @@ def _mainline_current_fallback_assessment(
 
 def _current_market_fact_fallback_assessment(
     evidence: list[agent_research.AgentEvidence],
+    *,
+    definition: str = "",
 ) -> str:
-    """Project one definition and its current measured fact without LLM prose."""
+    """Project numeric facts; an explicit canonical definition remains method prose."""
 
     details = [
         item.detail.strip()
@@ -1660,12 +1667,22 @@ def _current_market_fact_fallback_assessment(
     ]
     selected = [
         line
-        for prefix in ("双红定义：", "双红数据截至：", "当前双红板块：")
+        for prefix in ("当前双红板块：",)
         if (line := next((value for value in details if value.startswith(prefix)), ""))
     ]
     if selected:
-        return "；".join(line.rstrip("。； ") for line in selected) + "。"
-    return "；".join(details[:3]) or "当前市场指标数据未取得。"
+        dates = [
+            item.source_date for item in evidence
+            if item.detail.strip() in selected and item.source_date
+        ]
+        lines = [
+            *([f"双红定义：{definition}"] if definition else []),
+            *([f"双红数据截至：{max(dates)}"] if dates else []),
+            *selected,
+        ]
+        return "；".join(line.rstrip("。； ") for line in lines) + "。"
+    fact_text = "；".join(details[:3]) or "当前市场指标数据未取得。"
+    return f"双红定义：{definition}；{fact_text}" if definition else fact_text
 
 
 def _market_forecast_fallback_assessment(
@@ -2054,49 +2071,48 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     ):
         """通用 Owner 的 D4 主线结构工具，保留同日/滞后边界。"""
 
+        context.check_cancelled()
         if context.deadline.expired:
             raise TimeoutError("agent mainline context deadline expired")
-        block = _market_review_mainline_context_block_for_llm(
+        snapshot = market_review_mainline_context_snapshot(
             options.query,
             contract.subject,
             options.market_db_path,
+            as_of=(
+                context.information_cutoff.as_of_date.isoformat()
+                if context.information_cutoff is not None else None
+            ),
         )
+        result = episode_tools.mainline_snapshot_tool_result(snapshot, capability="agent_loop")
         if "双红" in options.query:
             double_red_block = market_timeseries.latest_double_red_snapshot_block_for_llm(
                 options.market_db_path
             )
-            block = "\n".join(part for part in (double_red_block, block) if part)
-        # A freshness/boundary block is useful for the gap explanation but is
-        # not a mainline fact.  Returning it as ``mainline_context`` evidence
-        # would make the fallback presenter promote “主线未知” to a completed
-        # assessment merely because one source emitted a warning line.
-        if not block or "当前交易日的题材级主线未知" in block:
-            return (
-                [],
-                block or "同日主线结构无可用数据",
-                ProviderTrace(
-                    provider="agent:mainline_context",
-                    capability="agent_loop",
-                    status="empty",
-                    detail="mainline_current_context_gap",
-                    result_count=0,
+            # This existing supplement has a deterministic numeric list row.
+            # Convert only that row; its definition and D4 method guidance never
+            # enter the evidence ledger or acquire E numbers/source dates.
+            numeric_lines = [
+                line for line in double_red_block.splitlines()
+                if line.startswith("- 当前双红板块：")
+            ]
+            date_match = re.search(r"双红数据截至：(\d{4}-\d{2}-\d{2})", double_red_block)
+            extra, _observation = agent_research.block_lines_to_evidence(
+                "mainline_context", "\n".join(numeric_lines),
+                "本地 DuckDB · fact_sector_daily 严格双红快照",
+                limit=1, detail_chars=1000,
+                source_date=date_match.group(1) if date_match else None,
+            )
+            merged = (*result.evidence, *extra)
+            result = replace(
+                result, evidence=merged,
+                observation="\n".join(part for part in (result.observation, double_red_block) if part),
+                trace=replace(
+                    result.trace, result_count=len(merged),
+                    status=("partial" if extra and snapshot.status != "available" else result.trace.status),
                 ),
             )
-        evidence, observation = agent_research.block_lines_to_evidence(
-            "mainline_context",
-            block,
-            "本地 DuckDB · D4 同日主线结构",
-            limit=10,
-            detail_chars=1000,
-        )
-        trace = ProviderTrace(
-            provider="agent:mainline_context",
-            capability="agent_loop",
-            status="success" if evidence else "empty",
-            detail="mainline_current_context",
-            result_count=len(evidence),
-        )
-        return evidence, observation or "本地主线结构无匹配", trace
+        context.check_cancelled()
+        return result
 
     tools = {
         **agent_research.build_default_tools(retrieve_kb),
@@ -2168,6 +2184,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
     preloaded_trace_items: list[ProviderTrace] = []
     preloaded_gaps: list[ResearchGap] = []
     preloaded_observations: list[str] = []
+    preloaded_query_basis: list[agent_research.ToolQueryBasis] = []
     disabled_tool_names: list[str] = []
     if contract.presentation_profile == "mainline_current" and {
         "market_data",
@@ -2203,6 +2220,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
                 preloaded_items.extend(observation.evidence)
                 preloaded_trace_items.append(observation.trace)
                 preloaded_observations.append(observation.observation)
+                if observation.query_basis:
+                    preloaded_query_basis.append((tool_name, observation.query_basis))
                 disabled_tool_names.append(tool_name)
                 if not observation.evidence:
                     preloaded_gaps.append(
@@ -2254,6 +2273,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             preloaded_trace_items.append(observation.trace)
             preloaded_observations.append(observation.observation)
             disabled_tool_names.append("mainline_context")
+            if observation.query_basis:
+                preloaded_query_basis.append(("mainline_context", observation.query_basis))
             if not observation.evidence:
                 preloaded_gaps.append(
                     ResearchGap(
@@ -2430,6 +2451,7 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
             preloaded_traces=preloaded_traces,
             preloaded_gaps=tuple(preloaded_gaps),
             preloaded_observation=preloaded_observation,
+            preloaded_query_basis=tuple(preloaded_query_basis),
             disabled_tools=disabled_tools,
             task_plan=task_plan,
         )
@@ -2549,7 +2571,8 @@ def _answer_generic_owner(options: AskOptions) -> AskResult:
         and any(item.tool == "mainline_context" for item in owner_result.evidence)
     ):
         owner_result.loop.assessment = _current_market_fact_fallback_assessment(
-            list(owner_result.evidence)
+            list(owner_result.evidence),
+            definition=DOUBLE_RED_DESCRIPTION if "双红" in options.query else "",
         )
         owner_result.loop.sufficient = True
         if owner_result.loop.research_state is not None:
@@ -4587,24 +4610,24 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
         )
 
         def _build_d4():
-            block = (
-                _market_review_mainline_context_block_for_llm(
-                    options.query,
-                    theme,
-                    options.market_db_path,
-                )
-                if is_market_overview
-                else _mainline_context_block_for_llm(
-                    options.query,
-                    theme,
-                    options.market_db_path,
-                )
-            )
-            return block, Citation(
+            temporal = question_plan.query_envelope.temporal_contract
+            upper_bounds = [bound for bound in (
+                temporal.market_target.end if temporal and temporal.market_target else None,
+                temporal.information_cutoff if temporal else None,
+            ) if bound]
+            snapshot = (
+                ask_blocks.market_review_mainline_context_snapshot if is_market_overview
+                else ask_blocks.mainline_context_snapshot
+            )(options.query, theme, options.market_db_path,
+              as_of=min(upper_bounds) if upper_bounds else None)
+            citation = Citation(
                 "D4",
                 "本地 DuckDB 主线题材结构数据块",
                 "同日主线结构；若快照滞后则仅提供数据边界",
             )
+            if snapshot.status in {"empty", "unavailable"}:
+                return ask_planner.CollectedBlock("", citation)
+            return ask_planner.CollectedBlock(ask_blocks.render_mainline_context_snapshot(snapshot), citation, snapshot)
 
         providers.append(
             ask_planner.DataBlockProvider(
@@ -4665,7 +4688,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             )
         for outcome in outcomes:
             structured_claims.extend(
-                _claims_from_data_block(
+                _claims_from_mainline_snapshot(outcome.mainline_snapshot, claim_theme)
+                if outcome.mainline_snapshot is not None else _claims_from_data_block(
                     outcome.block,
                     outcome.tag,
                     outcome.label,
@@ -4762,6 +4786,8 @@ def _answer_query_impl(options: AskOptions) -> AskResult:
             citations=citations,
             quality_context=quality_context,
             is_market_review=is_market_review,
+            mainline_snapshot=next((outcome.mainline_snapshot for outcome in outcomes
+                                    if outcome.mainline_snapshot is not None), None),
         )
         result.prepared_synthesis_is_market_review = is_market_review
         if options.synthesize:

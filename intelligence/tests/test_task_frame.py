@@ -510,7 +510,7 @@ def _frame_for(question: str, **kwargs) -> TaskFrame:
 
 
 def test_input_understanding_fields_default_empty_and_stay_out_of_payload() -> None:
-    frame = _frame_for("明天你怎么看")
+    frame = replace(_frame_for("明天你怎么看"), temporal_contract=None)
     payload = frame.to_dict()
 
     for key in ("user_premises", "materials", "referenced_material_ids", "competing_explanations", "method_candidates"):
