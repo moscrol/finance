@@ -387,3 +387,32 @@ def test_partial_and_empty_source_context_keep_real_result_status(query_case):
     observation, _, facing = execute(filters=[{"field": "sw_l1", "op": "eq", "value": "未命中行业"}])
     assert observation.trace.status == facing["source_context"]["result_status"] == "empty"
     assert facing["source_context"]["execution_scope"]["returned_row_count"] == 0
+
+
+@pytest.mark.parametrize("invalid", [None, float("nan"), float("inf"), float("-inf")])
+def test_amount_summary_semantics_follow_actual_finite_sample_through_registry(query_case, invalid):
+    execute, calls, db_path = query_case
+    with duckdb.connect(str(db_path)) as con:
+        con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, "
+                    "stock_name VARCHAR, amount DOUBLE)")
+        con.executemany("INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?)", [
+            (day, "000001.SZ", "样本", value) for day, value in (
+                ("2026-07-20", 0), ("2026-07-21", 10),
+                ("2026-07-22", -2), ("2026-07-23", invalid),
+            )
+        ])
+    observation, projection, facing = execute(
+        dataset="stock_daily", metrics=["amount_mean", "amount_valid_count"],
+        dimensions=["stock_code"], group_by=["stock_code"], filters=[], order_by=[],
+        time_range={"start": "2026-07-20", "end": "2026-07-23"}, limit=1,
+    )
+    result = calls[0][1]
+    assert result.rows == ({"stock_code": "000001.SZ", "amount_mean": pytest.approx(8 / 3),
+                           "amount_valid_count": 3},)
+    semantics = facing["source_context"]["metric_semantics"]
+    assert semantics["amount_valid_count"]["aggregation"] == "count_finite_amount_records_including_zero_and_negative"
+    assert semantics["amount_mean"]["input_scope"] == semantics["amount_valid_count"]["input_scope"] == (
+        "finite_amount_records_including_zero_and_negative"
+    )
+    assert facing["source_context"] == observation.source_context == projection.audit_payload["source_context"]
+    assert "有效成交额样本数=3" in facing["evidence"][0]["detail"]

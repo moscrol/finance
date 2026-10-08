@@ -313,8 +313,10 @@ def query_source_context(
                 aggregation = "count_source_records"
             elif name == "return_valid_count":
                 aggregation = "count_valid_daily_returns"
-        if _stock_amount_summary(spec) and name == "amount_valid_count":
-            aggregation = "count_valid_positive_amount_records"
+        if _stock_amount_summary(spec) and name in _STOCK_AMOUNT_SUMMARY_METRICS:
+            input_scope = _STOCK_AMOUNT_SUMMARY_SAMPLE.meaning
+            if name == "amount_valid_count":
+                aggregation = f"count_{_STOCK_AMOUNT_SUMMARY_SAMPLE.meaning}"
         metrics[name] = {
             "meaning": definition.label, "aggregation": aggregation,
             "input_scope": input_scope, "value_kind": definition.value_kind,
@@ -2802,6 +2804,19 @@ def _semantic_time_dimension(dataset: _DatasetDefinition) -> str | None:
 _STOCK_AMOUNT_SUMMARY_METRICS = frozenset({"amount_mean", "amount_valid_count"})
 
 
+@dataclass(frozen=True)
+class _AmountSummarySample:
+    """The stock amount owner's one input rule for both SQL and public meaning."""
+
+    predicate: str
+    meaning: str
+
+
+_STOCK_AMOUNT_SUMMARY_SAMPLE = _AmountSummarySample(
+    "isfinite", "finite_amount_records_including_zero_and_negative",
+)
+
+
 def result_has_date_axis(spec: FinanceQuerySpec) -> bool:
     """A grouped MAX(source_date) alone does not describe covered input dates."""
     dataset = _DATASETS.get(spec.dataset)
@@ -2967,7 +2982,7 @@ def _compile_query(
         expression = _quote(field.column)
         if _stock_amount_summary(spec) and name in _STOCK_AMOUNT_SUMMARY_METRICS:
             # AVG and COUNT must see exactly the same valid sample, including zeros.
-            expression = f"CASE WHEN isfinite({expression}) THEN {expression} END"
+            expression = f"CASE WHEN {_STOCK_AMOUNT_SUMMARY_SAMPLE.predicate}({expression}) THEN {expression} END"
         if _return_summary(spec) and name in _RETURN_SUMMARY_FIELDS:
             expression = _return_summary_expression(name, dataset, _RETURN_SUMMARY_KEYS[spec.dataset])
         elif group_by and field.role == "metric":

@@ -1091,13 +1091,9 @@ class HeadlessToolGateway:
             index = next(i for i, item in enumerate(self._events) if item.sequence == event.sequence)
             if self._events[index].payload.get("model_content"):
                 return
-            audit = {
-                **event.payload, "model_content": model_content,
-                "model_content_sha256": hashlib.sha256(model_content.encode()).hexdigest(),
-            }
-            # Gateway events remain in RAM until the CLI run is collected. Keep
-            # one result/sequence; this does not rewrite a durable native archive.
-            self._events[index] = replace(event, payload=audit)
+            # A physical write can complete during cancellation or withdrawal.
+            # Check current admission before leaving a restorable source witness,
+            # rather than only preventing this process's immediate ACK.
             if self._closed or self._is_cancelled():
                 return
             if not any(spec.name == observation.tool for spec in self._registry.authorized_specs(
@@ -1106,6 +1102,13 @@ class HeadlessToolGateway:
                 return
             if self._scope is not None and not self._scope.authorize(observation.tool).allowed:
                 return
+            audit = {
+                **event.payload, "model_content": model_content,
+                "model_content_sha256": hashlib.sha256(model_content.encode()).hexdigest(),
+            }
+            # Gateway events remain in RAM until the CLI run is collected. Keep
+            # one result/sequence; this does not rewrite a durable native archive.
+            self._events[index] = replace(event, payload=audit)
             delivered = replace(projection, audit_payload=audit, model_content=model_content)
             self._harness.acknowledge_tool_result(observation, delivered, context=self._context)
 

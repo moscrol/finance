@@ -322,7 +322,7 @@ def test_cancellation_after_runner_does_not_ack_or_offer_recovery_witness():
 
 
 def test_permission_withdrawn_after_response_write_cannot_ack_or_restore(monkeypatch):
-    from intelligence.services.owned_results import _rebuild_owned_sources, OwnedResultError
+    from intelligence.services.owned_results import _rebuild_owned_sources
     from intelligence.tests.owned_result_support import frame_context
 
     registry, context, harness = _owned_delivery_case()
@@ -340,11 +340,74 @@ def test_permission_withdrawn_after_response_write_cannot_ack_or_restore(monkeyp
     snapshot = gateway.snapshot()
     assert facing["status"] == "success"
     assert not harness.receipts and not context._owned_result_sources
-    assert any(event.payload.get("model_content") for event in snapshot.events if event.kind == "tool_result")
+    assert all("model_content" not in event.payload and "model_content_sha256" not in event.payload
+               for event in snapshot.events if event.kind == "tool_result")
+    assert snapshot.executed_count == 1 and len(snapshot.evidence) == 24
     recovered = frame_context()[1]
-    recovered = replace(recovered, contract=replace(recovered.contract, allowed_capabilities=()))
-    with pytest.raises(OwnedResultError, match="source_not_authorized"):
-        _rebuild_owned_sources(snapshot.events, context=recovered, evidence=snapshot.evidence)
+    _rebuild_owned_sources(snapshot.events, context=recovered, evidence=snapshot.evidence)
+    assert not recovered._owned_result_sources
+
+
+@pytest.mark.parametrize("transport", ["http", "mailbox"])
+@pytest.mark.parametrize("withdrawal", ["closed", "scope_permission"])
+def test_withdrawn_publication_keeps_audit_without_restorable_witness(tmp_path, monkeypatch, transport, withdrawal):
+    from io import BytesIO
+    from types import SimpleNamespace
+    from intelligence.services.agent_runtime import EpisodeEvent
+    from intelligence.services.episode_scope import Authorization
+    from intelligence.services.owned_results import _rebuild_owned_sources
+    from intelligence.tests.owned_result_support import frame_context
+
+    registry, context, harness = _owned_delivery_case()
+    gateway = HeadlessToolGateway(registry=registry, context=context, harness=harness, transport=transport)
+    before = []
+
+    def withdraw():
+        before.append(gateway.snapshot())
+        if withdrawal == "closed":
+            gateway.close()
+        else:
+            monkeypatch.setattr(gateway, "_scope", SimpleNamespace(authorize=lambda tool: Authorization(
+                False, tool, "mainline_context", "current_scope_permission_withdrawn",
+            )))
+
+    if transport == "http":
+        class WithdrawingSink(BytesIO):
+            def write(self, raw):
+                withdraw()
+                return super().write(raw)
+
+        sink = WithdrawingSink()
+        body = json.dumps({"query": "主线"}).encode()
+        gateway._serve_request(SimpleNamespace(
+            headers={"Authorization": f"Bearer {gateway._bearer}", "Content-Length": str(len(body))},
+            path="/tool/mainline_context", rfile=BytesIO(body), wfile=sink,
+            send_response=lambda _status: None, send_header=lambda *_args: None, end_headers=lambda: None,
+        ))
+        assert json.loads(sink.getvalue())["status"] == "success"
+    else:
+        request = tmp_path / ("d" * 32 + ".json")
+        response = tmp_path / "published.json"
+        request.write_text(json.dumps({"tool": "mainline_context", "query": "主线"}))
+        original_write = gateway._write_mailbox_response
+
+        def withdrawing_write(path, payload, **kwargs):
+            withdraw()
+            return original_write(path, payload, **kwargs)
+
+        monkeypatch.setattr(gateway, "_write_mailbox_response", withdrawing_write)
+        gateway._process_mailbox_request(request, response)
+        assert json.loads(response.read_text())["status"] == "success"
+    snapshot = gateway.snapshot()
+    assert snapshot.executed_count == 1 and len(snapshot.evidence) == 24
+    assert not harness.receipts and not context._owned_result_sources
+    audit = next(event.payload for event in snapshot.events if event.kind == "tool_result")
+    assert "model_content" not in audit and "model_content_sha256" not in audit
+    assert all("model_content" not in event.payload for event in before[0].events)
+    serialized = json.loads(json.dumps([event.to_dict() for event in snapshot.events]))
+    events = tuple(EpisodeEvent(event["sequence"], event["kind"], event["payload"]) for event in serialized)
+    recovered = frame_context()[1]
+    _rebuild_owned_sources(events, context=recovered, evidence=snapshot.evidence)
     assert not recovered._owned_result_sources
 
 
