@@ -24,11 +24,13 @@ from intelligence.services.episode_output_substance import (
 from intelligence.services import knowledge_injection_policy
 from intelligence.services.material_grounding import (
     ClaimSourceBinding, QUOTE_REPAIR_RULE, binding_source_issues, grounding_scope, material_grounding_payload,
-    material_private_tokens, render_material_claims, split_claim_sentences,
+    material_private_tokens,
 )
 from intelligence.services.material_answer_authoring import (
-    MaterialAuthoringError, compile_material_author_finish,
-    material_author_model_view, material_author_schema,
+    material_author_model_view,
+)
+from intelligence.services.finish_authoring import (
+    FinishAuthoringError, _legacy_finish_schema, compile_finish_authoring, finish_author_contract,
 )
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
@@ -57,7 +59,6 @@ from intelligence.services.track_contract import (
 )
 
 
-_FINISH_STATUSES = frozenset({"completed", "partial"})
 # Episode 终局 draft 的篇幅上限（汉字），系统提示、收口提醒与终局恢复器三处共用。
 # 2026-10-05 由 1000/1200 放到 4000：同题对照里 8792 正确但篇幅只有 Pi 的三到六成，
 # Pi 最长一份 3412 字。原上限是「保证 FINAL_JSON 不被截断」的传输预算；GLM 工具轮
@@ -95,89 +96,12 @@ class EpisodeFinish:
 
 def finish_json_schema(
     contract: ResearchTaskContract | None = None, *, prior_evidence: PriorTurnEvidence | None = None,
+    context: ResearchRunContext | None = None,
 ) -> dict[str, object]:
-    """Return the closed provider-facing schema for a terminal episode."""
-
-    author_schema = material_author_schema(contract, prior_evidence=prior_evidence)
-    if author_schema is not None:
-        return author_schema
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "status": {
-                "type": "string",
-                "enum": ["completed", "partial"],
-            },
-            "draft": {"type": "string"},
-            "answer_parts": {
-                "type": "array",
-                "items": {"anyOf": [
-                    {"type": "string"},
-                    {"type": "object", "additionalProperties": False,
-                     "properties": {"result_ref": {"type": "string"}}, "required": ["result_ref"]},
-                ]},
-            },
-            "render_from_claims": {"type": "boolean"},
-            "gaps": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
-            "bindings": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "output_id": {"type": "string"},
-                        "evidence_hashes": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": (
-                                "Episode ordinals E1..En from the observation, "
-                                "or an exact collected content_hash"
-                            ),
-                        },
-                        "basis": {
-                            "type": "string",
-                            "enum": [
-                                "evidence",
-                                "user_premise",
-                                "model_reasoning",
-                            ],
-                        },
-                        "gap": {"type": "string"},
-                        "claims": {
-                            "type": "array",
-                            "items": {
-                                "type": "object", "additionalProperties": False,
-                                "properties": {
-                                    "text": {"type": "string"},
-                                    "kind": {"type": "string", "enum": ["material_fact", "reasoning", "premise_declaration", "historical_assistant_statement"]},
-                                    "material_anchors": {"type": "array", "items": {
-                                        "type": "object", "additionalProperties": False,
-                                        "properties": {"material_id": {"type": "string"}, "quote": {"type": "string"}},
-                                        "required": ["material_id", "quote"],
-                                    }},
-                                    "old_answer_coordinate": {"type": "string"},
-                                    "historical_quote": {"type": "string"},
-                                    "basis": {"type": "string"},
-                                },
-                                "required": ["text", "kind"],
-                            },
-                        },
-                    },
-                    "required": [
-                        "output_id",
-                        "evidence_hashes",
-                        "basis",
-                        "gap",
-                    ],
-                },
-            },
-        },
-        "required": ["status", "draft", "gaps", "bindings"],
-    }
+    """Copy the selected schema; context-free callers retain the original bytes."""
+    if context is not None:
+        return finish_author_contract(context).schema_payload()
+    return _legacy_finish_schema(contract, prior_evidence=prior_evidence)
 
 
 # Borrowed name only. Marks the seam: above = byte-stable system (cache
@@ -1073,57 +997,22 @@ def validate_episode_finish(
     decoded = _finish_object(value)
     if decoded is None:
         raise _reject("not_json_object", "finish must be one JSON object" + _json_failure_position(value))
-    if "owned_answer" in decoded:
-        raise _reject("bad_claim_binding", "ownership receipt is program-owned")
-    parts = decoded.get("answer_parts")
-    if parts is not None and (decoded.get("format") is not None or decoded.get("render_from_claims")
-                              or context.contract.material_contract is not None):
-        raise _reject("bad_claim_binding", "answer_parts cannot mix with material authoring or claim rendering")
     try:
-        decoded = compile_material_author_finish(
-            decoded, context.contract, prior_evidence=getattr(context, "prior_evidence", None),
-        )
-    except MaterialAuthoringError as exc:
+        authored = compile_finish_authoring(decoded, context=context)
+    except FinishAuthoringError as exc:
+        # Keep the protocol's exhaustive reason audit at this adapter seam;
+        # these existing reasons now originate in the mechanical compiler.
         if exc.code == "historical_excerpt_shape":
             raise _reject("historical_excerpt_shape", str(exc)) from exc
+        if exc.code == "bad_status":
+            raise _reject("bad_status", str(exc)) from exc
+        if exc.code == "draft_not_string":
+            raise _reject("draft_not_string", str(exc)) from exc
         raise _reject(exc.code, str(exc)) from exc
-    status = decoded.get("status")
-    if status not in _FINISH_STATUSES:
-        raise _reject("bad_status", "finish status must be completed or partial")
-    draft = decoded.get("draft")
-    if not isinstance(draft, str):
-        raise _reject("draft_not_string", "finish draft must be a string")
-    owned_answer = None
-    if parts is not None:
-        from intelligence.services.owned_results import (
-            OwnedResultError, _catalogue_from_context, _context_owner, render_owned_parts,
-        )
-
-        try:
-            # Free blocks retain the legacy natural-language newline normalization.
-            normalized_parts = [_normalize_natural_language_layout(p) if type(p) is str else p for p in parts] if isinstance(parts, list) else parts
-            rendered = render_owned_parts(normalized_parts, _catalogue_from_context(context), legacy_draft=draft)
-        except OwnedResultError as exc:
-            raise _reject("bad_claim_binding", "owned result selection: " + exc.reason) from exc
-        draft, owned_answer = rendered.draft, rendered.receipt
-        owned_answer = {**owned_answer, "owner": _context_owner(context)}
-    render_from_claims = decoded.get("render_from_claims", False)
-    if not isinstance(render_from_claims, bool):
-        raise _reject("bad_claim_binding", "render_from_claims must be a boolean")
-    if render_from_claims:
-        if draft:
-            raise _reject("bad_claim_binding", "claim rendering cannot include a second draft")
-        try:
-            draft = render_material_claims(context.contract, decoded.get("bindings"))
-        except ValueError as exc:
-            raise _reject("bad_claim_binding", str(exc)) from exc
-        # The writer's text is published as written; only its bindings are cut per sentence,
-        # so per-claim review and every source check below still see one sentence per claim.
-        decoded, claim_origins = split_claim_sentences(decoded)
-    else:
-        claim_origins = {}
-        if owned_answer is None:
-            draft = _normalize_natural_language_layout(draft)
+    decoded = authored.envelope_payload()
+    status, draft = decoded["status"], decoded["draft"]
+    claim_origins = authored.claim_origins
+    owned_answer = authored.owned_answer_payload()
     # 题设计算的程序表准入跟在两条 draft 来源之后：无论 draft 是模型原文还是按
     # 材料主张渲染出来的，只要合同带 premise_calculation，就要过同一道表格硬校验。
     calculation = context.contract.premise_calculation
@@ -1568,12 +1457,6 @@ def _decode_finish_json(text: str) -> dict[str, object] | None:
 
 def _looks_like_finish_envelope(value: dict[str, object]) -> bool:
     return {"status", "draft", "gaps", "bindings"}.issubset(value)
-
-
-def _normalize_natural_language_layout(value: str) -> str:
-    """Decode double-escaped newline literals in natural-language drafts."""
-
-    return value.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
 
 
 def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:
