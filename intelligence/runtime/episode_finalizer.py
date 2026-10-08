@@ -17,7 +17,7 @@ from intelligence.services.episode_protocol import (
     evidence_ordinal_table,
     strip_hashes_for_model,
 )
-from intelligence.services.material_grounding import material_grounding_payload
+from intelligence.services.material_grounding import claim_finish_format, material_grounding_payload
 from intelligence.services.material_answer_authoring import material_author_model_view
 from intelligence.services.material_delivery import material_delivery_payload, material_question_outputs
 from intelligence.services.research_contract import ResearchRunContext
@@ -81,6 +81,14 @@ _AUTHOR_RECOVERY_SYSTEM_PROMPT = (
     + _RECOVERY_GROUNDING_RULES
 )
 
+
+class _UnsetFinishFormat:
+    """A caller omitted the optional argument, rather than saved its absence."""
+
+
+_UNSET_FINISH_FORMAT = _UnsetFinishFormat()
+
+
 def _stable_failure_reason(value: object) -> str:
     """Keep provider/parser details out of the compact recovery prompt."""
 
@@ -135,7 +143,7 @@ class EpisodeFinalizer:
         on_prompt: Callable[[str, str], None] | None = None,
         evidence_priority: tuple[str, ...] = (),
         domain_materials: dict[str, object] | None = None,
-        finish_format: Mapping[str, object] | None = None,
+        finish_format: Mapping[str, object] | None | _UnsetFinishFormat = _UNSET_FINISH_FORMAT,
     ) -> ModelTurn:
         """Return the provider turn unchanged after one no-tools recovery call.
 
@@ -144,6 +152,13 @@ class EpisodeFinalizer:
         默认 None：不接线的调用方行为不变。
         """
 
+        # Original direct callers already used the material owner's projection.
+        # Runtime supplies an explicit saved descriptor or None; only an omitted
+        # Python argument may select the original material owner's default.
+        selected_format = (
+            claim_finish_format(context.contract, prior_evidence=context.prior_evidence)
+            if isinstance(finish_format, _UnsetFinishFormat) else finish_format
+        )
         payload = self._payload(
             task_frame=task_frame,
             context=context,
@@ -152,10 +167,10 @@ class EpisodeFinalizer:
             failure_reason=failure_reason,
             evidence_priority=evidence_priority,
             domain_materials=domain_materials,
-            finish_format=finish_format,
+            finish_format=selected_format,
         )
         return self._complete(
-            system_prompt=_AUTHOR_RECOVERY_SYSTEM_PROMPT if finish_format is not None else _RECOVERY_SYSTEM_PROMPT,
+            system_prompt=_AUTHOR_RECOVERY_SYSTEM_PROMPT if selected_format is not None else _RECOVERY_SYSTEM_PROMPT,
             payload=payload,
             context=context,
             on_prompt=on_prompt,

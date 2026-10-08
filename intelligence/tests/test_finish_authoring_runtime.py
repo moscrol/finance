@@ -466,7 +466,30 @@ def test_real_restore_distinguishes_missing_material_format_from_present_invalid
     if value == "missing":
         restored = ContinuousAgentEpisode.restore(context.contract.task_id, damaged, context=context, registry=registry)
         assert restored.disposition == "resumable"
-        assert saved_finish_format(restored.events, context=context) == (expected if top_present else None)
+        selected_format = saved_finish_format(restored.events, context=context)
+        assert selected_format == (expected if top_present else None)
+        from intelligence.runtime.episode_finalizer import EpisodeFinalizer
+        from intelligence.services.material_grounding import material_grounding_payload
+
+        calls = []
+
+        class Capture:
+            def complete(self, *, messages, tools, **_kwargs):
+                calls.append((messages, tools))
+                return ModelTurn("", ())
+
+        EpisodeFinalizer(Capture()).recover(task_frame=frame, context=context, evidence=(), gaps=(),
+                                           failure_reason="interrupted", finish_format=selected_format)
+        assert len(calls) == 1 and calls[0][1] == []
+        finalizer = json.loads(calls[0][0][1]["content"])
+        if selected_format is None:
+            assert "finish_format" not in finalizer and "finish_format" not in finalizer["material_grounding"]
+            original_grounding = material_grounding_payload(context.contract, prior_evidence=context.prior_evidence)
+            original_grounding.pop("finish_format")
+            assert finalizer["material_grounding"] == original_grounding
+        else:
+            assert finalizer["finish_format"] == finalizer["material_grounding"]["finish_format"] == selected_format
+            assert finalizer["material_grounding"]["sources"] == payload["material_grounding"]["sources"]
     else:
         with pytest.raises(RestoreUnavailable, match="author"):
             ContinuousAgentEpisode.restore(context.contract.task_id, damaged, context=context, registry=registry)
