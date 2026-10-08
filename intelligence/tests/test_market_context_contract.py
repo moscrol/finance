@@ -106,6 +106,37 @@ def test_real_registry_does_not_lose_last_theme_after_global_thirty(tmp_path):
     assert len(observation.evidence) == 9
 
 
+@pytest.mark.parametrize("price", ["每股价格2.5元", "每股价格2.5"])
+def test_price_role_keeps_today_through_factory_registry_and_shared_model(tmp_path, price):
+    from intelligence.services.query_understanding import understand_query
+    from intelligence.services.temporal_contract import compile_temporal_contract, message_digest
+
+    db_path = _database(tmp_path, [("CURRENT_MARKET_1007", "NOW", "当前板块", 1)], trade_date="2026-10-07")
+    _write(db_path, "insert into fact_market_daily (trade_date) values ('2026-02-05')")
+    _write(db_path, "insert into fact_mainline_sector_daily "
+           "(trade_date,theme_code,theme_name,sector_ts_code,sector_name) "
+           "values ('2026-02-05','OLD','OLD_PRICE_DATE_SENTINEL_205','OLD','旧板块')")
+    query = f"今天A股的主线强弱怎么看？\r\n有一只股{price}，请据此解释盘面。资料截至今天。"
+    temporal = compile_temporal_contract(query, today=date(2026, 10, 7), message_id="complete-original-user")
+    assert temporal.market_target is None
+    assert temporal.cutoff_source.excerpt == query
+    assert temporal.cutoff_source.message_sha256 == message_digest(query.replace("\r\n", "\n"))
+    frame = understand_query(query, today=date(2026, 10, 7), temporal_contract=temporal).task_frame
+    assert frame.timeframe == "最新可用交易日"
+    context = build_episode_context(frame, task_id=f"price-{price}", capabilities=("mainline_context",),
+                                    today="2026-10-07", latest_data_date="2026-10-07")
+    registry = episode_tools.build_episode_registry(frame, context, finance_root=tmp_path,
+        knowledge_wiki=tmp_path / "wiki", l3_runner=None,
+        fixture_policy=episode_tools.SealedFixturePolicy(market_db_path=db_path))
+    observation = registry.execute("mainline_context", {}, context=context, step_id="price-date")
+    public = FinanceResearchHarness().project_tool_result(observation, evidence_so_far=observation.evidence,
+                                                         seen_prose=set()).model_content
+    assert {item.source_date for item in observation.evidence} == {"2026-10-07"}
+    assert observation.query_basis["snapshot_date"] == "2026-10-07"
+    assert "CURRENT_MARKET_1007" in public and "OLD_PRICE_DATE_SENTINEL_205" not in public
+    assert context.temporal_contract is temporal
+
+
 def test_real_registry_all_six_themes_survive_guidance_card_budget(tmp_path):
     rows = [(f"主题{i}", f"S{i}", f"板块{i}", i) for i in range(6)]
     observation, _projection, facing = _consume(_database(tmp_path, rows))

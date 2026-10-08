@@ -181,6 +181,38 @@ def test_decimal_material_quantities_do_not_become_target_dates_or_permissions()
     assert contract.errors == ()
 
 
+@pytest.mark.parametrize("quantity", [
+    "每股价格2.5元", "单价2.5元/股", "单价2.5元每股", "金额2.5万元", "订单2.5亿元",
+    "股本2.5万股", "成交2.5股", "涨幅2.5%", "换手率2.5个百分点", "利率2.5bp", "估值2.5倍",
+    "股价2.5", "价格为2.5", "营业收入2.5", "市盈率2.5", "成交量2.5手",
+])
+def test_explicit_financial_quantity_roles_never_authorize_dates(quantity):
+    text = f"今天市场怎么看？{quantity}，请解释这个数。"
+    temporal = compile_temporal_contract(text, today=TODAY, message_id="full-price-user")
+    assert temporal.market_target is None and temporal.information_cutoff is None
+    assert temporal.errors == ()
+
+
+@pytest.mark.parametrize("text", [
+    "复盘9.30元宇宙题材，只用截至当日的信息。",
+    "复盘9.30亿通的行情，只用截至当日的信息。",
+    "复盘9.30倍轻松的行情，只用截至当日的信息。",
+    "股价在9月30日涨至2.5元，请复盘该日盘面，只用截至当日的信息。",
+    "每股2.5元，复盘9.30的A股，只用截止到9.30的信息。",
+])
+def test_quantity_boundaries_keep_real_date_markers_and_date_followed_by_names(text):
+    temporal = compile_temporal_contract(text, today=TODAY)
+    assert temporal.market_target.end == "2026-09-30"
+    assert temporal.information_cutoff == "2026-09-30"
+    assert temporal.errors == ()
+
+
+@pytest.mark.parametrize("text", ["资料截至2.5元", "资料截止到2.5倍", "资料截至9.31"])
+def test_quantity_or_invalid_calendar_cannot_silently_satisfy_a_cutoff_directive(text):
+    temporal = compile_temporal_contract(text, today=TODAY)
+    assert temporal.errors and temporal.information_cutoff is None
+
+
 def test_uncertain_material_boundary_without_time_instruction_uses_existing_material_guard():
     decision = decide_turn("「市盈率是什么？", today=TODAY, llm_complete=lambda *_args: (None, None, "offline"))
     assert decision.lane == "clarify" and decision.capabilities == ()

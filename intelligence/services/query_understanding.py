@@ -22,7 +22,8 @@ from intelligence.services.scenario_tree import parse_scenario_intent
 from intelligence.services.task_frame import TaskFrame, build_task_frame
 from intelligence.services.temporal_contract import (
     TemporalContract, compile_temporal_contract, market_review_requested_date,
-    _FULL_DATE_RE as _FULL_DATE_RE, _YEARLESS_DATE_RE, _YEARLESS_QUANTITY_PREFIX_RE,
+    _FULL_DATE_RE as _FULL_DATE_RE, _YEARLESS_DATE_RE,
+    _YEARLESS_QUANTITY_PREFIX_RE as _YEARLESS_QUANTITY_PREFIX_RE, yearless_date_matches,
 )
 from intelligence.services.user_task import MessageParts, resolve_nicknames, split_user_message
 from intelligence.services.material_contract import compile_material_contract
@@ -88,11 +89,7 @@ _DATE_RE = re.compile(
     r"|[-/.]\d{1,2}(?:[-/.]\d{1,2}日?)?"
     r")(?!\d)"
 )
-_REVIEW_DATE_RE = (
-    r"(?:20\d{2}(?:年\d{1,2}月\d{1,2}日?|"
-    r"[-/.]\d{1,2}[-/.]\d{1,2})"
-    r"|\d{1,2}(?:月\d{1,2}日?|[./]\d{1,2}(?![\d%个万亿千倍])))"
-)
+_REVIEW_DATE_RE = rf"(?:{_FULL_DATE_RE.pattern}|{_YEARLESS_DATE_RE.pattern})"
 _DATED_MARKET_REVIEW_RE = re.compile(
     _REVIEW_DATE_RE
     + r".{0,24}(?:行情|盘面|市场).{0,12}(?:总结|复盘|回顾|梳理|分析)"
@@ -665,10 +662,8 @@ def _yearless_timeframe(text: str, *, today: date | None = None) -> str | None:
     """「8.18 / 8月18日」→ ISO 日期；前面是数量词（涨幅8.5）的不算。"""
 
     compact = re.sub(r"\s+", "", str(text or ""))
-    match = _YEARLESS_DATE_RE.search(compact)
+    match = next(iter(yearless_date_matches(compact)), None)
     if match is None:
-        return None
-    if _YEARLESS_QUANTITY_PREFIX_RE.search(compact[: match.start()]):
         return None
     return market_review_requested_date(match.group(0), today=today)
 

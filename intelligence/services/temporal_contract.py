@@ -23,9 +23,25 @@ _FULL_DATE_RE = re.compile(
     r"(?<!\d)(20\d{2})(?:年|[-/.])(\d{1,2})(?:月|[-/.])(\d{1,2})日?(?!\d)"
 )
 _YEARLESS_DATE_RE = re.compile(
-    r"(?<!\d)(?!0\.)(\d{1,2})(?:月|[./])(\d{1,2})日?(?!\d)(?!\s*[%个万亿千倍])"
+    r"(?<!\d)(\d{1,2})(?:月|[./])(\d{1,2})日?(?!\d)"
 )
-_YEARLESS_QUANTITY_PREFIX_RE = re.compile(r"[涨跌幅率价值为达到约是了升降]$|\d$|[.．]$")
+# Quantity dimensions already used by financial calculation/delivery checks:
+# currency/price, money/shares, ratios/multiples and counted physical units.
+# A unit must end as a token; a date followed by a company/theme name does not
+# become a quantity merely because that name starts with 元/亿/倍/股.
+_FINANCIAL_QUANTITY_UNIT_RE = re.compile(
+    r"\s*(?:[%％]|(?:人民币(?:元)?|亿美元|美元|港元|欧元|万亿元|百万元|亿元|万元|千元|万亿|亿股|万股|"
+    r"元\s*(?:[/／]\s*(?:股|元)|每股)?|个百分点|百分点|百分比|基点|bps?|[%％]|倍|亿|万|千|"
+    r"股|手|只|家|个月|个|笔|万吨|吨|台|套|片|颗|条|GWh|MWh)"
+    r"(?=$|[\s，,。；;？！?!、）)\]】]|的|(?:收入|利润|订单|股本|成交额|成交量)))", re.I,
+)
+_YEARLESS_QUANTITY_PREFIX_RE = re.compile(
+    r"(?:每股(?:价格|价)?|股价|价格|单价|收盘价|发行价|目标价|市盈率|市净率|估值倍数|"
+    r"营业收入|经营现金流|净利润|收入|利润|总股本|股本|持股|成交额|成交量|金额|"
+    r"订单(?:金额)?|涨跌幅|涨幅|跌幅|换手率|毛利率|净利率|利率|增长率|收益率|占比|比例|比率|倍数|PE|PB)"
+    r"(?:[=：:]|为|是|在|约|大约|达到|由|从|至|到|涨至|跌至)*$"
+    r"|[涨跌幅率价值为达到约是了升降]$|\d$|[.．]$", re.I,
+)
 _SHORT_RANGE_END = re.compile(
     r"\s*(?:到|至|~|～|—|-)\s*"
     r"(?:(?P<month>\d{1,2})[月/.-](?P<day>\d{1,2})日?|(?P<same_month_day>\d{1,2})日)"
@@ -46,6 +62,22 @@ _NEGATION = re.compile(r"(?:不要|不得|不应|并非|不是|不能|无需|别
 _DATE_ROLE = re.compile(
     r"(?:报告期|会计期|统计期|披露日|发布日期|复查日|复核日|有效期|到期日|期限)[\s:：=为是]*$"
 )
+
+
+def _yearless_quantity(text: str, start: int, end: int, raw: str, *, permission: bool = False) -> bool:
+    if "月" in raw or raw.endswith("日"):
+        return False
+    return (
+        raw.startswith("0.")
+        or _FINANCIAL_QUANTITY_UNIT_RE.match(text[end:]) is not None
+        or (not permission and _YEARLESS_QUANTITY_PREFIX_RE.search(re.sub(r"\s+", "", text[:start])) is not None)
+    )
+
+
+def yearless_date_matches(text: str) -> tuple[re.Match[str], ...]:
+    """One source-aware numeric-role filter for every yearless date reader."""
+    return tuple(match for match in _YEARLESS_DATE_RE.finditer(text)
+                 if not _yearless_quantity(text, match.start(), match.end(), match.group()))
 
 
 def _iso(value: object) -> str:
@@ -204,7 +236,13 @@ def cutoff_instruction_clauses(text: str) -> tuple[tuple[int, int, str, str], ..
                 if re.match(r"\s*[-~—–～至到]+\s*\d", clause[match.end():]):
                     continue
                 raw = next(v for v in match.groupdict().values() if v is not None)
-                spans.append((clause_match.start() + match.start(), clause_match.start() + match.end(), kind, raw))
+                matched_kind = kind
+                if kind == "explicit" and _YEARLESS_DATE_RE.fullmatch(raw):
+                    group = next(name for name, value in match.groupdict().items() if value is not None)
+                    start, end = match.span(group)
+                    if _yearless_quantity(clause, start, end, raw, permission=True):
+                        matched_kind = "quantity"
+                spans.append((clause_match.start() + match.start(), clause_match.start() + match.end(), matched_kind, raw))
     return tuple(sorted(spans))
 
 
@@ -238,8 +276,8 @@ def market_review_requested_date(query: str, *, today: date | None = None) -> st
     if full is not None:
         parsed = lexical_date(full.group(), today=anchor)
         return parsed.isoformat() if parsed else None
-    short = _YEARLESS_DATE_RE.search(query)
-    if short is None or _YEARLESS_QUANTITY_PREFIX_RE.search(re.sub(r"\s+", "", query[:short.start()])):
+    short = next(iter(yearless_date_matches(query)), None)
+    if short is None:
         return None
     parsed = lexical_date(short.group(), today=anchor)
     return parsed.isoformat() if parsed else None
@@ -250,9 +288,9 @@ def _target_window(
     inherited: ResearchDateWindow | None = None,
 ) -> tuple[ResearchDateWindow | None, tuple[str, ...]]:
     full = list(_FULL_DATE_RE.finditer(text))
-    matches = full + [m for m in _YEARLESS_DATE_RE.finditer(text) if not any(
+    matches = full + [m for m in yearless_date_matches(text) if not any(
         f.start() <= m.start() < f.end() for f in full
-    ) and not _YEARLESS_QUANTITY_PREFIX_RE.search(re.sub(r"\s+", "", text[:m.start()]))]
+    )]
     matches.sort(key=lambda m: m.start())
     matches = [m for m in matches if not _NEGATION.search(re.split(r"[，,。；;\n]", text[:m.start()])[-1])]
     dates = [lexical_date(m.group(), today=today) for m in matches]
@@ -321,7 +359,9 @@ def compile_temporal_contract(
         errors.append("时间指令与材料边界不明确，请将授权和材料分开提供")
     candidates: list[tuple[str, CutoffOrigin, str | None]] = []
     for _start, _end, kind, raw in instructions:
-        if kind == "explicit":
+        if kind == "quantity":
+            errors.append("资料截止需要有效日期，价格、数量或比例不能作为日期")
+        elif kind == "explicit":
             parsed = lexical_date(raw, today=today)
             if parsed is None:
                 errors.append("资料截止日期无效，请明确有效日期")
@@ -383,14 +423,13 @@ def compile_static_temporal_contract(
         return None
     full = list(_FULL_DATE_RE.finditer(visible))
     compressed = [_SHORT_RANGE_END.match(visible, match.end()) for match in full]
-    for match in _YEARLESS_DATE_RE.finditer(visible):
+    for match in yearless_date_matches(visible):
         if any(start.start() <= match.start() < start.end() for start in full):
             continue
         if any(end is not None and end.start() <= match.start() < end.end() for end in compressed):
             continue
         prefix = visible[:match.start()]
-        if (_YEARLESS_QUANTITY_PREFIX_RE.search(re.sub(r"\s+", "", prefix))
-                or _NEGATION.search(re.split(r"[，,。；;\n]", prefix)[-1])):
+        if _NEGATION.search(re.split(r"[，,。；;\n]", prefix)[-1]):
             continue
         return None
     # The guards prove that this compiler path does not read its day. This
