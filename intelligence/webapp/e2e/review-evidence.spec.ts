@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }, info) => {
   const metrics = page.getByRole("region", { name: "当前日市场读数", exact: true });
   await expect(metrics).toBeVisible();
   expect(await metrics.evaluate(node => !!(node.compareDocumentPosition(document.querySelector(".rh-reading")!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  await guide.locator("summary").click();
+  await guide.locator(":scope > summary").click();
 });
 
 test("readable layout and lossless agent packet after matrix switching and collapse", async ({ page, request }, info) => {
