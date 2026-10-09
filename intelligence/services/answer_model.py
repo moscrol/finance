@@ -731,6 +731,10 @@ class AnswerSpec:
     research_artifacts: tuple[StageArtifact, ...] = ()
     research_evidence_atoms: tuple[EvidenceAtom, ...] = ()
     quality: AnswerQualityReport = field(default_factory=AnswerQualityReport)
+    # Immutable, model-only public execution semantics, not additional fact
+    # claims or an AskResult ledger field. Serialized at the typed producer
+    # boundary so grounded composition and fulfillment repair share one scope.
+    model_query_basis_json: str = field(default="", repr=False)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -2918,6 +2922,34 @@ def _grounded_registry_row(claim: Claim, atoms: tuple[EvidenceAtom, ...]) -> dic
     }
 
 
+class QueryBasisContractError(ValueError):
+    """Typed source scope is missing or differs from its producer contract."""
+
+
+def _registry_query_basis_row(answer_spec: AnswerSpec) -> dict[str, object] | None:
+    """Public source scope is metadata, never a new claim or evidence license."""
+    needs_d4_scope = any(
+        claim.claim_id.startswith("data:D4:row:")
+        for claim in _all_answer_claims(answer_spec)
+    )
+    if not answer_spec.model_query_basis_json:
+        if needs_d4_scope:
+            raise QueryBasisContractError("required D4 query basis is unavailable")
+        return None
+    try:
+        basis = json.loads(answer_spec.model_query_basis_json)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise QueryBasisContractError("invalid model query basis") from exc
+    if not isinstance(basis, dict) or any(
+        not isinstance(source, str) or not source or not isinstance(scope, dict)
+        for source, scope in basis.items()
+    ):
+        raise QueryBasisContractError("invalid model query basis")
+    if needs_d4_scope and not basis.get("D4"):
+        raise QueryBasisContractError("required D4 query basis is unavailable")
+    return {"query_basis": basis} if basis else None
+
+
 def grounded_claim_registry_block(
     answer_spec: AnswerSpec,
     *,
@@ -2932,9 +2964,16 @@ def grounded_claim_registry_block(
     sourced summary when no verified support exists), plus any omission notice.
     If these cannot fit, refuse before invoking the model. Generic registry readers
     can still request only the atomic rows, including an exact one-row budget.
-    Counter/gap reservations then precede the ordinary ranked pool.
+    Counter/gap reservations then precede the ordinary ranked pool. Typed
+    source query basis is one atomic metadata row under this SAME budget; it
+    cannot be dropped while admitting its facts or bypass the window as a suffix.
     """
     atoms = evidence_atoms_from_answer_spec(answer_spec)
+    scope_row = _registry_query_basis_row(answer_spec)
+    scope_line = (
+        json.dumps(scope_row, ensure_ascii=False, separators=(",", ": "))
+        if scope_row is not None else ""
+    )
     # 反证与缺口是「不许过度宣称」的材料：它们被预算挤掉，模型就只剩支持性事实，
     # 越界解读没有对手方。实测 2026-08-26 披露扫描：68 条 claim / 12k 预算只装下
     # 18 条，disc:counter 与 disc:excl 一条没进，模型于是把反证行绑到 disc:summary
@@ -2973,13 +3012,18 @@ def grounded_claim_registry_block(
     if found_ids != required_ids:
         raise ValueError("required registry claims are unavailable")
     if max_chars is None or max_chars <= 0:
-        return "\n".join(line for _keep, _score, _index, line in rows)
+        return "\n".join(
+            ([scope_line] if scope_line else [])
+            + [line for _keep, _score, _index, line in rows]
+        )
     # P4/P6: rank first, then enforce one global prompt budget.  Skipped rows
     # remain in AnswerSpec/EvidenceAtom audit storage and provider traces.
     rows.sort(key=lambda row: (-row[1], row[2]))
-    selected: list[str] = []
+    selected: list[str] = [scope_line] if scope_line else []
     taken: set[int] = set()
-    used_chars = 0
+    used_chars = len(scope_line)
+    if used_chars > max_chars:
+        raise ValueError("required query basis exceeds budget")
     # 调用者显式指定的不可拆上下文先占位；不够就拒绝，不能只留下脱离边界的读数。
     for position, (_keep, _score, index, line) in enumerate(rows):
         if index not in required_indexes:
@@ -3044,7 +3088,10 @@ def grounded_claim_registry_block(
     # 实测 10 个 0731 run 里 2 个超窗（最大 71 条入窗 54、丢 17 条），两个 run
     # 都仍判 complete，所以这是潜在不对称而不是已发生的故障——补一行告知是零
     # 成本的那一半，上 LLM 选择不划算。
-    dropped = len(rows) - len(selected)
+    if scope_line and rows and not taken:
+        raise ValueError("required query basis and claim exceed budget")
+    # Metadata is not a claim; do not subtract it from the omission count.
+    dropped = len(rows) - len(taken)
     if dropped > 0:
         note = (
             f'{{"note":"另有 {dropped} 条 claim 因窗口预算未纳入；'
@@ -3075,17 +3122,28 @@ def answer_spec_for_registry(answer_spec: AnswerSpec, registry_block: str) -> An
     """
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     expected = {claim.claim_id: _grounded_registry_row(claim, atoms) for claim in _all_answer_claims(answer_spec)}
+    expected_scope = _registry_query_basis_row(answer_spec)
+    scope_seen = False
     admitted: set[str] = set()
     for line in registry_block.splitlines():
         row = json.loads(line)
         if not isinstance(row, dict):
             raise ValueError("registry row is not an object")
+        if "query_basis" in row:
+            # Python considers False == 0 and True == 1. Scope qualification
+            # must retain JSON types as well as values (including null).
+            if scope_seen or json.dumps(row, sort_keys=True) != json.dumps(expected_scope, sort_keys=True):
+                raise QueryBasisContractError("registry differs from the source query basis contract")
+            scope_seen = True
+            continue
         if set(row) == {"note"} and isinstance(row["note"], str):
             continue
         claim_id = row.get("claim_id")
         if not isinstance(claim_id, str) or claim_id in admitted or row != expected.get(claim_id):
             raise ValueError("registry differs from the answer claim contract")
         admitted.add(claim_id)
+    if expected_scope is not None and not scope_seen:
+        raise QueryBasisContractError("registry omitted required source query basis")
 
     def keep(group: tuple[Claim, ...]) -> tuple[Claim, ...]:
         return tuple(claim for claim in group if claim.claim_id in admitted)

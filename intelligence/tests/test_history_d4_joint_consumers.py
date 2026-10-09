@@ -121,6 +121,23 @@ def test_one_ask_request_keeps_d10_and_d4_fact_roles(joint_db, tmp_path, monkeyp
                            daily_agent_grounded_presenter=grounded, shadow_grounded_composer=False),
         result=result,
     ))
+    if grounded:
+        try:
+            registry = ask_synthesis._grounded_registry_for_synthesis(spec, QUESTION)
+        except ValueError:
+            # The full typed D4 scope now shares the 12K admission window.
+            # This fixed large producer witness must refuse, not silently drop
+            # qualification or bypass the grounded boundary via legacy prose.
+            full_lines = answer_model.grounded_claim_registry_block(spec).splitlines()
+            scope = next(line for line in full_lines if "query_basis" in json.loads(line))
+            assert json.loads(scope) == {"query_basis": {"D4": expected_basis}}
+            history_line = next(line for line in full_lines if json.loads(line).get("claim_id") == history.claim_id)
+            fact_lines = [line for line in full_lines if json.loads(line).get("claim_id", "").startswith("data:D4:row:")]
+            assert len(scope) + len(history_line) + min(map(len, fact_lines)) + 2 > 12_000
+            assert calls == []
+            assert result.grounded_composer_shadow.status == "ineligible_evidence"
+            assert result.grounded_composer_shadow.failure_reason == "required_context_exceeds_registry_budget"
+            return
     assert calls
     prompt = "\n".join(m["content"] for m in calls[0])
     assert "FUTURE_D4_SENTINEL" not in prompt

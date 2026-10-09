@@ -894,6 +894,20 @@ def _prepare_answer_spec_synthesis(
 ) -> list[dict]:
     if result.answer_spec is None:
         return []
+    if mainline_snapshot is not None:
+        from intelligence.services.episode_tools import mainline_snapshot_tool_result
+
+        # Keep the typed producer's public scope in the in-memory contract.
+        # Grounded composition rebuilds messages and cannot inherit a suffix
+        # that exists only in prepared_synthesis_messages. No prose parsing,
+        # claim minting, rereading the database, or public ledger expansion.
+        result.answer_spec = replace(
+            result.answer_spec,
+            model_query_basis_json=json.dumps(
+                {"D4": mainline_snapshot_tool_result(mainline_snapshot).query_basis},
+                ensure_ascii=False, separators=(",", ": "),
+            ),
+        )
     citation_legend = "\n".join(
         f"[{citation.tag}] {citation.source}"
         + (f" — {citation.detail}" if citation.detail else "")
@@ -2181,9 +2195,14 @@ def synthesize_shadow_grounded_answer(
     try:
         registry_block = _grounded_registry_for_synthesis(result.answer_spec, options.query)
         admitted_spec = answer_model.answer_spec_for_registry(result.answer_spec, registry_block)
-    except ValueError:
+    except ValueError as exc:
         result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
-            status="ineligible_evidence", failure_reason="required_context_exceeds_registry_budget",
+            status="ineligible_evidence",
+            failure_reason=(
+                "source_query_basis_contract_invalid"
+                if isinstance(exc, answer_model.QueryBasisContractError)
+                else "required_context_exceeds_registry_budget"
+            ),
             elapsed_ms=round((time.monotonic() - started) * 1000),
         )
         return result
