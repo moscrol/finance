@@ -361,7 +361,7 @@ def test_overlapping_heat_group_sums_never_become_unique_stocks_or_concentration
         dataset="theme_limit_heat_daily", metrics=["limit_up_count"], dimensions=["sector_code"],
         group_by=["sector_code"], filters=[], order_by=[], limit=2,
     )
-    assert [row["limit_up_count"] for row in calls[0][1].rows] == [6, 8]
+    assert sorted((row["sector_code"], row["limit_up_count"]) for row in calls[0][1].rows) == [("AA", 6), ("BB", 8)]
     assert observation.trace.status == "success"
     context = facing["source_context"]
     assert context["execution_scope"]["source_population"] == "full"
