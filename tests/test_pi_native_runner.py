@@ -98,3 +98,37 @@ def test_jsonl_reader_does_not_split_unicode_line_separators(tmp_path):
     source = tmp_path / "events.jsonl"
     source.write_text(json.dumps({"text": "a\u2028b\u2029c"}, ensure_ascii=False) + "\n")
     assert runner.read_jsonl(source) == [{"text": "a\u2028b\u2029c"}]
+
+
+def test_keychain_reference_is_resolved_without_a_shell(monkeypatch):
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(command, 0, "fixture-key\n", "")
+
+    monkeypatch.setattr(runner.subprocess, "run", run)
+    expression = "$(security find-generic-password -a fixture-user -s finance-fixture -w 2>/dev/null || true)"
+    assert runner.resolve_api_key(expression) == "fixture-key"
+    assert calls[0][0] == ["/usr/bin/security", "find-generic-password", "-a", "fixture-user",
+                            "-s", "finance-fixture", "-w"]
+    assert not calls[0][1].get("shell", False)
+
+
+@pytest.mark.parametrize("value", [None, "$KEY", "${KEY}", "$(curl example.invalid)",
+    "$(security find-generic-password -a fixture -s fixture -w; echo nope)"])
+def test_unsafe_or_unresolved_credentials_fail_before_transport(value, monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("must not execute an arbitrary credential command")
+
+    monkeypatch.setattr(runner.subprocess, "run", forbidden)
+    with pytest.raises((ValueError, RuntimeError)):
+        runner.resolve_api_key(value)
+
+
+def test_literal_key_does_not_spawn_a_process(monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("literal credentials do not need a subprocess")
+
+    monkeypatch.setattr(runner.subprocess, "run", forbidden)
+    assert runner.resolve_api_key("fixture-key") == "fixture-key"

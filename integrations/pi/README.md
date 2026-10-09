@@ -21,7 +21,8 @@ python integrations/pi/run_native.py run --root <产物目录>
 
 `prepare` 固定提交号、runner/kit/skill 哈希、APFS 只读克隆、问题、截止日、模型与调用上限，复制 RAG 绑定并固定端点摘要。
 `run` 前后校验源码仍干净且这些输入未变；已经启动的目录不能重跑。真实验证使用受管 RAG 绑定，`off` 仅用于离线测试。
-凭证从现有启动器的 export 行读取，不执行启动器、不落盘密钥。
+凭证从环境或现有启动器的 export 行读取；只支持字面密钥及受限的 `security find-generic-password` 钥匙串引用。
+不执行启动器或任意 shell 表达式，不落盘密钥。未解析表达式在发请求前失败。
 
 默认只验证方法论层。`prepare --second-look` 另开一次自检续写，`--subagents` 另开研究派单；它们是独立实验变量，按需分批验证。
 子任务共享根模型/工具调用上限及绝对截止日，带相同工具参数说明，只能读取自身挂载的专项，不再派单。

@@ -25,6 +25,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import signal
 import socket
@@ -91,6 +92,32 @@ def launcher_exports(path: Path) -> dict[str, str]:
     return exports
 
 
+def resolve_api_key(value: str | None) -> str:
+    """Resolve only literals or the launcher's read-only macOS Keychain reference."""
+    if not value:
+        raise RuntimeError("existing GLM credential unavailable; no request made")
+    if "$" not in value and "`" not in value:
+        return value
+    if not (value.startswith("$(") and value.endswith(")")):
+        raise ValueError("unresolved credential expression; pass a resolved key in the environment")
+    tokens = shlex.split(value[2:-1])
+    if tokens[-3:] == ["2>/dev/null", "||", "true"]:
+        tokens = tokens[:-3]
+    elif tokens[-1:] == ["2>/dev/null"]:
+        tokens = tokens[:-1]
+    if (len(tokens) != 7 or tokens[0] not in ("security", "/usr/bin/security")
+            or tokens[1] != "find-generic-password" or tokens[-1] != "-w"
+            or {tokens[2], tokens[4]} != {"-a", "-s"}
+            or any(char in "".join(tokens[2:]) for char in ("$", "`", ";", "|", "&"))):
+        raise ValueError("unsupported credential command; launcher is never executed")
+    result = subprocess.run(["/usr/bin/security", *tokens[1:]], capture_output=True,
+                            text=True, timeout=10, check=False)
+    key = result.stdout.strip()
+    if result.returncode != 0 or not key:
+        raise RuntimeError("GLM Keychain credential unavailable; no request made")
+    return key
+
+
 _LAUNCHER_SKIP_PREFIXES = ("LLM_", "OPENAI_", "ASK_", "WORKBENCH_", "FORESIGHT_USER", "AGENT_RUNTIME_")
 _LAUNCHER_SKIP_EXACT = {"PATH", "PYTHONPATH", "WORKBENCH_REPO_ROOT", "FORESIGHT_USERS_DIR", "FORESIGHT_USER"}
 
@@ -105,7 +132,7 @@ def environment(plan: dict, root: Path) -> dict[str, str]:
         if key in _LAUNCHER_SKIP_EXACT or key.startswith(_LAUNCHER_SKIP_PREFIXES):
             continue
         env.setdefault(key, value)
-    api_key = env.get("FORESIGHT_BUILTIN_LLM_API_KEY") or exports.get("FORESIGHT_BUILTIN_LLM_API_KEY")
+    api_key = resolve_api_key(env.get("FORESIGHT_BUILTIN_LLM_API_KEY") or exports.get("FORESIGHT_BUILTIN_LLM_API_KEY"))
     base_url = env.get("FORESIGHT_BUILTIN_LLM_BASE_URL") or exports.get("FORESIGHT_BUILTIN_LLM_BASE_URL")
     assert api_key and base_url, "existing GLM credential unavailable; no request made"
     code = plan["code_root"]
