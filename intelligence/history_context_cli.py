@@ -20,7 +20,7 @@ MAX_OUTPUT_BYTES = 48_000
 MAX_OUTPUT_LINES = 2_000
 
 
-def history_payload(db_path: Path, *, as_of: str, timeout: float = 30.0) -> dict:
+def history_payload(db_path: Path, *, as_of: str, timeout: float = 30.0, review_readouts: bool = False) -> dict:
     day = date.fromisoformat(as_of)
     if day.isoformat() != as_of:
         raise ValueError("as_of must be YYYY-MM-DD")
@@ -29,9 +29,9 @@ def history_payload(db_path: Path, *, as_of: str, timeout: float = 30.0) -> dict
     if not db_path.is_file():
         raise FileNotFoundError("market database unavailable")
     blocks = market_history_blocks(
-        db_path, as_of=day, deadline=ResearchDeadline.from_timeout(timeout),
+        db_path, as_of=day, deadline=ResearchDeadline.from_timeout(timeout), include_readouts=review_readouts,
     )
-    return {
+    payload = {
         "schema_version": SCHEMA_VERSION,
         "as_of": as_of,
         "evidence_grade": "INFERRED",
@@ -45,6 +45,14 @@ def history_payload(db_path: Path, *, as_of: str, timeout: float = 30.0) -> dict
             for block in blocks
         ],
     }
+    if review_readouts:
+        return {
+            "schema_version": "finance-history-review-source/v1",
+            "public_text": encode_payload(payload),
+            "readouts": [{"source_sha256": public["sha256"], "payload": block.readout}
+                         for public, block in zip(payload["blocks"], blocks, strict=True)],
+        }
+    return payload
 
 
 def encode_payload(payload: dict) -> str:
@@ -59,9 +67,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", type=Path, required=True)
     parser.add_argument("--as-of", required=True)
     parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument("--review-readouts", action="store_true")
     args = parser.parse_args(argv)
     try:
-        text = encode_payload(history_payload(args.db, as_of=args.as_of, timeout=args.timeout))
+        text = encode_payload(history_payload(args.db, as_of=args.as_of, timeout=args.timeout, review_readouts=args.review_readouts))
     except (ValueError, OSError):
         # Do not disclose paths, SQL or exception text to an external model.
         print(json.dumps({"schema_version": SCHEMA_VERSION, "error": "history_context_unavailable"}))

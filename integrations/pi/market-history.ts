@@ -36,7 +36,7 @@ export function validatePayload(text: string, asOf: string) {
   });
 }
 
-function childEnvironment(root: string): NodeJS.ProcessEnv {
+export function childEnvironment(root: string): NodeJS.ProcessEnv {
   // The calculator needs no provider credentials or operator profile variables.
   // This reduces accidental exposure; it is not an OS sandbox.
   const env: NodeJS.ProcessEnv = {
@@ -48,7 +48,8 @@ function childEnvironment(root: string): NodeJS.ProcessEnv {
   return env;
 }
 
-export const historyTool = defineTool({
+export function createHistoryTool(reviewReadouts = false) {
+  return defineTool({
     name: "finance_market_history",
     label: "Market history (read only)",
     description: "按明确截止日读取本地市场历史比较。返回旧D10后续事实与river多维镜头、来源、缺口和时间限制；两组候选独立，不能按名次嫁接收益。仅INFERRED研究线索，不是预测概率或已验证环境剧本。不联网、不写库、不读画像、不调用其他模型。整块超预算则拒绝，不交付残表。",
@@ -67,7 +68,8 @@ export const historyTool = defineTool({
       const text = await new Promise<string>((accept, reject) => {
         const fail = () => reject(new Error("History tool failed, cancelled, timed out or exceeded its output budget; no partial result delivered."));
         try {
-          execFile(python, ["-m", "intelligence.history_context_cli", "--db", db, "--as-of", params.as_of, "--timeout", "30"], {
+          execFile(python, ["-m", "intelligence.history_context_cli", "--db", db, "--as-of", params.as_of, "--timeout", "30",
+            ...(reviewReadouts ? ["--review-readouts"] : [])], {
             cwd: resolve(root), signal, timeout: 35_000, maxBuffer: maxBytes + 1,
             encoding: "utf8", env: childEnvironment(resolve(root)),
           }, (error, stdout) => {
@@ -79,13 +81,29 @@ export const historyTool = defineTool({
           fail();
         }
       });
-      const blockHashes = validatePayload(text, params.as_of);
+      let publicText = text;
+      let reviewSource: Record<string, unknown> | undefined;
+      if (reviewReadouts) {
+        let value: unknown;
+        try { value = JSON.parse(text); } catch { throw new Error("History review source protocol mismatch."); }
+        if (!isRecord(value) || value.schema_version !== "finance-history-review-source/v1" ||
+            typeof value.public_text !== "string" || !Array.isArray(value.readouts) || value.readouts.length !== 2) {
+          throw new Error("History review source protocol mismatch.");
+        }
+        publicText = value.public_text;
+        reviewSource = value;
+      }
+      const blockHashes = validatePayload(publicText, params.as_of);
       return {
-        content: [{ type: "text", text }],
-        details: { schema_version: schemaVersion, as_of: params.as_of, block_hashes: blockHashes },
+        content: [{ type: "text", text: publicText }],
+        details: { schema_version: schemaVersion, as_of: params.as_of, block_hashes: blockHashes,
+          ...(reviewSource ? { review_source: reviewSource } : {}) },
       };
     },
-});
+  });
+}
+
+export const historyTool = createHistoryTool();
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool(historyTool);

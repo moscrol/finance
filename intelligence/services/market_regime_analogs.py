@@ -852,6 +852,11 @@ def regime_block_for_llm(
 ) -> str:
     """把市场情绪环境类比渲染成带 [D10] 引用编号的确定性数据块（空串=未取到）。"""
     artifact = load_market_regime_artifact(market_db_path, window=window, as_of=as_of)
+    return render_regime_block(artifact)
+
+
+def render_regime_block(artifact: MarketRegimeArtifact) -> str:
+    """Render an already computed artifact; optional consumers can retain its typed readout."""
     if not artifact.available:
         return ""
     return "\n".join([

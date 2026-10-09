@@ -119,6 +119,28 @@ pi --offline --mode json --no-session \
 两冻结库三截止的既有完整对象字段、解码后旧模型字段及库哈希不变。**该轮也没有新模型请求**，不签GLM质量。
 本线未吸收Codex结果文字所有权，联合消费者另验。见[方向续修与收据](../../docs/handoffs/2026-10-08-history-direction-contract.md)。
 
+## 显式启用历史陈述复核
+
+`reviewed-history.ts` 是同一原生工具的可选复核适配器，替代本页启动命令中的 `market-history.ts`，不要同时加载两者。它不修改全局Pi配置或Workbench运行层。
+
+- 作者收到的工具正文与旧入口逐字节相同。额外类型读数来自同一次计算，只放tool details；复核不重新读库，也不把INFERRED升为事实。
+- 共享 `history_answer_review` 为每个陈述和具名读数建立本次请求内的身份，核对完整回执、锚点索引及回答完整性；纯格式/非事实豁免还要在隔离上下文里复核。未送进实际作者请求的工具结果不获得复核许可。
+- Pi使用当前模型、独立复核上下文。第一次拒绝会驱动一次完整修订并重审；不是重复抽首稿。持续拒绝、坏JSON、取消或复核不可用时保留原稿，明确未确认，不伪装为通过，也不吞成占位答复。
+- 流式文字在message_end之前仍是草稿；不能把尚未完成的stream delta当作已复核终稿。queued user消息会清除上一题的证据许可和修订计数，续问需重新取得本轮材料。
+- `finance_history_review`自定义记录保留原稿、草稿/来源身份、逐句回执和每次复核usage。嵌套复核请求额外分账，**不包含在作者消息的usage里**；不能用Pi作者token数冒称总消耗。复核使用300秒单请求超时、零SDK重试。
+- reviewed只表示该模型的本次复核通过，不是确定性蕴含证明、独立金融专家批准或样本外能力证明。真实金融质量仍须逐项验收。
+
+离线真实Pi状态机测试：
+
+```bash
+.venv-workbench/bin/python -m pytest -q \
+  intelligence/tests/test_history_review_transport.py \
+  intelligence/tests/test_history_answer_review.py \
+  intelligence/tests/test_pi_history_review.py
+```
+
+边界决定见[ADR](../../docs/adr/0007-native-history-review-boundary.md)。旧两题未通过的实答记录保持不变。
+
 ## 分层验收
 
 1. **接线**：实际 tool call → tool result → 下一次模型请求。比对块哈希与完整内容，不能用手工贴结果替代。

@@ -364,6 +364,18 @@ DecisionBrief、composer 确定性校验/修复和公开投影只看实际送达
 连续复盘收紧标题及工具栏，详细读法保持折叠，四尺寸检查以首张完整读数卡进入首屏为标准，不冒称手机首屏展示全部六项。
 离线送达通过不能代签真实模型的金融解释；旧全文未通过结论保留。上线仍需独立验收与用户授权。
 
+### 原生 Pi 历史陈述复核（显式启用）
+
+外部入口 `integrations/pi/reviewed-history.ts` 替代原 `market-history.ts` 加载，不改变全局Pi或Workbench默认。
+历史读取可在同一次计算中保留typed readout，放工具details给复核使用；作者工具正文仍按原v1逐字节送达，
+48KB原子上限与INFERRED等级不变。复核不重新读库，不把原生Pi冒充material_only Episode。
+
+`history_answer_review` 共享领域模块将具名窗口/指标/类型读数与精确草稿绑定，复用已有逐句、输出回执和
+非事实豁免的隔离检查。Pi通过message_end接回结果，turn_end仅在明确拒绝时请求一次修订并重审；
+取消、旧请求、无材料、坏回执或持续拒绝均保留原稿和未确认状态，不把错误结果签为reviewed或吞成占位答复。
+流式文字在完成前仍是草稿，复核不构成确定性正确性证明或独立金融批准。嵌套复核usage额外留账，
+不混进作者usage。详细启用和边界见[Pi适配器说明](../integrations/pi/README.md)、[ADR](adr/0007-native-history-review-boundary.md)。
+
 ### 评测专用目录视图（非生产入口）
 
 `intelligence.eval.catalog_request_view.CatalogRequestClient` 只供显式组装的评测客户端使用，

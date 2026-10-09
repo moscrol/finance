@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 class HistoryBlock:
     title: str
     detail: str
+    readout: dict | None = None
 
 
 def market_history_blocks(
@@ -28,15 +29,22 @@ def market_history_blocks(
     *,
     as_of: date | str,
     deadline: ResearchDeadline | None = None,
+    include_readouts: bool = False,
 ) -> tuple[HistoryBlock, ...]:
     """调用者必须提供已解析的站立日；不默默回落机器今天或库尾日期。"""
     day = date.fromisoformat(str(as_of))
     cutoff = day.isoformat()
     # 两个旧取数模块的默认路径解析不同，在接缝处统一，不能一块读配置库一块读常量库。
     db_path = Path(market_db_path).expanduser() if market_db_path is not None else default_market_db_path()
+    facts_readout = lens_readout = None
     try:
         if deadline is not None and deadline.expired:
             facts = "historical_analogs gap：父预算已耗尽，未启动 D10 读取。"
+        elif include_readouts:
+            artifact = market_regime_analogs.load_market_regime_artifact(db_path, as_of=day)
+            facts = market_regime_analogs.render_regime_block(artifact)
+            if artifact.available:
+                facts_readout = artifact.model_payload()
         else:
             facts = market_regime_analogs.regime_block_for_llm(db_path, as_of=day)
     except Exception as exc:
@@ -65,6 +73,8 @@ def market_history_blocks(
             db_path=db_path,
         )
         lens = river_lens.lens_block(result, name="D10", shared_reading_rules=has_regime_reading_rules)
+        if include_readouts:
+            lens_readout = result.model_payload()
         if not result.current.stats or not result.candidates:
             lens = "river_lens gap：没有可比较的当前签名或历史窗口；不强行给出对标。\n" + lens
     except TimeoutError:
@@ -76,6 +86,6 @@ def market_history_blocks(
             "这不证明没有相似行情，不用 D10 的名次冒充逐维解释。"
         )
     return (
-        HistoryBlock("市场情绪环境类比 [D10]", facts),
-        HistoryBlock("多维对照镜头 [D10]", f"{boundary}\n截止={cutoff}\n{lens}"),
+        HistoryBlock("市场情绪环境类比 [D10]", facts, facts_readout),
+        HistoryBlock("多维对照镜头 [D10]", f"{boundary}\n截止={cutoff}\n{lens}", lens_readout),
     )
