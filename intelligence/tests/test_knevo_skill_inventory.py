@@ -81,7 +81,9 @@ def test_app_skill_follows_knevo_eight_chapter_shape(name: str) -> None:
 
 
 _ANCHORS = {
-    "finance-review-check": ("修订版报告为主体", "Review Verdict", "FAIL 阻塞写回", "不改报告结构、立场和核心结论"),
+    "finance-review-check": ("修订版报告为主体", "Review Verdict", "FAIL 阻塞写回", "不改报告结构、立场和核心结论",
+                             # 2026-10-10 六题实测：审查者 D 维漏了量价→资金、跨比较集、阈值无来源三处；钉住补上的逐句核。
+                             "逐句核 finance-mode 的一票否决清单", "跨比较集推理", "免责声明不抵消前文断言"),
     "finance-associate": ("暂无显著关联", "查图谱（先于其他", "[inference]", "联想是「发散」不是「结论」"),
     "finance-kol-analyze": ("不强行模拟", "禁止凭空捏造", "仅在有证据时陈述", "历史立场是先验"),
     "finance-analyze-stock": ("现价除以记忆里的每股收益", "同源、同截至日", "没有估值锚的推荐是空中楼阁", "业绩点评"),
