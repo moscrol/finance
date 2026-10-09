@@ -1410,7 +1410,8 @@ def test_two_empty_observations_stop_on_no_information_gain() -> None:
     assert len(result.loop.steps) == 2
 
 
-def test_ask_owner_path_skips_fixed_answer_template(monkeypatch) -> None:
+def test_ask_owner_path_skips_fixed_answer_template(monkeypatch, model_context_offline) -> None:
+    """Host credentials must not let the planner consume this loop's fake replies."""
     def fake_web(query: str, _context: agent_research.AgentToolContext):
         return [
             agent_research.AgentEvidence(
