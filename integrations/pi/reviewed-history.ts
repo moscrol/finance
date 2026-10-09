@@ -72,12 +72,27 @@ function deliveredToolTexts(payload: unknown): Set<string> {
   return texts;
 }
 
+// One settle continuation per Pi process. finance-mode.ts shares this key, so enabling both
+// fails extension load at startup instead of stacking two follow-up turns.
+const CONTINUATION_OWNER = Symbol.for("finance.pi.continuation-owner");
+
+function claimContinuation(pi: ExtensionAPI, name: string): void {
+  const registry = globalThis as unknown as Record<symbol, string | undefined>;
+  const owner = registry[CONTINUATION_OWNER];
+  if (owner !== undefined && owner !== name) {
+    throw new Error(`Pi continuation already owned by ${owner}; ${name} would stack a second follow-up turn. Load only one of them.`);
+  }
+  registry[CONTINUATION_OWNER] = name;
+  pi.on("session_shutdown", () => { if (registry[CONTINUATION_OWNER] === name) delete registry[CONTINUATION_OWNER]; });
+}
+
 export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: number; timeoutMs?: number } = {}) {
   const maxRepairs = options.maxRepairs ?? 1;
   const timeoutMs = options.timeoutMs ?? 300_000;
   if (!Number.isInteger(maxRepairs) || maxRepairs < 0 || maxRepairs > 2 || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error("Invalid history review policy.");
   }
+  if (maxRepairs > 0) claimContinuation(pi, "reviewed-history");
   let epoch = 0;
   let question = "";
   let repairs = 0;
