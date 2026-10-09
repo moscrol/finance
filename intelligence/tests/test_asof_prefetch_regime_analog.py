@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-import json
+import yaml
 from pathlib import Path
 
 import pytest
@@ -81,7 +81,7 @@ def test_regime_question_with_data_emits_real_d10_block(tmp_path: Path) -> None:
     )
     blob = _blob(items)
     assert "[D10]" in blob
-    rendered = json.loads(blob.split("```json\n")[1].split("\n```")[0])
+    rendered = yaml.safe_load(blob.split("```yaml\n")[1].split("\n```")[0])
     assert rendered["windows"] and rendered["candidates"]["windows"]
     assert rendered["selection"]["comparable_count"] >= len(rendered["windows"])
     assert "后续5交易日" in blob

@@ -31,6 +31,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from intelligence.paths import default_market_db_path
 from intelligence.services import retrieval_cache
 from intelligence.services import reading_baseline
@@ -821,6 +823,21 @@ _FEATURE_LABELS = {
 }
 
 
+class _ReadoutDumper(yaml.SafeDumper):
+    def write_indicator(self, indicator, need_whitespace, whitespace=False, indention=False):
+        # Flow collections permit adjacent entries: [a,b]. Keep YAML's
+        # scalar quoting/type rules, only omit the optional comma space.
+        super().write_indicator(indicator, need_whitespace, whitespace or indicator == ",", indention)
+
+
+def model_readout_block(payload: dict[str, Any]) -> str:
+    """Lossless flow YAML avoids quoting every JSON key again inside a claim string."""
+    json.dumps(payload, ensure_ascii=False, allow_nan=False)
+    text = yaml.dump(payload, Dumper=_ReadoutDumper, allow_unicode=True, default_flow_style=True,
+                     sort_keys=False, width=100_000).rstrip()
+    return f"```yaml\n{text}\n```"
+
+
 def regime_block_for_llm(
     market_db_path: str | Path | None,
     window: int = DEFAULT_WINDOW,
@@ -833,20 +850,15 @@ def regime_block_for_llm(
     return "\n".join([
         "## 市场情绪环境类比块 [D10]",
         *reading_baseline.block_rule_lines("D10"),
-        "- 后续5交易日/后续10交易日/后续20交易日：sh_index_cum_pct=上证累计终点收益%，日收益齐全才算；"
-        "其余为非空日均涨停/最高板/日均双红，*_days给分母；按输入交易日序列，源日完整性未证。",
-        "- 终点收益不描述区间内的涨跌路径。终点收益大于0的样本频率按同期限非缺失值报分子/分母；显示0不猜原值正负，不是概率预测。",
-        "- fit_window含当前窗，z相对该范围，不代表绝对占比高低/冷暖；首题材份额非全题材集中度。"
-        "signatures：raw_mean/z_mean为非空原值/z均值，end_segment_delta=末减首三分之一z均值，*_days非空数，不补零。"
-        "raw_summaries补签名外均值/分母；signatures.defaults为各行相同计数；window_days输入行数，"
-        "eligibility_by_window_days段长/准入最少观测，部分首尾段覆盖可准入。",
-        f"- direction_relation按未舍入首尾差±{END_SEGMENT_EPSILON}分类（含边界近零）："
-        "同向/反向/一方近零/双方近零；仅候选对current共有维，null未比较，非逐日路径或贡献等级。",
-        "- feature_observations的defaults/overrides为默认/逐特征例外；query_failed查询失败/empty范围无非空/constant近常量退出(std<1e-9)/active可标准化。"
-        "全局退出不进分母，窗口缺维用共有维覆盖惩罚；null_unknown未知，queried不证全源覆盖。",
-        "- selection=生成/可比/展示数，距离贪心去重叠；windows=本块引用→[起日,止日]，candidate_relations闭区间交集。"
-        "current_gap_days当前缺维非空数，缺维因窗口/首尾段覆盖不足。显示3位。",
-        "- PIT据fact_market_daily.updated_at对单cutoff标记；strict不等于逐日历史可知，辅表版本未核；"
-        "trade_date_only可能晚于截止、缺失或不可解析，不能区分首次迟入库与覆盖修订，不授予严格回放/校准资格。",
-        "```json", json.dumps(artifact.model_payload(), ensure_ascii=False, separators=(",", ":"), allow_nan=False), "```",
+        "- 后续5交易日/后续10交易日/后续20交易日按输入序列，未证源日完整；sh_index_cum_pct=上证终点收益%(日收益须齐全)，其余=非空日均涨停/最高板/日均双红。"
+        "终点收益不描述区间内的涨跌路径；同期限非缺失终点收益大于0可报样本频率分子/分母，显示0不猜原值正负，不是概率预测。",
+        "- 两表共用读法：fit_window含当前窗，非留出；z非绝对占比高低/冷暖，首题材份额非全题材集中度。"
+        "raw_mean/z_mean=非空原值/z均值，end_segment_delta=末减首三分之一z均值，非路径；*_days=非空分母，window_days=输入数。"
+        "eligibility_by_window_days给段长/门槛，部分首尾段覆盖可准入；raw_summaries补签名外均值/分母。",
+        f"- direction_relation按未舍入首尾差±{END_SEGMENT_EPSILON}(含边界近零)对current共有维分类，null未比较；非贡献档。",
+        "- defaults/overrides=默认/例外；query_failed查询失败/empty范围无非空/constant近常量退出(std<1e-9)/active可标准化。"
+        "全局退出不进分母，窗口缺维用共有维覆盖惩罚；current_gap_days=缺维非空数；null_unknown未知，queried不证全源覆盖，不补零。",
+        "- 选择规则/规模见selection；windows为本块闭区间，交集不证独立；显示3位。",
+        "- PIT仅核fact_market_daily.updated_at对本cutoff，strict不等于逐日历史可知，辅表未核；trade_date_only可能晚于截止、缺失或不可解析，不能区分首次迟入库与覆盖修订，不授予回放/校准资格。",
+        model_readout_block(artifact.model_payload()),
     ])

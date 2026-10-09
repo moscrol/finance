@@ -42,6 +42,7 @@ def market_history_blocks(
     except Exception as exc:
         log.warning("D10 historical facts unavailable (%s)", type(exc).__name__)
         facts = ""
+    has_regime_reading_rules = bool(facts.strip()) and not (deadline is not None and deadline.expired)
     if not facts.strip():
         facts = (
             f"historical_analogs gap（D10 不可用，截止={cutoff}）："
@@ -49,11 +50,8 @@ def market_history_blocks(
             "禁止用画像、框架原文或镜头距离冒充历史后续事实。"
         )
     boundary = (
-        "两部分分开计算候选集，不表示统计独立：D10 用市场情绪特征并列历史后续事实，镜头用 river 可比较特征。"
-        "同一序号不代表同一窗口，后续事实不可嫁接到镜头候选；"
-        "只能按明确日期区间与指标口径核对。镜头未提供后续事实，不得自行补造。"
-        "教学 tf.* 特征尚未接入镜头；未读取用户判断台账，不将缺数补零。"
-        "环境剧本自动命名与持久化未接入，本块不能称为已验证剧本。"
+        "D10情绪/river镜头候选分算，非统计独立；同序号非同窗，后续事实不可嫁接，须按日期和口径核对。"
+        "镜头无后续事实，不补造/补零。教学tf.*、用户判断读取、剧本自动命名/持久化未接入，非已验证剧本。"
     )
     try:
         if deadline is not None and deadline.expired:
@@ -66,7 +64,7 @@ def market_history_blocks(
             top=market_regime_analogs.TOP_K,
             db_path=db_path,
         )
-        lens = river_lens.lens_block(result, name="D10")
+        lens = river_lens.lens_block(result, name="D10", shared_reading_rules=has_regime_reading_rules)
         if not result.current.stats or not result.candidates:
             lens = "river_lens gap：没有可比较的当前签名或历史窗口；不强行给出对标。\n" + lens
     except TimeoutError:

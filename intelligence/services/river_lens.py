@@ -62,6 +62,7 @@ from intelligence.services.market_regime_analogs import (
     observation_table,
     labeled_readout,
     bind_model_windows,
+    model_readout_block,
     _standardize_vectors_with_reasons,
     window_relations,
     window_signature,
@@ -621,26 +622,29 @@ def build_lens(
     )
 
 
-def lens_block(res: LensResult, *, name: str = "LENS") -> str:
+def lens_block(res: LensResult, *, name: str = "LENS", shared_reading_rules: bool = False) -> str:
     """模型与人读同一份具名结果，数据只从 model_payload 投影一次。"""
-    out = [
-        f"## 多维对照镜头 [{name}]",
-        f"- 交易日截断：knowledge_cutoff={res.knowledge_cutoff}；日期截断不等于已证明当时可知。",
+    schema_rules = [
         "- fit_window含当前窗，非留出验证；raw_mean/z_mean为非空原值/z均值，end_segment_delta=末减首三分之一z均值，*_days非空数。"
         "首尾差近零≠逐日走平，无路径；signatures.defaults为各行相同计数；eligibility_by_window_days给段长/准入最少观测。",
+        f"- direction_relation按未舍入首尾差±{END_SEGMENT_EPSILON}分类（含边界近零）："
+        "同向/反向/一方近零/双方近零，null未比较。windows=本块引用→[起日,止日]。",
+        "- feature_observations：defaults/overrides默认/例外；null_unknown未知，queried不证全源覆盖；"
+        "current_gap_days缺维非空数；显示舍入3位。",
+    ]
+    if shared_reading_rules:
+        schema_rules = ["- 签名/覆盖/缺维/方向/舍入口径沿用前块共同读法；首尾近零非逐日走平。"]
+    return "\n".join([
+        f"## 多维对照镜头 [{name}]",
+        f"- knowledge_cutoff={res.knowledge_cutoff}仅截交易日，非历史可知。",
+        *schema_rules,
         f"- 逐维贡献=abs(均值差)+{_DELTA_WEIGHT}×abs(首尾差之差)；总距离=贡献和×活动维数/共有维数²。"
         f"贡献low≤{LOW_CONTRIBUTION}、high≥{HIGH_CONTRIBUTION}，其余middle，不判断方向。",
-        f"- direction_relation按未舍入首尾差±{END_SEGMENT_EPSILON}分类（含边界近零）："
-        "同向/反向/一方近零/双方近零，null未比较。selection=生成/可比/展示数，top-K允许重叠；windows=本块引用→[起日,止日]。",
-        "- feature_observations：defaults/overrides默认/例外；null_unknown未知，queried不证全源覆盖；"
-        "current_gap_days缺维非空数，组数/交集不证统计独立；显示舍入3位。",
-
-        "- upstream_pit_counts只相对本次cutoff，未核完整历史版本；strict非逐日可知，trade_date_only不证明重写。"
-        "不授予回放/校准/剧本命名资格；不是概率预测，不含基本面/政策差异。",
-
-        "```json", json.dumps(res.model_payload(), ensure_ascii=False, separators=(",", ":"), allow_nan=False), "```",
-    ]
-    return "\n".join(out)
+        "- selection=生成/可比/展示数，top-K允许重叠；组数/交集不证统计独立。"
+        "upstream_pit_counts仅对本cutoff，未核完整历史版本；strict非逐日可知，trade_date_only不证明重写。"
+        "不是概率预测，不含基本面/政策差异，不授予回放/校准/剧本命名资格。",
+        model_readout_block(res.model_payload()),
+    ])
 
 
 def lens_payload(res: LensResult) -> str:

@@ -72,16 +72,11 @@ def test_joint_admission_never_calls_with_missing_or_over_budget_scope(joint_db,
     history_line = next(line for line in full.splitlines() if json.loads(line).get("claim_id") == history["claim_id"])
     support_lines = [line for line in full.splitlines() if json.loads(line).get("claim_id", "").startswith("data:D4:row:")]
     required_floor = len(context) + len(history_line) + min(map(len, support_lines)) + 2
-    if required_floor > 12_000:
-        assert calls == [], "over-budget complete context must be rejected before model invocation"
-        assert result.grounded_composer_shadow.status == "ineligible_evidence"
-        assert result.grounded_composer_shadow.failure_reason == "required_context_exceeds_registry_budget"
-    else:
-        assert calls
-        registry = ask_synthesis._grounded_registry_for_synthesis(result.answer_spec, QUESTION)
-        assert len(registry) <= 12_000
-        assert _basis_rows(registry) == [{"D4": basis}]
-        assert _basis_rows("\n".join(m["content"] for m in calls[0])) == [{"D4": basis}]
+    assert calls, f"full joint producer sample must fit: required floor {required_floor} chars"
+    registry = ask_synthesis._grounded_registry_for_synthesis(result.answer_spec, QUESTION)
+    assert len(registry) <= 12_000
+    assert _basis_rows(registry) == [{"D4": basis}]
+    assert _basis_rows("\n".join(m["content"] for m in calls[0])) == [{"D4": basis}]
     assert result.answer_spec.to_dict() == original, "model-only scope must not rewrite the public fact ledger"
 
 

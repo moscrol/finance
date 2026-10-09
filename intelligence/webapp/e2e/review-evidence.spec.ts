@@ -30,6 +30,23 @@ test.beforeEach(async ({ page }, info) => {
   await guide.locator(":scope > summary").click();
 });
 
+test("market readings have a complete first card in the initial viewport", async ({ page }, info) => {
+  await page.getByText("数据读法与 Agent 交接", { exact: true }).click();
+  await page.evaluate(() => {
+    document.querySelectorAll("*").forEach(node => {
+      if (node instanceof HTMLElement && node.scrollTop) node.scrollTop = 0;
+    });
+    window.scrollTo(0, 0);
+  });
+  const first = page.getByRole("region", { name: "当前日市场读数", exact: true }).locator("article").first();
+  const box = await first.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("initial-market-readings.png") });
+});
+
 test("readable layout and lossless agent packet after matrix switching and collapse", async ({ page, request }, info) => {
   const errors: string[] = [], writes: string[] = [];
   page.on("pageerror", error => errors.push(error.message));

@@ -5,7 +5,7 @@ fixtures; independently decode model columns and count original loaded rows.
 """
 from __future__ import annotations
 
-import json
+import yaml
 
 import duckdb
 import pytest
@@ -126,7 +126,7 @@ def test_full_and_model_summaries_retain_counts_even_for_exited_dimensions(tmp_p
         assert 0 < decoded["double_red_theme_count"]["non_null_days"] < len(raw)
         assert "双红题材数" not in {r["feature"] for r in _decode(payload["signatures"], ref)}
     block = regime.regime_block_for_llm(db, as_of=cutoff)
-    assert json.loads(block.split("```json\n")[1].split("\n```")[0])["raw_summaries"] == table
+    assert yaml.safe_load(block.split("```yaml\n")[1].split("\n```")[0])["raw_summaries"] == table
     if sample == "changed-gap":
         first = full["analogs"][0]["signature"]
         assert first["features"]["advancers"]["tail_days"] == 4

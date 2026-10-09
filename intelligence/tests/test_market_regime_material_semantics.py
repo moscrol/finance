@@ -6,7 +6,7 @@ The historical two-value loader API remains compatible for other consumers.
 from __future__ import annotations
 
 import hashlib
-import json
+import yaml
 import socket
 
 import duckdb
@@ -43,7 +43,7 @@ def block(db):
 
 
 def model(db):
-    return json.loads(block(db).split("```json\n")[1].split("\n```")[0])
+    return yaml.safe_load(block(db).split("```yaml\n")[1].split("\n```")[0])
 
 
 def model_observations(db):

@@ -319,9 +319,9 @@ def test_lens_text_preserves_per_dimension_values_and_candidate_gaps():
         candidates=[("合成历史窗", "2025-01-01", "2025-01-10")],
     )
     block = river_lens.lens_block(result)
-    import json
+    import yaml
 
-    payload = json.loads(block.split("```json\n")[1].split("\n```")[0])
+    payload = yaml.safe_load(block.split("```yaml\n")[1].split("\n```")[0])
     assert payload == result.model_payload()
     table = payload["candidates"]
     candidate = dict(zip(table["columns"], next(iter(table["windows"].values())), strict=True))
@@ -380,7 +380,7 @@ def test_restricted_material_scope_skips_history_before_reading(market_db, monke
 
 
 @pytest.mark.parametrize("grounded", [False, True])
-@pytest.mark.parametrize("fact_repeat", [None, 12, 100])
+@pytest.mark.parametrize("fact_repeat", [None, 12, 100, 1000])
 def test_ask_mocked_provider_receives_lens_without_external_call(market_db, tmp_path, monkeypatch, grounded, fact_repeat):
     from intelligence.services import answer_model, ask_synthesis, llm_refine
     from intelligence.services.ask_types import AskOptions, PreparedAnswer
@@ -408,7 +408,7 @@ def test_ask_mocked_provider_receives_lens_without_external_call(market_db, tmp_
                            daily_agent_grounded_presenter=grounded, shadow_grounded_composer=False),
         result=result,
     ))
-    if grounded and fact_repeat == 100:
+    if grounded and fact_repeat == 1000:
         # Joint admission is stricter than D10-only delivery: even one complete
         # fact cannot fit. Keep the context intact and do not call a provider.
         assert captured == []
@@ -536,7 +536,7 @@ def test_oversized_context_fails_closed_before_model_call(market_db, tmp_path, m
 
 
 @pytest.mark.parametrize("oversized", [False, True])
-@pytest.mark.parametrize("fact_repeat", [12, 100])
+@pytest.mark.parametrize("fact_repeat", [12, 100, 1000])
 def test_fulfillment_repair_keeps_full_lens_or_refuses_request(
     market_db, tmp_path, monkeypatch, oversized, fact_repeat,
 ):
@@ -585,7 +585,7 @@ def test_fulfillment_repair_keeps_full_lens_or_refuses_request(
         required_outputs=(RequiredOutput("historical_analogs", "历史比较"),), timeout=30,
     )
     assert context.status == answer_model.ClaimStatus.INFERRED
-    if oversized or fact_repeat == 100:
+    if oversized or fact_repeat == 1000:
         assert repaired is None
         assert captured == [] and rechecked == []
         return

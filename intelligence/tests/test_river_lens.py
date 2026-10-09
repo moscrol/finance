@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-import json
+import yaml
 
 import pytest
 
@@ -175,7 +175,7 @@ def test_block_delivers_same_group_and_contribution_objects() -> None:
     )
     text = lens_block(res)
 
-    payload = json.loads(text.split("```json\n")[1].split("\n```")[0])
+    payload = yaml.safe_load(text.split("```yaml\n")[1].split("\n```")[0])
     assert payload == res.model_payload()
     assert len(payload["dimension_structure"]["groups"]) == 4
     assert ["涨停", "连板", "新高"] in payload["dimension_structure"]["groups"]

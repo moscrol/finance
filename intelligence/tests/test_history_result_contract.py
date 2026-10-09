@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 import json
+import yaml
 
 import pytest
 
@@ -156,7 +157,7 @@ def test_both_results_expose_scope_and_observed_source_semantics(tmp_path):
 
 
 def _model_json(text):
-    return json.loads(text.split("```json\n")[1].split("\n```")[0])
+    return yaml.safe_load(text.split("```yaml\n")[1].split("\n```")[0])
 
 
 def _table_rows(table, rows):

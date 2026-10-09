@@ -2971,7 +2971,7 @@ def grounded_claim_registry_block(
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     scope_row = _registry_query_basis_row(answer_spec)
     scope_line = (
-        json.dumps(scope_row, ensure_ascii=False, separators=(",", ": "))
+        json.dumps(scope_row, ensure_ascii=False, separators=(",", ":"))
         if scope_row is not None else ""
     )
     # 反证与缺口是「不许过度宣称」的材料：它们被预算挤掉，模型就只剩支持性事实，

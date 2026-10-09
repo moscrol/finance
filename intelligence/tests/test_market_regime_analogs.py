@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 import json
+import yaml
 from copy import deepcopy
 from datetime import date, timedelta
 from pathlib import Path
@@ -82,7 +83,7 @@ def test_frozen_d10_keeps_endpoint_values_and_labels_each_trading_window(monkeyp
     block = regime_block_for_llm(None)
 
     assert artifact.to_payload() == before
-    rendered = json.loads(block.split("```json\n")[1].split("\n```")[0])
+    rendered = yaml.safe_load(block.split("```yaml\n")[1].split("\n```")[0])
     assert rendered == artifact.model_payload()
     rows = [dict(zip(rendered["forwards"]["columns"], row, strict=True)) for row in rendered["forwards"]["rows"]]
     for analog in analogs:
@@ -347,7 +348,7 @@ class LoaderAndBlockTests(unittest.TestCase):
             self._make_db(db)
             block = regime_block_for_llm(db)
         self.assertIn("[D10]", block)
-        payload = json.loads(block.split("```json\n")[1].split("\n```")[0])
+        payload = yaml.safe_load(block.split("```yaml\n")[1].split("\n```")[0])
         self.assertTrue(payload["signatures"]["windows"]["current"])
         self.assertIn("current", payload["raw_summaries"]["windows"])
         self.assertEqual(payload["signatures"]["path_evidence"], "not_provided")
@@ -363,7 +364,7 @@ class LoaderAndBlockTests(unittest.TestCase):
         self.assertTrue(artifact.available)
         for feat in ("max_boards", "double_red_theme_count", "top1_theme_share", "new_high_count"):
             self.assertIn(feat, artifact.missing_features)
-        payload = json.loads(block.split("```json\n")[1].split("\n```")[0])
+        payload = yaml.safe_load(block.split("```yaml\n")[1].split("\n```")[0])
         table = payload["feature_observations"]
         observations = {payload["feature_keys"][label]: {
                             **table["defaults"], **dict(zip(table["columns"], row, strict=True)),
