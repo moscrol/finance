@@ -11,8 +11,11 @@ import shutil
 import socket
 import subprocess
 import threading
+import urllib.error
 
 import pytest
+
+from tests.pi_delivery_support import make_source
 
 REPO = Path(__file__).resolve().parents[1]
 PI = shutil.which("pi")
@@ -326,3 +329,59 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
     assert (root / "pi/answer.md").read_text() == "Complete test answer."
     transport = (root / "pi-model-requests.jsonl").read_text() + (root / "pi-model-responses.jsonl").read_text()
     assert "offline-fixture-key" not in transport
+
+
+@pytest.mark.parametrize("style", ["direct", "aligned"])
+def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style):
+    source = make_source(tmp_path / "source")
+    root = tmp_path / "delivery"
+    launcher = tmp_path / "launcher.sh"
+    launcher.write_text("")
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    monkeypatch.setattr(runner, "require_clean_code", lambda _code: None)
+    runner.PROCESSES.clear()
+    turns = 0
+
+    def respond(_path, body):
+        nonlocal turns
+        turns += 1
+        assert {tool["function"]["name"] for tool in body["tools"]} == {"read"}
+        encoded = json.dumps(body, ensure_ascii=False)
+        assert "ADMITTED_FACT" in encoded
+        assert "PRIVATE_AUDIT_SENTINEL" not in encoded and "OLD_DRAFT_SENTINEL" not in encoded
+        if turns == 1:
+            with pytest.raises(urllib.error.HTTPError) as denied:
+                runner.call(port, "/tool", {"tool": "finance_query", "args": {}})
+            assert denied.value.code == 403
+            with pytest.raises(urllib.error.HTTPError) as reset:
+                runner.call(port, "/configure", {"mode": "research"})
+            assert b"already configured" in reset.value.read()
+            return tools(("read", {"path": str(REPO / "skills/finance-market-review/SKILL.md")}))
+        if style == "aligned" and turns == 2:
+            return complete("WORKING_TABLE: observed five of ten; scope is the supplied ten.")
+        if style == "aligned":
+            assert turns == 3 and "WORKING_TABLE" in encoded
+        else:
+            assert turns == 2
+        return complete("FINAL_DELIVERY: five of the supplied ten records match.")
+
+    with endpoint(respond) as (url, requests, errors):
+        monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "offline-fixture-key")
+        monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_BASE_URL", url + "/v1")
+        assert runner.main(["prepare", "--root", str(root), "--source-run", str(source),
+                            "--delivery-style", style, "--launcher", str(launcher),
+                            "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40"]) == 0
+        assert not (root / "market_feature_store.duckdb").exists()
+        assert runner.main(["run", "--root", str(root)]) == 0
+    assert not errors
+    result = json.loads((root / "RESULT.json").read_text())
+    assert result["status"] == "completed"
+    assert result["arm"]["data_tools_disabled"] is True
+    assert result["arm"]["tool_calls"] == result["arm"]["tool_observations"] == 0
+    assert result["arm"]["skill_reads"] == 1
+    assert result["arm"]["completed_drafts"] == (2 if style == "aligned" else 1)
+    assert result["arm"]["physical_requests"] == len(requests) == (3 if style == "aligned" else 2)
+    assert result["inputs_unchanged"] and result["processes_stopped"]
+    assert (root / "pi/answer.md").read_text().startswith("FINAL_DELIVERY")

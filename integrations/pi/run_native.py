@@ -35,7 +35,7 @@ import time
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
-KIT_FILES = ("finance-mode.ts", "bridge.py", "rag_binding.py", "model_view.py")
+KIT_FILES = ("finance-mode.ts", "bridge.py", "rag_binding.py", "model_view.py", "delivery-prompts.json")
 DEFAULT_SKILLS = ("finance-mode", "finance-market-review", "finance-analyze-stock",
                   "finance-industry-track", "finance-forecast-event")
 DEFAULT_LAUNCHER = Path.home() / ".local/bin/start-finance-workbench"
@@ -67,6 +67,55 @@ def read_jsonl(path: Path) -> list[dict]:
     if not path.is_file():
         return []
     return [json.loads(line) for line in path.read_text().split("\n") if line.strip()]
+
+
+def delivered_packet(source: Path) -> tuple[dict, dict, dict[str, str]]:
+    """Recover only verified public tool deliveries, never drafts or private receipts."""
+    source = source.resolve()
+    if not (source / "capture-manifest.json").resolve().is_relative_to(source):
+        raise ValueError("source manifest escapes its run directory")
+    manifest = json.loads((source / "capture-manifest.json").read_text())
+    names = ("plan.json", "RESULT.json", "pi-tools.jsonl", "pi-model-requests.jsonl")
+    hashes = {"capture-manifest.json": digest(source / "capture-manifest.json")}
+    for name in names:
+        path = source / name
+        if not path.resolve().is_relative_to(source):
+            raise ValueError("source artifact escapes its run directory")
+        expected = manifest.get(name, {})
+        if digest(path) != expected.get("sha256") or path.stat().st_size != expected.get("bytes"):
+            raise ValueError(f"source artifact does not match capture manifest: {name}")
+        hashes[name] = expected["sha256"]
+    plan = json.loads((source / "plan.json").read_text())
+    result = json.loads((source / "RESULT.json").read_text())
+    if (result.get("status") != "completed" or result.get("inputs_unchanged") is not True
+            or result.get("processes_stopped") is not True or not arm_completed(result.get("arm", {}))):
+        raise ValueError("source run lacks a complete, admitted and stable delivery")
+    def canonical(value):
+        return json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+    sent = set()
+    for request in read_jsonl(source / "pi-model-requests.jsonl"):
+        for message in request["payload"].get("messages", []):
+            if message.get("role") != "tool" or not isinstance(message.get("content"), str):
+                continue
+            try:
+                content = json.loads(message["content"])
+            except ValueError:
+                continue
+            if isinstance(content, dict) and isinstance(content.get("observation"), dict):
+                sent.add(canonical(content["observation"]))
+    observations = []
+    for record in read_jsonl(source / "pi-tools.jsonl"):
+        public = record.get("model_observation")
+        if not isinstance(public, dict) or {"telemetry", "trace"} & public.keys():
+            raise ValueError("source lacks a public-only model observation")
+        if canonical(public) not in sent:
+            raise ValueError("source observation was not delivered to the model")
+        observations.append({"id": f"O{len(observations) + 1}", "tool": record["tool"],
+                             "arguments": record.get("arguments", {}), "result": public})
+    if not observations:
+        raise ValueError("source has no delivered observations")
+    return ({"question": plan["question"], "information_cutoff": plan["information_cutoff"],
+             "observations": observations}, plan, hashes)
 
 
 def arm_completed(arm: dict) -> bool:
@@ -152,6 +201,8 @@ def environment(plan: dict, root: Path) -> dict[str, str]:
         "WORKBENCH_RESEARCH_TIER": plan["tier"], "WORKBENCH_TOOL_AUTHORIZATION": "all",
         "WORKBENCH_TOOL_MENU_HIDE": "off",
         "FINANCE_PI_ROOT": str(root), "FINANCE_PI_RAG_BINDINGS": plan["rag_bindings"],
+        "FINANCE_PI_MODE": plan.get("mode", "research"),
+        "FINANCE_PI_DELIVERY_STYLE": plan.get("delivery_style", "direct"),
         "FINANCE_PI_BRIDGE_PORT": str(plan["bridge_port"]),
         "FINANCE_PI_BRIDGE_URL": f"http://127.0.0.1:{plan['bridge_port']}",
         "FINANCE_PI_CASE": plan["case"], "FINANCE_PI_MODEL": plan["model"],
@@ -209,18 +260,39 @@ def prepare(args: argparse.Namespace) -> None:
             raise ValueError(f"invalid skill name: {name}")
         assert (code / "skills" / name / "SKILL.md").is_file(), f"missing skill: {name}"
     assert port_free(args.bridge_port), f"port occupied: {args.bridge_port}"
+    packet = source_plan = source_hashes = None
+    if args.source_run:
+        if args.question_file or args.as_of or args.second_look or args.subagents or args.rag_bindings not in (None, "off"):
+            raise ValueError("delivery keeps the source question/cutoff and disables retrieval, second-look and subagents")
+        packet, source_plan, source_hashes = delivered_packet(Path(args.source_run))
+        if args.model != source_plan["model"]:
+            raise ValueError("delivery comparison must keep the source model")
+        args.as_of = source_plan["information_cutoff"]
+        args.today = source_plan["today"]
+        args.latest_data_date = source_plan["latest_data_date"]
+        args.rag_bindings = "off"
+        args.tool_cap = 0
+    elif not args.question_file or not args.as_of or not args.rag_bindings:
+        raise ValueError("research requires --db, --question-file, --as-of and --rag-bindings")
+    elif args.delivery_style != "direct":
+        raise ValueError("--delivery-style requires --source-run")
     root.mkdir(parents=True, exist_ok=True)
     kit = root / "kit"
     kit.mkdir()
     for name in KIT_FILES:
         shutil.copyfile(HERE / name, kit / name)
-    source_db = Path(args.db).resolve()
-    sys.path.insert(0, str(code))
-    from market_feature_store.db import clone_to_staging  # noqa: PLC0415
-    cloned = clone_to_staging(source_db, root / "market_feature_store.duckdb")
-    (root / "market_feature_store.duckdb").chmod(0o400)
-    db_sha = digest(root / "market_feature_store.duckdb")
-    question = Path(args.question_file).read_text().strip()
+    source_db = cloned = db_sha = None
+    if packet is not None:
+        save(root / "evidence-packet.json", packet)
+        question = packet["question"]
+    else:
+        source_db = Path(args.db).resolve()
+        sys.path.insert(0, str(code))
+        from market_feature_store.db import clone_to_staging  # noqa: PLC0415
+        cloned = clone_to_staging(source_db, root / "market_feature_store.duckdb")
+        (root / "market_feature_store.duckdb").chmod(0o400)
+        db_sha = digest(root / "market_feature_store.duckdb")
+        question = Path(args.question_file).read_text().strip()
     (root / "question.txt").write_text(question + "\n")
     (root / "pi").mkdir()
     rag_bindings = "off"
@@ -239,7 +311,13 @@ def prepare(args: argparse.Namespace) -> None:
         "os_skill": args.os_skill, "app_skills": list(args.app_skills),
         "skill_hashes": {name: digest(code / "skills" / name / "SKILL.md") for name in (args.os_skill, *args.app_skills)},
         "second_look": bool(args.second_look), "subagents": bool(args.subagents),
-        "database_source": str(source_db), "database_sha256": db_sha, "clone": cloned,
+        "mode": "delivery" if packet is not None else "research", "delivery_style": args.delivery_style,
+        "source_run": str(Path(args.source_run).resolve()) if packet is not None else None,
+        "source_revision": source_plan["revision"] if source_plan is not None else None,
+        "source_hashes": source_hashes,
+        "packet_sha256": digest(root / "evidence-packet.json") if packet is not None else None,
+        "database_source": str(source_db) if source_db is not None else None,
+        "database_sha256": db_sha, "clone": cloned,
         "turn_seconds": args.turn_seconds, "physical_calls": args.call_cap, "tool_calls": args.tool_cap,
         "first_attempts": 1, "resampling": False,
         "bridge_port": args.bridge_port, "pi_bin": args.pi_bin,
@@ -260,8 +338,22 @@ def verify_plan(plan: dict, root: Path) -> None:
     require_clean_code(code)
     if git(code, "rev-parse", "HEAD") != plan["revision"]:
         raise RuntimeError("code revision changed since prepare")
-    expected = {root / "market_feature_store.duckdb": plan["database_sha256"],
-                Path(__file__).resolve(): plan["runner_sha256"]}
+    expected = {Path(__file__).resolve(): plan["runner_sha256"]}
+    if plan.get("mode", "research") == "delivery":
+        expected[root / "evidence-packet.json"] = plan["packet_sha256"]
+        expected.update({Path(plan["source_run"]) / name: sha for name, sha in plan["source_hashes"].items()})
+        if plan["subagents"] or plan["second_look"] or plan["tool_calls"] != 0 or plan["rag_bindings"] != "off":
+            raise RuntimeError("delivery mode cannot enable new research")
+        try:
+            packet, original_plan, hashes = delivered_packet(Path(plan["source_run"]))
+        except (ValueError, OSError) as error:
+            raise RuntimeError("frozen evidence origin changed") from error
+        if (packet != json.loads((root / "evidence-packet.json").read_text()) or hashes != plan["source_hashes"]
+                or any(plan[key] != original_plan[key] for key in ("question", "information_cutoff", "model"))
+                or plan.get("delivery_style", "direct") not in ("direct", "aligned")):
+            raise RuntimeError("delivery question, cutoff, model or packet differs from its origin")
+    else:
+        expected[root / "market_feature_store.duckdb"] = plan["database_sha256"]
     expected.update({root / "kit" / name: sha for name, sha in plan["kit_hashes"].items()})
     expected.update({code / "skills" / name / "SKILL.md": sha for name, sha in plan["skill_hashes"].items()})
     if plan["rag_bindings"] != "off":
@@ -273,7 +365,7 @@ def verify_plan(plan: dict, root: Path) -> None:
 
 def pi_command(plan: dict, root: Path, prompt: str) -> list[str]:
     code = Path(plan["code_root"])
-    tools = "read,finance_call" + (",spawn_sub_agent" if plan["subagents"] else "")
+    tools = "read" if plan.get("mode") == "delivery" else "read,finance_call" + (",spawn_sub_agent" if plan["subagents"] else "")
     command = [plan["pi_bin"], "--print", "--mode", "json", "--offline", "--no-approve",
                "--no-extensions", "-e", str(root / "kit" / "finance-mode.ts"),
                "--no-skills"]
@@ -286,7 +378,14 @@ def pi_command(plan: dict, root: Path, prompt: str) -> list[str]:
     return command
 
 
-def build_prompt(plan: dict, menu: dict) -> str:
+def build_prompt(plan: dict, menu: dict, root: Path | None = None) -> str:
+    if plan.get("mode") == "delivery":
+        if root is None:
+            raise ValueError("delivery prompt requires its frozen artifact directory")
+        prompts = json.loads((root / "kit" / "delivery-prompts.json").read_text())
+        packet = json.loads((root / "evidence-packet.json").read_text())
+        task = prompts["audit_task"] if plan["delivery_style"] == "aligned" else prompts["direct_task"]
+        return task + "\n\n原问题：\n" + plan["question"] + "\n\n冻结的公开证据包：\n" + json.dumps(packet, ensure_ascii=False)
     return ("请用中文直接回答下面的A股研究问题。finance-mode 是常驻基础协议；命中的专项 skill 先用 read 读取再按其骨架执行。"
             "只能用 finance_call 获取可核验资料，遵守工具参数 schema 与数据截止，明确关键数据、来源和证据缺口；"
             "不把用户先验当市场事实。\n\n"
@@ -330,11 +429,13 @@ def run(args: argparse.Namespace) -> int:
             "user": plan["user"], "users_root": str(root / "pi" / "users"),
             "absolute_deadline_epoch": time.time() + plan["turn_seconds"],
             "call_cap": plan["physical_calls"], "tool_cap": plan["tool_calls"],
+            "mode": plan.get("mode", "research"),
         }, timeout=120)
         save(root / "pi" / "menu.json", menu)
-        prompt = build_prompt(plan, menu)
+        prompt = build_prompt(plan, menu, root)
         (root / "pi" / "prompt.txt").write_text(prompt)
-        command = pi_command(plan, root, prompt)
+        prompt_argument = "@" + str(root / "pi" / "prompt.txt") if plan.get("mode") == "delivery" else prompt
+        command = pi_command(plan, root, prompt_argument)
         (root / "pi" / "command.json").write_text(json.dumps(command[:-1] + ["<prompt.txt>"], ensure_ascii=False, indent=2))
         print("Issuing the sole native Pi first turn.", flush=True)
         with (root / "pi" / "events.jsonl").open("xb") as out, (root / "pi" / "stderr.log").open("xb") as err:
@@ -380,6 +481,12 @@ def run(args: argparse.Namespace) -> int:
             "skill_reads": len(skill_reads), "sub_agent_calls": len(sub_agents),
             "answer_chars": len(text), "completed_drafts": len(drafts),
         }
+        if plan.get("mode") == "delivery":
+            result["arm"]["data_tools_disabled"] = transport.get("data_tools_enabled") is False
+            expected_drafts = 2 if plan["delivery_style"] == "aligned" else 1
+            if (not result["arm"]["data_tools_disabled"] or transport["tool_calls"] or tool_calls
+                    or len(drafts) != expected_drafts):
+                result["failure"] = {"type": "DeliveryContractFailure", "message": "new retrieval or unexpected delivery stages"}
         if not arm_completed(result["arm"]):
             result["failure"] = {"type": "IncompleteRun", "message": "Pi did not deliver a complete model-admitted answer"}
         stop(bridge)
@@ -413,9 +520,12 @@ def main(argv: list[str] | None = None) -> int:
 
     prep = sub.add_parser("prepare", help="freeze inputs into plan.json (no model call)")
     prep.add_argument("--root", required=True)
-    prep.add_argument("--db", required=True, help="source market_feature_store.duckdb (cloned read-only)")
-    prep.add_argument("--question-file", required=True)
-    prep.add_argument("--as-of", required=True, help="information cutoff YYYY-MM-DD")
+    source = prep.add_mutually_exclusive_group(required=True)
+    source.add_argument("--db", help="source market_feature_store.duckdb (cloned read-only)")
+    source.add_argument("--source-run", help="completed run whose exact public deliveries are replayed without retrieval")
+    prep.add_argument("--delivery-style", choices=("direct", "aligned"), default="direct")
+    prep.add_argument("--question-file")
+    prep.add_argument("--as-of", help="information cutoff YYYY-MM-DD")
     prep.add_argument("--today", default=datetime.now().date().isoformat())
     prep.add_argument("--latest-data-date", default=None)
     prep.add_argument("--code-root", default=str(HERE.parents[1]))
@@ -435,7 +545,7 @@ def main(argv: list[str] | None = None) -> int:
     prep.add_argument("--bridge-port", type=int, default=18886)
     prep.add_argument("--pi-bin", default=shutil.which("pi") or "pi")
     prep.add_argument("--launcher", default=str(DEFAULT_LAUNCHER))
-    prep.add_argument("--rag-bindings", required=True, help="managed RAG generation binding JSON, or 'off' for offline tests")
+    prep.add_argument("--rag-bindings", help="managed RAG generation binding JSON; research requires it, delivery uses frozen evidence only")
 
     runp = sub.add_parser("run", help="execute the frozen first attempt")
     runp.add_argument("--root", required=True)

@@ -31,6 +31,25 @@ python integrations/pi/run_native.py run --root <产物目录>
 子任务共享根模型/工具调用上限及绝对截止日，带相同工具参数说明，只能读取自身挂载的专项，不再派单。
 失败、取消、长度截断、没有终稿的子任务都不作为成功结论；局部失败在主线程可见。
 
+## 固定证据定稿
+
+用于定位表达阶段问题，不重取数据、不沿用旧答案：
+
+```bash
+python integrations/pi/run_native.py prepare \
+  --root <新定稿目录> --source-run <已有研究运行目录> \
+  --delivery-style direct --turn-seconds 300 --call-cap 12
+python integrations/pi/run_native.py run --root <新定稿目录>
+```
+
+`direct` 在干净上下文直接定稿；`aligned` 先生成可公开的主张/证据/范围表，再续写一次完整正文。
+每种方式用不同的新目录。源运行须完整、身份匹配且输入稳定；它的内容质量可以未通过。
+证据包只包含实际送达的公开工具结果，保留诊断与缺口；旧稿、私有审计和审查意见不进入模型。
+源原件、证据包和提示资产均做哈希校验，模型保持与源运行相同。
+此模式不克隆DB、不初始化数据工具注册表、不访问RAG；Pi只开skill读取，桥接端也拒绝取数和重新授权。
+`completed-drafts.json` 中 aligned 第一稿是工作表，第二稿才是最终正文；阶段正确不等于语义通过。
+设计：`docs/verification/2026-10-10-frozen-evidence-delivery-design.md`。
+
 ## 验证与产物
 
 ```bash

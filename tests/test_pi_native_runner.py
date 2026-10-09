@@ -8,6 +8,8 @@ import subprocess
 
 import pytest
 
+from tests.pi_delivery_support import make_source, seal_source
+
 REPO = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("pi_native_runner", REPO / "integrations/pi/run_native.py")
 runner = importlib.util.module_from_spec(SPEC)
@@ -132,3 +134,79 @@ def test_literal_key_does_not_spawn_a_process(monkeypatch):
 
     monkeypatch.setattr(runner.subprocess, "run", forbidden)
     assert runner.resolve_api_key("fixture-key") == "fixture-key"
+
+
+def test_packet_contains_only_exact_delivered_public_observations(tmp_path):
+    source = make_source(tmp_path / "source")
+    packet, plan, hashes = runner.delivered_packet(source)
+    encoded = json.dumps(packet)
+    assert "ADMITTED_FACT" in encoded
+    assert "PRIVATE_AUDIT_SENTINEL" not in encoded and "OLD_DRAFT_SENTINEL" not in encoded
+    assert packet["observations"][0]["id"] == "O1"
+    assert packet["question"] == plan["question"]
+    assert set(hashes) == {"capture-manifest.json", "plan.json", "RESULT.json",
+                           "pi-tools.jsonl", "pi-model-requests.jsonl"}
+
+
+@pytest.mark.parametrize("change", ["hash", "private", "not_sent", "failed_source"])
+def test_packet_refuses_changed_private_or_undelivered_material(tmp_path, change):
+    source = make_source(tmp_path / "source")
+    if change == "failed_source":
+        result = json.loads((source / "RESULT.json").read_text())
+        result["arm"]["model_admission"] = False
+        (source / "RESULT.json").write_text(json.dumps(result))
+    else:
+        row = runner.read_jsonl(source / "pi-tools.jsonl")[0]
+        if change == "private":
+            row["model_observation"]["telemetry"] = {"future": "private"}
+        else:
+            row["model_observation"]["observation"] = "not the delivered observation"
+        (source / "pi-tools.jsonl").write_text(json.dumps(row) + "\n")
+    if change != "hash":
+        seal_source(source)
+    with pytest.raises(ValueError):
+        runner.delivered_packet(source)
+
+
+def test_source_artifact_cannot_escape_through_a_symlink(tmp_path):
+    source = make_source(tmp_path / "source")
+    outside = tmp_path / "outside.json"
+    (source / "plan.json").rename(outside)
+    (source / "plan.json").symlink_to(outside)
+    with pytest.raises(ValueError, match="escapes"):
+        runner.delivered_packet(source)
+
+
+@pytest.mark.parametrize("change", ["packet", "source", "tool_grant", "question", "model", "cutoff"])
+def test_delivery_freeze_covers_packet_origin_and_no_retrieval_contract(frozen, tmp_path, change):
+    _, root, plan = frozen
+    source = make_source(tmp_path / "source")
+    packet, source_plan, hashes = runner.delivered_packet(source)
+    runner.save(root / "evidence-packet.json", packet)
+    plan.update(mode="delivery", source_run=str(source), source_hashes=hashes,
+                packet_sha256=runner.digest(root / "evidence-packet.json"),
+                question=packet["question"], information_cutoff=packet["information_cutoff"], model=source_plan["model"],
+                subagents=False, second_look=False, tool_calls=0, rag_bindings="off")
+    runner.verify_plan(plan, root)
+    if change == "packet":
+        (root / "evidence-packet.json").write_text("{}")
+    elif change == "source":
+        (source / "pi-tools.jsonl").write_text("{}\n")
+    elif change == "question":
+        plan["question"] = "A different question"
+    elif change == "model":
+        plan["model"] = "different-model"
+    elif change == "cutoff":
+        plan["information_cutoff"] = "2026-10-09"
+    else:
+        plan["tool_calls"] = 1
+    with pytest.raises(RuntimeError):
+        runner.verify_plan(plan, root)
+
+
+def test_delivery_command_cannot_expose_data_or_subagents(tmp_path):
+    plan = {"mode": "delivery", "code_root": str(REPO), "pi_bin": "pi", "os_skill": "finance-mode",
+            "app_skills": ["finance-market-review"], "model": "glm-5.3-flash",
+            "thinking": "low", "subagents": False}
+    command = runner.pi_command(plan, tmp_path, "frozen packet")
+    assert command[command.index("--tools") + 1] == "read"
