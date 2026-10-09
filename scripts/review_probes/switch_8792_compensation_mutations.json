@@ -1,0 +1,66 @@
+{
+  "file": "scripts/switch_8792.sh",
+  "pytest": "tests/test_switch_8792.py",
+  "pytest_args": [
+    "-k",
+    "unreadable_git_index or lsof_diagnostic or rollback_waits or relative_previous or failed_rollback_accounting or interrupt"
+  ],
+  "mutants": [
+    {
+      "name": "snap unreadable Git status accepted as clean",
+      "old": "SNAP_STATUS=$(git -C \"$SNAP\" status --porcelain 2>&1) || abort \"cannot inspect snapshot $SNAP: $SNAP_STATUS\"\n[ -z \"$SNAP_STATUS\" ] || abort \"snapshot $SNAP is dirty\"",
+      "new": "[ -z \"$(git -C \"$SNAP\" status --porcelain)\" ] || abort \"snapshot is dirty\"",
+      "expected_red": [
+        "test_unreadable_git_index_aborts_before_touching_service[snap]"
+      ]
+    },
+    {
+      "name": "old unreadable Git status accepted as clean",
+      "old": "PREV_STATUS=$(git -C \"$PREV_SNAP\" status --porcelain 2>&1) || abort \"cannot inspect previous runtime snapshot: $PREV_STATUS\"\n[ -z \"$PREV_STATUS\" ] || abort \"previous runtime snapshot is dirty\"",
+      "new": "[ -z \"$(git -C \"$PREV_SNAP\" status --porcelain)\" ] || abort \"previous runtime snapshot is dirty\"",
+      "expected_red": [
+        "test_unreadable_git_index_aborts_before_touching_service[old]"
+      ]
+    },
+    {
+      "name": "lsof error diagnostic accepted as an empty port",
+      "old": "    1) [ -z \"$diagnostic\" ] && return 0 ;;",
+      "new": "    1) return 0 ;;",
+      "expected_red": [
+        "test_lsof_diagnostic_with_exit_one_is_an_error_not_an_empty_port"
+      ]
+    },
+    {
+      "name": "rollback starts before asynchronous unload finishes",
+      "old": "  wait_for_unload rollback\n  rollback_wait_rc=$?\n  if [ \"$rollback_wait_rc\" -ne 0 ]; then\n    echo \"ROLLBACK_WAIT_FAILED rc=$rollback_wait_rc\" >> \"$LOG\"\n    return 1\n  fi\n",
+      "new": "",
+      "expected_red": [
+        "test_rollback_waits_for_asynchronous_unload_before_starting_previous_runtime"
+      ]
+    },
+    {
+      "name": "relative previous link resolved against process cwd",
+      "old": "PREV_SNAP=$RUNTIME_PARENT/$PREV_LINK",
+      "new": "PREV_SNAP=$PREV_LINK",
+      "expected_red": [
+        "test_relative_previous_link_is_resolved_for_rollback_accounting"
+      ]
+    },
+    {
+      "name": "failed rollback ledger falsely reports success",
+      "old": "  [ \"$rollback_ledger_rc\" -eq 0 ] || return 1\n  echo \"ROLLBACK_DONE",
+      "new": "  echo \"ROLLBACK_DONE",
+      "expected_red": [
+        "test_failed_rollback_accounting_is_reported_even_if_previous_service_starts"
+      ]
+    },
+    {
+      "name": "TERM bypasses compensation after bootout",
+      "old": "trap 'on_interruption TERM 143' TERM",
+      "new": "",
+      "expected_red": [
+        "test_interrupt_after_bootout_restores_previous_runtime_once[TERM]"
+      ]
+    }
+  ]
+}
