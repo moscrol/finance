@@ -249,6 +249,10 @@ class Artifact:
     visibility: str = "public"
 
 
+REVIEW_EVIDENCE_REF_FILENAME = "review_evidence_ref.json"
+REVIEW_EVIDENCE_RECEIPT_FILENAME = "review_evidence_receipt.json"
+
+
 @dataclass
 class Run:
     """一次用户请求的元数据（协议 v1，字段语义见 run-protocol 文档）。"""
@@ -726,6 +730,37 @@ class RunStore:
         ):
             raise ValueError("history artifact integrity check failed")
         return data
+
+    # ---------- 复盘证据交接坐标（旁挂文件，不改 Run 结构，回滚安全） ----------
+
+    def save_review_evidence_ref(self, run_id: str, payload: dict[str, Any]) -> None:
+        """消息入口核对后的连续复盘坐标；随 run 创建同步落盘，装配期按 run 读回。
+
+        单独文件而不是 Run 字段：旧版本读新 run.json 时不会因多出的键而炸。
+        """
+        path = self.run_dir(run_id) / REVIEW_EVIDENCE_REF_FILENAME
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+        tmp.replace(path)
+
+    def save_review_evidence_receipt(self, run_id: str, payload: dict[str, Any]) -> None:
+        """装配期真正交给 Episode 的复盘卡片回执（交付了哪些日、扣下了哪些）。"""
+        path = self.run_dir(run_id) / REVIEW_EVIDENCE_RECEIPT_FILENAME
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+        tmp.replace(path)
+
+    def has_review_evidence_receipt(self, run_id: str) -> bool:
+        return (self.run_dir(run_id) / REVIEW_EVIDENCE_RECEIPT_FILENAME).is_file()
+
+    def load_review_evidence_ref(self, run_id: str) -> dict[str, Any] | None:
+        path = self.run_dir(run_id) / REVIEW_EVIDENCE_REF_FILENAME
+        if not path.is_file():
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("复盘证据坐标文件损坏")
+        return payload
 
     def add_degrade(self, run_id: str, reason: str) -> None:
         """数据源降级一等公民化：录屏里「ftshare 不可用」这类事件落到 run 元数据。"""

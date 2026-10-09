@@ -23,7 +23,7 @@ from typing import Any, Literal
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from intelligence import userspace
 from intelligence.paths import data_repo_root, default_market_db_path, default_paths
@@ -399,6 +399,53 @@ def _memory_bound_registry_factory(
     return registry_factory
 
 
+def _with_review_evidence(base_factory, *, run_store: RunStore, run_id: str):
+    """本轮若由复盘页带证据发起，把已核对的连续复盘作为开场证据交给 Episode。
+
+    坐标在消息入口已核对过一次；装配时按同一坐标再读一次并再核指纹——
+    两次之间归档若被覆盖，本轮不交付任何复盘卡片并记降级，不拿新版本顶替。
+    资料截止取本轮冻结的 ``context.information_cutoff``，晚于它的交易日不交付。
+    """
+    load_ref = getattr(run_store, "load_review_evidence_ref", None)  # 测试替身可不实现
+    payload = load_ref(run_id) if load_ref is not None else None
+    if payload is None:
+        return base_factory
+
+    def factory(frame, context):
+        from intelligence.services.review_evidence_handoff import (
+            ReviewEvidenceMismatch, ReviewEvidenceRef, review_evidence_cards, verify_review_evidence,
+        )
+
+        registry = base_factory(frame, context)
+        try:
+            ref = ReviewEvidenceRef.from_payload(payload)
+            history = verify_review_evidence(_review_exports_root(), ref)
+            cutoff_date = getattr(getattr(context, "information_cutoff", None), "as_of_date", None)
+            cards = review_evidence_cards(history, information_cutoff=cutoff_date)
+        except ReviewEvidenceMismatch:
+            run_store.add_degrade(run_id, "review_evidence_changed_before_run")
+            return registry
+        except (OSError, ValueError, TypeError):
+            run_store.add_degrade(run_id, "review_evidence_unavailable")
+            return registry
+        material = getattr(getattr(context, "contract", None), "material_contract", None)
+        if getattr(registry, "read_scope", "full") != "full" or (
+            material is not None and material.data_scope in {"local_only", "material_only"}
+        ):
+            # 用户本轮限定只用材料/本地读取时开场预取整体不交付；如实留痕。
+            run_store.add_degrade(run_id, "review_evidence_withheld_by_read_scope")
+            return registry
+        run_store.save_review_evidence_receipt(run_id, {
+            "fingerprint": ref.fingerprint,
+            "delivered_dates": [card.source_date for card in cards[1:]],
+            "information_cutoff": cutoff_date.isoformat() if cutoff_date else None,
+            "card_hashes": [card.content_hash for card in cards],
+        })
+        return registry.with_opening_prefetch(*cards)
+
+    return factory
+
+
 _OPEN_EPISODES_LIST_CAP = 50
 
 
@@ -631,6 +678,10 @@ def _build_continuous_turn_adapter(
             else {}
         ),
     )
+    if run_store is not None:
+        registry_factory = _with_review_evidence(
+            registry_factory, run_store=run_store, run_id=run_id,
+        )
     return ContinuousTurnAdapter(
         runtime=runtime,
         semantic_verifier=semantic_verifier,
@@ -1675,6 +1726,28 @@ class MaintenanceLaunchRef(BaseModel):
     request_event_id: str = Field(min_length=1)
 
 
+class ReviewEvidenceRefRequest(BaseModel):
+    """复盘页「带着证据去问答」的坐标（只装坐标与页面所见指纹，不装任何行情数值）。
+
+    服务端用同一个 ``review_history`` 按坐标重读并核对指纹；正文里不能夹带事实。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: str = Field(alias="schema", min_length=1, max_length=64)
+    end: str = Field(min_length=10, max_length=10)
+    days: int = Field(ge=5, le=60)
+    industry: str = Field(min_length=1, max_length=160)
+    fingerprint: str = Field(min_length=64, max_length=64)
+    selected_date: str | None = Field(default=None, max_length=10)
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "schema": self.schema_, "end": self.end, "days": self.days, "industry": self.industry,
+            "fingerprint": self.fingerprint, "selected_date": self.selected_date,
+        }
+
+
 class CreateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
     skill_mode: Literal["manual", "auto", "hybrid"]
@@ -1684,6 +1757,7 @@ class CreateMessageRequest(BaseModel):
     user: str | None = None
     continuation: ContinuationRequest | None = None
     maintenance_launch: MaintenanceLaunchRef | None = None
+    review_evidence: ReviewEvidenceRefRequest | None = None
 
     @field_validator("content")
     @classmethod
@@ -1691,6 +1765,39 @@ class CreateMessageRequest(BaseModel):
         if not value.strip():
             raise ValueError("content must not be blank")
         return value
+
+
+def _continuous_runtime_effective() -> bool:
+    """与 ``ContinuousTurnAdapter.handle`` 的拒收条件同一判据（仅环境，可在入口确定）。"""
+    mode = _continuous_runtime_mode()
+    if mode == "off":
+        return False
+    return mode == "on" or bool(os.environ.get("CONTINUOUS_RUNTIME_CANARY_ID", "").strip())
+
+
+def _review_exports_root() -> Path:
+    """连续复盘归档目录；与 ``/api/river/review-history`` 同源。"""
+    return default_paths().market_exports
+
+
+def _verified_review_evidence_payload(req: ReviewEvidenceRefRequest) -> dict[str, object]:
+    """坐标 → 服务端重读 → 指纹一致才接受；任何不确定都拒收，不发半截证据。"""
+    from intelligence.services.review_evidence_handoff import (
+        ReviewEvidenceMismatch, ReviewEvidenceRef, verify_review_evidence,
+    )
+
+    if not _continuous_runtime_effective():
+        raise HTTPException(409, "当前服务未启用连续研究引擎，复盘证据无法送达给 Agent；消息未发送")
+    try:
+        ref = ReviewEvidenceRef.from_payload(req.payload())
+        verify_review_evidence(_review_exports_root(), ref)
+    except ReviewEvidenceMismatch as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(503, "连续复盘归档暂不可读；消息未发送") from exc
+    return ref.to_payload()
 
 
 def _validated_continuation(
@@ -1821,6 +1928,18 @@ def _run_conversation_turn(
             perspective_mode=perspective_mode,
             selected_perspective_ids=selected_perspective_ids or [],
         )
+    _disclose_undelivered_review_evidence(run_store, run_id)
+
+
+def _disclose_undelivered_review_evidence(run_store: RunStore, run_id: str) -> None:
+    """连续引擎本轮未接手（回退旧路径/提前收口）：复盘卡片没送到，必须留痕而非装作已读。"""
+    load_ref = getattr(run_store, "load_review_evidence_ref", None)
+    if (
+        load_ref is not None
+        and load_ref(run_id) is not None
+        and not run_store.has_review_evidence_receipt(run_id)
+    ):
+        run_store.add_degrade(run_id, "review_evidence_not_delivered")
 
 
 def _terminalize_pending_message(
@@ -3172,6 +3291,11 @@ def create_app(
                     )
                 except Exception as exc:  # noqa: BLE001 - 水合失败退回普通消息，不阻塞聊天
                     print(f"[research-evolution] 首轮任务上下文水合失败（{conversation_id}）：{exc}", file=sys.stderr)
+            review_evidence_payload = None
+            if req.review_evidence is not None:
+                if not llm_settings.runtime_providers_for(run_store.user_id):
+                    raise HTTPException(409, "尚未配置可用模型，复盘证据无法送达给 Agent；消息未发送")
+                review_evidence_payload = _verified_review_evidence_payload(req.review_evidence)
             _precheck_admission(run_store.user_id)
             hold_id = _reserve_run_budget(run_store.user_id)
             # QC Y1：maintenance_launch 坐标随 run 创建同步落盘（发布前保存的可信启动身份）——
@@ -3200,6 +3324,8 @@ def create_app(
                     ) from compensation_exc
 
             try:
+                if review_evidence_payload is not None:
+                    run_store.save_review_evidence_ref(run.run_id, review_evidence_payload)
                 store = conversation_store_for(req.user)
                 user_message = store.append_message(
                     conversation_id,
@@ -3272,12 +3398,16 @@ def create_app(
             except Exception:
                 _compensate_failed_submission()
                 raise
-            return {
+            response: dict[str, object] = {
                 "conversation_id": conversation_id,
                 "user_message_id": user_message.message_id,
                 "assistant_message_id": assistant_message.message_id,
                 "run_id": run.run_id,
             }
+            if review_evidence_payload is not None:
+                # 前端据此确认坐标已被核对接收；旧后端会静默忽略未知字段，缺这个键即未接收。
+                response["review_evidence"] = "verified"
+            return response
 
     @app.get("/api/skills")
     def list_skills() -> list[dict[str, object]]:

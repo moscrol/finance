@@ -106,7 +106,7 @@ export function DailyRiverDashboard({ focusDate = null, onFocusDate, onResearch 
     const q = new URLSearchParams({ days: String(windowDays) });
     if (anchor) q.set("end", anchor);
     get<DailyOverview>(`/api/river/daily-overview?${q}`, controller.signal)
-      .then(res => { setData(res); setSelected(current => current && res.days.some(d => d.date === current) ? current : res.end ?? null); })
+      .then(res => { setData(res); setSelected(current => current ?? res.end ?? null); })
       .catch((e: Error) => { if (!controller.signal.aborted) setError(e.message); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -120,8 +120,10 @@ export function DailyRiverDashboard({ focusDate = null, onFocusDate, onResearch 
     setSelected(date); onFocusDate?.(date);
     if (data && !data.days.some(d => d.date === date)) setAnchor(date);
   };
-  const index = Math.max(0, data?.days.findIndex(d => d.date === selected) ?? 0);
-  const day = data?.days[index] ?? null;
+  // No silent fallback to the first or latest day: an absent date stays absent and is disclosed.
+  const foundIndex = data?.days.findIndex(d => d.date === selected) ?? -1;
+  const index = Math.max(0, foundIndex);
+  const day = foundIndex >= 0 ? data?.days[foundIndex] ?? null : null;
   const sector = data?.sectors.find(s => s.key === sectorKey) ?? null;
   const point = sector?.points[index] ?? null;
   const calendarIndex = data?.calendar.indexOf(day?.date ?? "") ?? -1;
@@ -146,6 +148,7 @@ export function DailyRiverDashboard({ focusDate = null, onFocusDate, onResearch 
     {data?.latest_market_date && data.latest_market_date < dateToday && <div className="dr-freshness"><span className="dr-status-dot"/>最新盘面：{data.latest_market_date} · 板块：{data.latest_sector_date ?? "无"}<span>历史收盘快照，不是实时行情</span></div>}
     {error && <div className="dr-error" role="alert">{error}<button type="button" onClick={() => setRevision(v => v + 1)}>重新读取</button></div>}
     {loading && <div className="dr-loading"><Waves size={24}/><b>正在对齐指数、板块与交易日…</b><p>只读本地事实库，不调用模型</p></div>}
+    {data && data.days.length > 0 && selected && foundIndex < 0 && !loading && <div className="dr-empty" role="status">所选日 {selected} 不在当前窗口的数据中（可能缺档）；未替换为其他日期。</div>}
     {data && !data.days.length && <div className="dr-empty">当前范围没有交易日数据。{data.gaps.join(" ")}</div>}
     {day && data && <>
       <div className="dr-kpis">
