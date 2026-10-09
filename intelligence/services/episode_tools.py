@@ -1000,6 +1000,8 @@ def _asof_prefetch_text(
     context: ResearchRunContext,
     market_db_path: Path,
 ) -> str:
+    if context.contract.material_contract is not None and context.contract.material_contract.data_scope in {"material_only", "local_only"}:
+        return ""
     from intelligence.services.asof_prefetch import collect_prefetch_items
 
     try:
@@ -1010,6 +1012,10 @@ def _asof_prefetch_text(
             subject=frame.subject or "",
             as_of=as_of,
             market_db_path=market_db_path,
+            include_history_analogs=(
+                "market_data" in context.contract.allowed_capabilities and not context.deadline.expired
+            ),
+            deadline=context.deadline,
         )
     except Exception:
         return ""
@@ -1041,6 +1047,10 @@ def _opening_prefetch_evidence(
             subject=frame.subject or "",
             as_of=as_of,
             market_db_path=market_db_path,
+            include_history_analogs=(
+                "market_data" in context.contract.allowed_capabilities and not context.deadline.expired
+            ),
+            deadline=context.deadline,
         )
     except Exception:
         return ()

@@ -101,6 +101,9 @@ TEACHING_DDL = (
         status        VARCHAR NOT NULL DEFAULT 'ok',
         status_reason VARCHAR,
         computed_at   TIMESTAMP NOT NULL,
+        -- 最早可知时刻。``computed_at`` 是「最后一次重算是什么时候」,每次重建都会被刷新,
+        -- 不能回答「那天是否已知」。河的 PIT 闸读的是这一列。见 teaching_framework/pit_identity.py。
+        first_known_at TIMESTAMP,
         PRIMARY KEY (entity_type, entity_id, trade_date, label)
     )
     """,
@@ -362,7 +365,10 @@ def check_teaching_schema(con: duckdb.DuckDBPyConnection) -> list[str]:
             if actual != expected:
                 problems.append(
                     f"{name}: 列集合与 DDL 不一致（缺 {sorted(expected - actual) or '无'}，"
-                    f"多 {sorted(actual - expected) or '无'}）；旁路库可删可重建，请删除后重跑"
+                    f"多 {sorted(actual - expected) or '无'}）；教学表可丢弃可重算，跑 "
+                    f"`python3 scripts/teaching_framework.py reset-teaching --yes` 重建这 10 张表。"
+                    f"**不要删整个旁路库文件**——同一个文件里还住着 legacy 的 history_calendar / "
+                    f"history_labels，那些不是重算得回来的"
                 )
         return problems
     finally:
