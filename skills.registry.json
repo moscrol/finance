@@ -1,7 +1,7 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-10-09T15:39:14Z",
+  "generated_at": "2026-10-09T17:35:35Z",
   "repos": [
     {
       "name": "finance-workspace-private",
@@ -304,11 +304,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/finance-market-review/SKILL.md",
-      "description": "当日或指定交易日的 A 股复盘专项——判断普涨还是主线集中、主线强弱、广度与量能、梯队与情绪、隔夜与催化，并给出能推翻判断的反证。用于「复盘 / 今天怎么看 / 市场总览 / 主线强弱」类问题；需要 finance-mode 常驻。个股深挖、行业持续跟踪、事件推演各走对应专项。",
+      "description": "当日或指定交易日的 A 股复盘专项。按市场广度、当日领涨、成交主流和主线表名单分别取证，先核比较集与时间，再形成判断、反证和后续观察条件。用于复盘、市场总览、主线强弱；需要 finance-mode 常驻。个股深挖、行业持续跟踪、事件推演走对应专项。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:80f5cc7a0e733f2c65095d8623578bfda4dbe7ed36aeec5996ee61abf3156b19",
+      "computedHash": "sha256:e46bdad0be1d6a52fdb9af44bcaa2b4589309d8769301d91444f07bc8aa7ca48",
       "agentOnly": false,
       "views": []
     },
@@ -321,7 +321,7 @@
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:57990b16e34e2f21f2745001f9e472689c940865d52cc2b647e23155db4671c1",
+      "computedHash": "sha256:c9b97be5532219d9ae5601daae9b22cf01d34821fd72d1befd3b959603101005",
       "agentOnly": false,
       "views": []
     },
