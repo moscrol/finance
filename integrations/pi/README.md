@@ -26,6 +26,8 @@ python integrations/pi/run_native.py run --root <产物目录>
 
 默认只验证方法论层。`prepare --second-look` 另开一次自检续写，`--subagents` 另开研究派单；它们是独立实验变量，按需分批验证。
 `finance_call.tool` 从冻结菜单生成枚举，数据集名只能放进 `args.dataset`，不会作为工具名发送。
+工具桥对齐生产公开/审计边界：模型只拿公开证据、查询范围、缺口和领域状态；`telemetry` 与原始 trace 仅留本地审计。
+晚于截止日而被扣留的材料不能从诊断字段重新进入模型。`pi-tools.jsonl` 同时保存原始 observation 和实际 model_observation，便于逐字核对。
 子任务共享根模型/工具调用上限及绝对截止日，带相同工具参数说明，只能读取自身挂载的专项，不再派单。
 失败、取消、长度截断、没有终稿的子任务都不作为成功结论；局部失败在主线程可见。
 
@@ -33,6 +35,7 @@ python integrations/pi/run_native.py run --root <产物目录>
 
 ```bash
 python -m pytest -q tests/test_pi_native_runner.py tests/test_pi_finance_extension.py \
+  tests/test_pi_model_view.py tests/test_knevo_market_scope_cases.py \
   intelligence/tests/test_knevo_skill_layer.py
 ```
 

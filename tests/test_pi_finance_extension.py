@@ -293,6 +293,11 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
         if turns == 1:
             return tools(("finance_call", {"tool": "memory_lookup", "args": {"wrong": "fixture-prior"}}),
                          ("finance_call", {"tool": "memory_lookup", "args": {"query": "fixture-prior"}}))
+        messages = [json.loads(m["content"]) for m in body["messages"] if m["role"] == "tool"]
+        views = [message["observation"] for message in messages if "observation" in message]
+        assert len(views) == 1
+        assert "telemetry" not in views[0] and "trace" not in views[0]
+        assert views[0]["status"] and isinstance(views[0]["ok"], bool)
         return complete()
 
     with endpoint(respond) as (url, requests, errors):

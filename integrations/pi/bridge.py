@@ -1,9 +1,9 @@
 """Evaluation-only tool bridge and audited model transport for the Pi-native finance arm.
 
-派生自 2026-10-09 同模型对照用的 ``eval-kit/pi_bridge.py``，改动只有一处：``/configure`` 不再依赖
-产品臂跑出的 ``continuous-episode.json``，而是直接从请求载荷取截止日、tier 与日期，这样 Pi 可以单独
-验证 knevo skill 层，不必先让 8792 跑一遍。其余（共享工具注册表、绝对截止、调用帽、脱敏落盘、
-模型身份核对）原样保留。它不是产品代码，不改任何产品文件，也不写记忆。
+派生自 2026-10-09 同模型对照用的 ``eval-kit/pi_bridge.py``。``/configure`` 直接从载荷取截止日、
+tier 与日期，不依赖产品臂的 episode。模型只收到公开证据、范围、缺口和领域状态；完整审计单独落盘，
+尤其不能把 ``temporal_withheld`` 中的未来材料再次发给模型。共享注册表、绝对截止、调用帽、脱敏传输
+和模型身份核对保持。这是验证入口，不改产品文件、不写记忆。
 
 环境变量：
 - ``FINANCE_PI_ROOT``          产物根目录（请求/响应/工具日志都落在这里）
@@ -47,6 +47,7 @@ from intelligence.services.episode_tools import build_episode_registry  # noqa: 
 from intelligence.services.research_contract import InformationCutoff  # noqa: E402
 from intelligence.services.task_frame import TaskFrame  # noqa: E402
 from intelligence.paths import default_paths  # noqa: E402
+from model_view import model_observation  # noqa: E402
 
 
 def safe(x):
@@ -187,10 +188,14 @@ class Handler(BaseHTTPRequestHandler):
                     with llm_refine.provider_override(proxy):
                         obs = state['registry'].execute(payload['tool'], payload.get('args', {}),
                                                         context=state['context'], step_id=f'pi-{index}')
-                    out = {'tool': payload['tool'], 'arguments': payload.get('args', {}),
-                           'seconds': time.monotonic() - started, 'observation': safe(obs)}
-                    log('pi-tools.jsonl', {'case': state['case'], **out})
-                self.reply(200, out)
+                    facing = safe(model_observation(obs))
+                    log('pi-tools.jsonl', {
+                        'case': state['case'], 'tool': payload['tool'], 'arguments': payload.get('args', {}),
+                        'seconds': time.monotonic() - started, 'observation': safe(obs),
+                        'model_observation': facing,
+                    })
+                self.reply(200, {'tool': payload['tool'], 'arguments': payload.get('args', {}),
+                                 'observation': facing})
                 return
             if self.path == '/v1/chat/completions' or self.path.startswith('/case/'):
                 with lock:

@@ -35,7 +35,7 @@ import time
 import urllib.request
 
 HERE = Path(__file__).resolve().parent
-KIT_FILES = ("finance-mode.ts", "bridge.py", "rag_binding.py")
+KIT_FILES = ("finance-mode.ts", "bridge.py", "rag_binding.py", "model_view.py")
 DEFAULT_SKILLS = ("finance-mode", "finance-market-review", "finance-analyze-stock",
                   "finance-industry-track", "finance-forecast-event")
 DEFAULT_LAUNCHER = Path.home() / ".local/bin/start-finance-workbench"
