@@ -114,6 +114,14 @@ def test_per_statement_rejection_overrides_global_pass(source):
     assert "一方近零" in " ".join(result["issues"])
 
 
+def test_all_nonfactual_cannot_masquerade_as_a_complete_history_answer(source):
+    request = request_for(source)
+    payload = report_for(request)
+    for check in payload["material_claim_checks"]:
+        check.update(support_kind="nonfactual", anchor_indexes=[])
+    assert review.validate_history_review(request, payload)["status"] == "unavailable"
+
+
 def test_factual_support_does_not_imply_answer_completeness(source):
     request = request_for(source)
     payload = report_for(request)
@@ -189,6 +197,14 @@ def test_input_budget_is_atomic_and_missing_source_never_calls_a_reviewer(source
         review.build_history_review("q", "answer", [])
     with pytest.raises(ValueError):
         review.build_history_review("q", "a。" * (review.MAX_STATEMENTS + 1), [source])
+
+
+def test_one_json_fence_is_only_framing_not_a_relaxed_receipt(source):
+    request = request_for(source)
+    text = json.dumps(report_for(request))
+    assert review.validate_history_review(request, f"```json\n{text}\n```")["status"] == "reviewed"
+    assert review.validate_history_review(request, f"prefix\n```json\n{text}\n```")["status"] == "unavailable"
+    assert review.validate_history_review(request, f"```json\n{text}\n```\nsuffix")["status"] == "unavailable"
 
 
 def test_duplicate_json_fields_cannot_hide_a_rejection(source):

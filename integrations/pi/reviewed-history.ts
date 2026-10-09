@@ -81,13 +81,14 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
   let epoch = 0;
   let question = "";
   let repairs = 0;
-  let pending: { draft: string; issues: string[] } | undefined;
+  let pending: { draft: string; issues: string[]; statements: RecordValue[] } | undefined;
   let sources = new Map<string, RecordValue>();
   let delivered: RecordValue[] = [];
+  let reviews = new Map<string, Verdict>();
 
   const reset = (prompt: string) => {
     epoch++; question = prompt; repairs = 0; pending = undefined;
-    sources = new Map(); delivered = [];
+    sources = new Map(); delivered = []; reviews = new Map();
   };
   pi.on("before_agent_start", event => { reset(event.prompt); });
   pi.on("before_provider_request", event => {
@@ -109,7 +110,7 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
           ? { role: "system" as const, content: message.content, timestamp: Date.now() }
           : { role: "user" as const, content: message.content, timestamp: Date.now() }),
       }, {
-        signal, timeoutMs, maxRetries: 0, maxTokens: 16384, temperature: 0, reasoning: "high",
+        signal, timeoutMs, maxRetries: 0, maxTokens: 16384, temperature: 0, reasoning: "low",
         onPayload: (payload, actualModel) => {
           attempt.payload_seen = true;
           pi.events.emit("finance_history_review", { phase: "provider_request", stage,
@@ -151,23 +152,36 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
     const message: AssistantMessage = event.message;
     const draft = textContent(message.content);
     const turnEpoch = epoch;
+    const turnQuestion = question;
+    let admittedSources: RecordValue[] = [];
+    let reused = false;
+    let preparedId: string | undefined;
     const usage: ReviewUsage[] = [];
     const attempts: RecordValue[] = [];
     let decision: Verdict = { status: "unavailable", issues: ["历史材料复核未完成，原稿未经确认。"] };
     pending = undefined;
     try {
       pi.events.emit("finance_history_review", { phase: "draft", draft, draft_sha256: hash(draft), repairs });
-      const prepared = preparation(await runReviewCommand("prepare", { question, draft, sources: delivered }, ctx.signal));
-      const answer = await reviewCall(prepared, "claims", ctx, usage, attempts);
-      const accepted = await runReviewCommand("accept", { request: prepared.request, response: answer }, ctx.signal);
-      if (!record(accepted)) throw new Error("History review response unavailable.");
-      decision = verdict(accepted.verdict);
-      if (accepted.audit) {
-        const audit = preparation(accepted.audit);
-        const response = await reviewCall(audit, "nonfactual", ctx, usage, attempts);
-        const combined = await runReviewCommand("audit", { first: decision, audit_request: audit.request, response }, ctx.signal);
-        if (!record(combined)) throw new Error("History review audit unavailable.");
-        decision = verdict(combined.verdict);
+      admittedSources = structuredClone(delivered);
+      const prepared = preparation(await runReviewCommand("prepare", { question: turnQuestion, draft, sources: admittedSources }, ctx.signal));
+      const requestId = String(prepared.request.request_id);
+      preparedId = requestId;
+      const cached = reviews.get(requestId);
+      if (cached) {
+        decision = structuredClone(cached);
+        reused = true;
+      } else {
+        const answer = await reviewCall(prepared, "claims", ctx, usage, attempts);
+        const accepted = await runReviewCommand("accept", { request: prepared.request, response: answer }, ctx.signal);
+        if (!record(accepted)) throw new Error("History review response unavailable.");
+        decision = verdict(accepted.verdict);
+        if (accepted.audit) {
+          const audit = preparation(accepted.audit);
+          const response = await reviewCall(audit, "nonfactual", ctx, usage, attempts);
+          const combined = await runReviewCommand("audit", { first: decision, audit_request: audit.request, response }, ctx.signal);
+          if (!record(combined)) throw new Error("History review audit unavailable.");
+          decision = verdict(combined.verdict);
+        }
       }
       if (turnEpoch !== epoch || ctx.signal?.aborted) {
         decision = { status: "unavailable", issues: ["本次复核已取消或会话已切换，原稿未经确认。"] };
@@ -175,8 +189,10 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
     } catch {
       decision = { status: "unavailable", issues: ["历史材料复核不可用或回执无效，原稿保留但未经确认。"] };
     }
+    if (preparedId && turnEpoch === epoch && !ctx.signal?.aborted) reviews.set(preparedId, structuredClone(decision));
     const receipt = { schema_version: "pi-history-review/v1", ...decision, draft, draft_sha256: hash(draft),
-      repairs, source_hashes: delivered.map(source => hash(String(source.public_text))),
+      repairs, question: turnQuestion, reused_review: reused,
+      source_hashes: admittedSources.map(source => hash(String(source.public_text))),
       reviewer_attempts: attempts, reviewer_usage: usage, usage_accounting: "separate_nested_requests_not_author_usage",
       not_independent_financial_approval: true };
     try {
@@ -188,7 +204,12 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
     }
     if (decision.status === "reviewed") return;
     if (decision.status === "revision_required" && repairs < maxRepairs && turnEpoch === epoch && !ctx.signal?.aborted) {
-      pending = { draft, issues: decision.issues };
+      const rejected = new Set(Array.isArray(decision.rejected_sentence_indexes) ? decision.rejected_sentence_indexes : []);
+      const statements = Array.isArray(decision.claim_checks) ? decision.claim_checks.filter(row => record(row) &&
+        (row.supported === false || rejected.has(row.sentence_index))).map(row => ({
+          sentence_index: row.sentence_index, text: row.text, reason: row.reason, readouts: row.material_anchors,
+        })) : [];
+      pending = { draft, issues: decision.issues, statements };
     }
     // Preserve the work, not an empty fallback. The receipt and visible status
     // never present a rejected/unavailable review as a financial certificate.
@@ -207,8 +228,9 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
     repairs++;
     return { continue: true, entries: [{ type: "custom_message", customType: "finance_history_revision", display: false,
       content: "根据本次历史材料复核，修订完整回答。保留已支持内容，修改无支持或矛盾的命题及遗漏的必要限定；"
-        + "不能改原数据、补零、把差值当水平或把描述统计升级。只依据已经送达的材料，仍不足就明确说明。\n"
-        + JSON.stringify({ original_draft: rejected.draft, review_issues: rejected.issues }),
+        + "复核意见是待核指引，不是新市场事实；引用读数来自原材料，须核对其窗口、类型和单位。"
+        + "不能改原数据、补零、把差值当水平或把描述统计升级。仍不足就明确说明。\n"
+        + JSON.stringify({ original_draft: rejected.draft, review_issues: rejected.issues, rejected_statements: rejected.statements }),
       details: { revision_attempt: repairs, maximum_revision_attempts: maxRepairs } }] };
   });
 }

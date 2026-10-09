@@ -221,8 +221,12 @@ def validate_history_review(request: dict, response: str | dict) -> dict:
     try:
         if request["request_id"] != _hash({key: value for key, value in request.items() if key != "request_id"}):
             return result
-        if isinstance(response, str) and len(response.encode()) > MAX_REQUEST_BYTES:
-            return result
+        if isinstance(response, str):
+            if len(response.encode()) > MAX_REQUEST_BYTES:
+                return result
+            response = response.strip()
+            if response.startswith("```json\n") and response.endswith("\n```"):
+                response = response[len("```json\n"):-len("\n```")]
         payload = json.loads(response, object_pairs_hook=_unique_object) if isinstance(response, str) else deepcopy(response)
         Draft202012Validator(_response_schema(audit=request["nonfactual_audit"])).validate(payload)
         if payload["request_id"] != request["request_id"]:

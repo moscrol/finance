@@ -17,7 +17,7 @@ PI = shutil.which("pi")
 pytestmark = pytest.mark.skipif(PI is None, reason="optional Pi CLI not installed")
 
 
-@pytest.mark.parametrize("scenario", ["repair", "always_reject", "unavailable", "malformed", "truncated", "missing_receipt", "tampered_ack", "nonfactual_laundering", "cancelled", "fresh_turn"])
+@pytest.mark.parametrize("scenario", ["repair", "always_reject", "unavailable", "malformed", "truncated", "missing_receipt", "tampered_ack", "nonfactual_laundering", "cancelled", "fresh_turn", "judge_flip", "fenced"])
 def test_native_pi_history_review_is_bound_and_finite(tmp_path, scenario):
     db = tmp_path / "market.duckdb"
     _make_db(db)
@@ -58,17 +58,23 @@ def test_native_pi_history_review_is_bound_and_finite(tmp_path, scenario):
         assert receipts[-1]["source_hashes"] == []
         assert receipts[-1]["reviewer_attempts"] == []
         assert receipts[-1]["repairs"] == 0
-    elif scenario in {"repair", "nonfactual_laundering"}:
+    elif scenario in {"repair", "nonfactual_laundering", "fenced"}:
         assert receipts[0]["status"] == "revision_required"
         assert receipts[-1]["status"] == "reviewed"
         assert len(assistant) == 3
         assert "原稿" not in final
         assert "动能相反" not in final and "研报有0条" not in final
+        feedback = next(event["entry"] for event in events if event["type"] == "entry_appended"
+                        and event["entry"].get("customType") == "finance_history_revision")
+        assert "rejected_statements" in feedback["content"]
+        assert "text" in feedback["content"]
         if scenario == "nonfactual_laundering":
             assert receipts[0]["nonfactual_audit"]["status"] == "revision_required"
-    elif scenario == "always_reject":
+    elif scenario in {"always_reject", "judge_flip"}:
         assert len(receipts) == 2 and len(assistant) == 3
         assert receipts[-1]["status"] == "revision_required"
+        assert receipts[-1]["reused_review"]
+        assert receipts[-1]["reviewer_attempts"] == []
         assert "未确认的原稿" in final and "涨家数动能相反" in final
     else:
         assert len(receipts) == 1 and len(assistant) == 2

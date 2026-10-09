@@ -54,9 +54,11 @@ export default function (pi: ExtensionAPI) {
             }
             if (scenario === "nonfactual_laundering") body = authors < 3
               ? "市场成交额均值9875亿元。\n研报有0条。" : "市场成交额均值9875亿元。\n研报指标未知，0个非空观测不等于0条研报。";
-            else body = authors < 3 || scenario === "always_reject" ? "涨家数动能相反。" : "涨家数方向为一方近零。";
+            else body = authors < 3 || ["always_reject", "judge_flip"].includes(scenario) ? "涨家数动能相反。" : "涨家数方向为一方近零。";
           } else {
             assert.ok(++reviewers <= 4, "unbounded nested review");
+            assert.equal(options?.reasoning, "low");
+            assert.equal(options?.maxRetries, 0);
             const user = context.messages.findLast(message => message.role === "user");
             assert.ok(user?.role === "user");
             const request = JSON.parse(text(user.content));
@@ -64,7 +66,7 @@ export default function (pi: ExtensionAPI) {
             if (scenario === "unavailable") throw new Error("synthetic reviewer outage");
             if (scenario === "cancelled") { abort(); throw new Error("synthetic review cancellation"); }
             const checks = request.claims.map((claim: { claim_id: string; text: string }) => {
-              const wrong = claim.text.includes("动能相反");
+              const wrong = claim.text.includes("动能相反") && !(scenario === "judge_flip" && reviewers > 1);
               const laundered = claim.text === "研报有0条。";
               if (request.nonfactual_audit) return { claim_id: claim.claim_id, supported: !laundered,
                 reason: laundered ? "0条是事实断言，不是非事实豁免。" : "纯格式。", support_kind: laundered ? "unsupported" : "nonfactual", anchor_indexes: [] };
@@ -76,7 +78,7 @@ export default function (pi: ExtensionAPI) {
               material_claim_checks: scenario === "missing_receipt" ? [] : checks,
               ...(request.nonfactual_audit ? {} : { material_output_checks: [{ output_id: "history_answer", answered: true,
                 answer_sentence_indexes: [1], reason: "合成完整性证人，不代表真实金融质量。" }] }) };
-            body = scenario === "malformed" ? "not JSON" : JSON.stringify(report);
+            body = scenario === "malformed" ? "not JSON" : scenario === "fenced" ? `\`\`\`json\n${JSON.stringify(report)}\n\`\`\`` : JSON.stringify(report);
           }
           output.content = [{ type: "text", text: body }];
           output.stopReason = !isAuthor && scenario === "truncated" ? "length" : "stop";
