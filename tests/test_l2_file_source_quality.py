@@ -234,7 +234,7 @@ def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
             assert con.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
     assert checker.check_l2(DATE)
     assert not pipeline.runner.already_complete(DATE)
-    assert not (pipeline.cache / f"{DAY}.7z").exists()
+    assert (pipeline.cache / f"{DAY}.7z").exists()
     assert not (pipeline.cache / f"extract-{DAY}").exists()
     assert pipeline.meta == []
 
@@ -243,6 +243,7 @@ def test_failed_day_is_retried_without_force_and_zero_quant_is_valid(pipeline):
     pipeline.mode = "partial"
     with pytest.raises(RuntimeError, match="missing tick file"):
         pipeline.runner.run_date(DATE)
+    assert (pipeline.cache / f"{DAY}.7z").exists()
     pipeline.mode = "ok"
     pipeline.runner.run_date(DATE)
     assert _ledger(pipeline) == [
@@ -303,7 +304,7 @@ def test_failed_forced_rescan_preserves_valid_previous_results(pipeline, monkeyp
         pipeline.runner.run_date(DATE)
     assert _ledger(pipeline) == before
     assert checker.check_l2(DATE) == []
-    assert not (pipeline.cache / f"{DAY}.7z").exists()
+    assert (pipeline.cache / f"{DAY}.7z").exists()
     monkeypatch.delenv("L2_FORCE_RESCAN")
     assert pipeline.runner.already_complete(DATE)
 
@@ -394,7 +395,7 @@ def test_cleanup_failure_is_not_reported_as_success(pipeline, cached_downloads, 
 
 
 @pytest.mark.parametrize("complete", [False, True], ids=["success", "skip-complete"])
-def test_run_always_cleans_only_its_date(pipeline, cached_downloads, monkeypatch, complete):
+def test_successful_run_cleans_only_its_date(pipeline, cached_downloads, monkeypatch, complete):
     monkeypatch.setattr(pipeline.runner, "already_complete", lambda date: complete)
     pipeline.runner.run_date(DATE)
     targets, unrelated = cached_downloads
@@ -413,7 +414,7 @@ def test_run_always_cleans_only_its_date(pipeline, cached_downloads, monkeypatch
     ("process_date", SystemExit),
     ("write_meta", OSError),
 ])
-def test_failed_run_cleans_downloads_at_every_stage(
+def test_failed_run_preserves_downloads_at_every_stage(
     pipeline, cached_downloads, monkeypatch, stage, error,
 ):
     failure = error("cleanup regression")
@@ -426,11 +427,11 @@ def test_failed_run_cleans_downloads_at_every_stage(
         pipeline.runner.run_date(DATE)
     assert raised.value is failure
     targets, unrelated = cached_downloads
-    assert all(not path.exists() for path in targets)
+    assert all(path.exists() for path in targets[:3])
     assert unrelated.read_bytes() == b"another trade date"
 
 
-def test_failed_ledger_write_still_cleans_downloads(pipeline, cached_downloads, monkeypatch):
+def test_failed_ledger_write_preserves_downloads(pipeline, cached_downloads, monkeypatch):
     def fail_processing(*args):
         raise RuntimeError("processing failed")
 
@@ -442,12 +443,12 @@ def test_failed_ledger_write_still_cleans_downloads(pipeline, cached_downloads, 
     with pytest.raises(OSError, match="ledger unavailable"):
         pipeline.runner.run_date(DATE)
     targets, unrelated = cached_downloads
-    assert all(not path.exists() for path in targets)
+    assert all(path.exists() for path in targets[:3])
     assert unrelated.exists()
 
 
 @pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
-def test_cli_signal_cleans_downloads(pipeline, cached_downloads, signum):
+def test_cli_signal_preserves_downloads(pipeline, cached_downloads, signum):
     code = f"""
 import os
 import sys
@@ -466,5 +467,5 @@ runner.main()
     )
     assert result.returncode in (-int(signum), 128 + int(signum)), result.stderr
     targets, unrelated = cached_downloads
-    assert all(not path.exists() for path in targets)
+    assert all(path.exists() for path in targets[:3])
     assert unrelated.read_bytes() == b"another trade date"

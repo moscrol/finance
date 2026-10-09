@@ -1,9 +1,8 @@
-"""夜跑入口：分享转存 → 分片下载 → 解算入库，成功或失败都清理本地下载。不打 ClickHouse。"""
+"""夜跑入口：分享转存 → 分片下载 → 解算入库，仅成功后清理本地下载。不打 ClickHouse。"""
 from __future__ import annotations
 
 import os
 import shutil
-import signal
 import sys
 import time
 from pathlib import Path
@@ -111,41 +110,34 @@ def run_date(date: str) -> None:
     os.environ.setdefault("L2_SOURCE", "baidu-share:xianyu-l2-7z")
     day = yyyymmdd(date)
     name = archive_name(date)
-    try:
-        if already_complete(date):
-            print(f"{date} l2-moneyflow 已 complete，跳过", flush=True)
-            return
-        archive = cache_dir() / name
-        try:
-            wait_share_file(date)
-            transferred = ensure_transferred(name, month_dir(date))
-            size = int(transferred["file"]["size"])
-            inbox = transferred["inbox"].rstrip("/")
-            download(name, size, dest=archive, pan_file=f"{inbox}/{name}")
-            process_date(date, archive)
-        except Exception as exc:
-            mark_failed(date, f"file pipeline failed: {exc}")
-            print(f"FAIL {date}，退出时清理本地下载包，重试需重新下载", flush=True)
-            raise
-        meta = transferred["meta"]
-        meta["last_processed"] = date
-        meta["last_file"] = name
-        meta["updated_at"] = date
-        write_meta(meta)
-    finally:
+    if already_complete(date):
+        print(f"{date} l2-moneyflow 已 complete，跳过", flush=True)
         cleanup_local(day)
+        return
+    archive = cache_dir() / name
+    try:
+        wait_share_file(date)
+        transferred = ensure_transferred(name, month_dir(date))
+        size = int(transferred["file"]["size"])
+        inbox = transferred["inbox"].rstrip("/")
+        download(name, size, dest=archive, pan_file=f"{inbox}/{name}")
+        process_date(date, archive)
+    except Exception as exc:
+        mark_failed(date, f"file pipeline failed: {exc}")
+        print(f"FAIL {date}，保留本地下载包供重试", flush=True)
+        raise
+    meta = transferred["meta"]
+    meta["last_processed"] = date
+    meta["last_file"] = name
+    meta["updated_at"] = date
+    write_meta(meta)
+    cleanup_local(day)
     print(f"done {date}", flush=True)
-
-
-def _exit_on_sigterm(signum, frame) -> None:
-    # Unwind through run_date's finally block on normal process termination.
-    raise SystemExit(128 + signum)
 
 
 def main() -> None:
     if len(sys.argv) < 2:
         raise SystemExit("用法: run_l2_from_share.py YYYY-MM-DD")
-    signal.signal(signal.SIGTERM, _exit_on_sigterm)
     run_date(sys.argv[1])
 
 
