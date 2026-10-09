@@ -159,6 +159,34 @@ def test_scope_alone_cannot_admit_available_facts(joint_db, tmp_path, monkeypatc
         answer_model.grounded_claim_registry_block(result.answer_spec, max_chars=len(scope))
 
 
+@pytest.mark.parametrize("headroom", [0, 16])
+def test_generic_registry_notice_preserves_last_fact_with_scope(
+    joint_db, tmp_path, monkeypatch, headroom,
+):
+    """Replay's default registry must keep a fact, not just scope and a note."""
+    result, basis = _result_and_basis(joint_db, tmp_path, monkeypatch)
+    spec = replace(result.answer_spec, summary=(), company_table=(), candidate_facts=(),
+                   counter_evidence=(), gaps=(), triggers=())
+    original = spec.to_dict()
+    full_lines = answer_model.grounded_claim_registry_block(spec).splitlines()
+    scope = next(line for line in full_lines if "query_basis" in json.loads(line))
+    facts = [line for line in full_lines if "claim_id" in json.loads(line)]
+    assert len(facts) > 1
+    budget = len(scope) + 1 + min(map(len, facts)) + headroom
+
+    # Public defaults match the frozen-grounded replay consumer.
+    registry = answer_model.grounded_claim_registry_block(spec, max_chars=budget)
+    rows = [json.loads(line) for line in registry.splitlines()]
+    delivered = [row for row in rows if "claim_id" in row]
+
+    assert len(delivered) == 1, "omission metadata displaced the last delivered fact"
+    assert _basis_rows(registry) == [{"D4": basis}]
+    assert not any("note" in row for row in rows), "the exact fact window has no room for a note"
+    assert len(registry) <= budget
+    assert len(answer_model.answer_spec_for_registry(spec, registry).verified_facts) == 1
+    assert spec.to_dict() == original
+
+
 @pytest.mark.parametrize("missing", ["", "{}", '{"D1":{}}', "null"])
 def test_typed_d4_without_source_scope_is_rejected_before_call(joint_db, tmp_path, monkeypatch, missing):
     result, _basis = _result_and_basis(joint_db, tmp_path, monkeypatch)

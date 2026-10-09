@@ -3100,7 +3100,9 @@ def grounded_claim_registry_block(
         # 告知行本身也要进预算，否则一边写预算一边超预算。挤不下就再让出
         # 一条最低分的 claim——但**绝不动最后一条**：证据才是目的，告知是元数据，
         # 预算紧到二选一时留证据。放不下就整条不写，退回今天的静默截断。
-        while len(selected) > max(1, required_count) and used_chars + len(note) + 1 > max_chars:
+        # Scope occupies a row but cannot replace the last actual claim.
+        minimum_rows = max(required_count, 2 if scope_line else 1)
+        while len(selected) > minimum_rows and used_chars + len(note) + 1 > max_chars:
             used_chars -= len(selected.pop()) + 1
             dropped += 1
             note = (
