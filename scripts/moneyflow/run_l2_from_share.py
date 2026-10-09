@@ -1,8 +1,9 @@
-"""夜跑入口：分享转存 → 分片下载 → 解算入库 → 删本地 7z。不打 ClickHouse。"""
+"""夜跑入口：分享转存 → 分片下载 → 解算入库，成功或失败都清理本地下载。不打 ClickHouse。"""
 from __future__ import annotations
 
 import os
 import shutil
+import signal
 import sys
 import time
 from pathlib import Path
@@ -61,6 +62,8 @@ def already_complete(date: str) -> bool:
 
 
 def cleanup_local(day: str) -> None:
+    if len(day) != 8 or not day.isascii() or not day.isdigit():
+        raise ValueError("L2 cleanup requires a YYYYMMDD date, not a path")
     cache = cache_dir()
     for path in (
         cache / f"{day}.7z",
@@ -68,8 +71,10 @@ def cleanup_local(day: str) -> None:
         cache / f"{day}.7z.part.ok",
         cache / f"extract-{day}",
     ):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
+        if path.is_symlink():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
         elif path.exists():
             path.unlink()
 
@@ -106,32 +111,43 @@ def run_date(date: str) -> None:
     os.environ.setdefault("L2_SOURCE", "baidu-share:xianyu-l2-7z")
     day = yyyymmdd(date)
     name = archive_name(date)
-    if already_complete(date):
-        print(f"{date} l2-moneyflow 已 complete，跳过", flush=True)
-        cleanup_local(day)
-        return
-    archive = cache_dir() / name
     try:
-        wait_share_file(date)
-        transferred = ensure_transferred(name, month_dir(date))
-        size = int(transferred["file"]["size"])
-        inbox = transferred["inbox"].rstrip("/")
-        download(name, size, dest=archive, pan_file=f"{inbox}/{name}")
-        process_date(date, archive)
-    except Exception as exc:
-        mark_failed(date, f"file pipeline failed: {exc}")
-        print(f"FAIL {date}，本地 7z 留下便于重试", flush=True)
-        raise
-    cleanup_local(day)
-    meta = transferred["meta"]
-    meta["last_processed"] = date
-    meta["last_file"] = name
-    meta["updated_at"] = date
-    write_meta(meta)
+        if already_complete(date):
+            print(f"{date} l2-moneyflow 已 complete，跳过", flush=True)
+            return
+        archive = cache_dir() / name
+        try:
+            wait_share_file(date)
+            transferred = ensure_transferred(name, month_dir(date))
+            size = int(transferred["file"]["size"])
+            inbox = transferred["inbox"].rstrip("/")
+            download(name, size, dest=archive, pan_file=f"{inbox}/{name}")
+            process_date(date, archive)
+        except Exception as exc:
+            mark_failed(date, f"file pipeline failed: {exc}")
+            print(f"FAIL {date}，退出时清理本地下载包，重试需重新下载", flush=True)
+            raise
+        meta = transferred["meta"]
+        meta["last_processed"] = date
+        meta["last_file"] = name
+        meta["updated_at"] = date
+        write_meta(meta)
+    finally:
+        cleanup_local(day)
     print(f"done {date}", flush=True)
 
 
-if __name__ == "__main__":
+def _exit_on_sigterm(signum, frame) -> None:
+    # Unwind through run_date's finally block on normal process termination.
+    raise SystemExit(128 + signum)
+
+
+def main() -> None:
     if len(sys.argv) < 2:
         raise SystemExit("用法: run_l2_from_share.py YYYY-MM-DD")
+    signal.signal(signal.SIGTERM, _exit_on_sigterm)
     run_date(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()

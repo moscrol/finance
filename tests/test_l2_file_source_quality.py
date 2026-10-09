@@ -5,6 +5,7 @@ import importlib.util
 import hashlib
 import json
 import shutil
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -233,7 +234,7 @@ def test_bad_archive_cannot_publish_or_skip_retry(pipeline, mode):
             assert con.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
     assert checker.check_l2(DATE)
     assert not pipeline.runner.already_complete(DATE)
-    assert (pipeline.cache / f"{DAY}.7z").exists()
+    assert not (pipeline.cache / f"{DAY}.7z").exists()
     assert not (pipeline.cache / f"extract-{DAY}").exists()
     assert pipeline.meta == []
 
@@ -302,7 +303,7 @@ def test_failed_forced_rescan_preserves_valid_previous_results(pipeline, monkeyp
         pipeline.runner.run_date(DATE)
     assert _ledger(pipeline) == before
     assert checker.check_l2(DATE) == []
-    assert (pipeline.cache / f"{DAY}.7z").exists()
+    assert not (pipeline.cache / f"{DAY}.7z").exists()
     monkeypatch.delenv("L2_FORCE_RESCAN")
     assert pipeline.runner.already_complete(DATE)
 
@@ -343,3 +344,127 @@ def test_empty_candidate_list_does_not_extract_whole_archive(pipeline, monkeypat
         pipeline.runner.run_date(DATE)
     assert {row[1] for row in _ledger(pipeline)} == {"failed"}
     assert not (pipeline.cache / f"extract-{DAY}").exists()
+
+
+@pytest.fixture
+def cached_downloads(pipeline):
+    pipeline.cache.mkdir(parents=True, exist_ok=True)
+    targets = [pipeline.cache / f"{DAY}{suffix}" for suffix in (".7z", ".7z.part", ".7z.part.ok")]
+    for path in targets:
+        path.write_bytes(b"temporary download")
+    extracted = pipeline.cache / f"extract-{DAY}"
+    extracted.mkdir()
+    (extracted / "ticks.csv").write_bytes(b"temporary ticks")
+    targets.append(extracted)
+    unrelated = pipeline.cache / "20260915.7z"
+    unrelated.write_bytes(b"another trade date")
+    return targets, unrelated
+
+
+def test_cleanup_rejects_paths_outside_cache(pipeline, tmp_path):
+    victim = tmp_path / "outside.7z"
+    victim.write_bytes(b"not a download cache")
+    with pytest.raises(ValueError, match="YYYYMMDD"):
+        pipeline.runner.cleanup_local(str(victim.with_suffix("")))
+    assert victim.read_bytes() == b"not a download cache"
+
+
+@pytest.mark.parametrize("dangling", [False, True])
+def test_cleanup_unlinks_extraction_symlink_without_following_it(pipeline, tmp_path, dangling):
+    outside = tmp_path / "outside"
+    if not dangling:
+        outside.mkdir()
+        (outside / "keep.txt").write_text("keep", encoding="utf-8")
+    pipeline.cache.mkdir(parents=True)
+    link = pipeline.cache / f"extract-{DAY}"
+    link.symlink_to(outside, target_is_directory=True)
+    pipeline.runner.cleanup_local(DAY)
+    assert not link.is_symlink()
+    if not dangling:
+        assert (outside / "keep.txt").read_text(encoding="utf-8") == "keep"
+
+
+def test_cleanup_failure_is_not_reported_as_success(pipeline, cached_downloads, monkeypatch):
+    def denied(*args, **kwargs):
+        raise PermissionError("cleanup denied")
+
+    monkeypatch.setattr(pipeline.runner.shutil, "rmtree", denied)
+    with pytest.raises(PermissionError, match="cleanup denied"):
+        pipeline.runner.cleanup_local(DAY)
+
+
+@pytest.mark.parametrize("complete", [False, True], ids=["success", "skip-complete"])
+def test_run_always_cleans_only_its_date(pipeline, cached_downloads, monkeypatch, complete):
+    monkeypatch.setattr(pipeline.runner, "already_complete", lambda date: complete)
+    pipeline.runner.run_date(DATE)
+    targets, unrelated = cached_downloads
+    assert all(not path.exists() for path in targets)
+    assert unrelated.read_bytes() == b"another trade date"
+    assert len(pipeline.calls) == (0 if complete else 1)
+
+
+@pytest.mark.parametrize("stage,error", [
+    ("already_complete", RuntimeError),
+    ("wait_share_file", FileNotFoundError),
+    ("ensure_transferred", RuntimeError),
+    ("download", OSError),
+    ("process_date", RuntimeError),
+    ("process_date", KeyboardInterrupt),
+    ("process_date", SystemExit),
+    ("write_meta", OSError),
+])
+def test_failed_run_cleans_downloads_at_every_stage(
+    pipeline, cached_downloads, monkeypatch, stage, error,
+):
+    failure = error("cleanup regression")
+
+    def fail(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(pipeline.runner, stage, fail)
+    with pytest.raises(error, match="cleanup regression") as raised:
+        pipeline.runner.run_date(DATE)
+    assert raised.value is failure
+    targets, unrelated = cached_downloads
+    assert all(not path.exists() for path in targets)
+    assert unrelated.read_bytes() == b"another trade date"
+
+
+def test_failed_ledger_write_still_cleans_downloads(pipeline, cached_downloads, monkeypatch):
+    def fail_processing(*args):
+        raise RuntimeError("processing failed")
+
+    def fail_ledger(*args):
+        raise OSError("ledger unavailable")
+
+    monkeypatch.setattr(pipeline.runner, "process_date", fail_processing)
+    monkeypatch.setattr(pipeline.runner, "mark_failed", fail_ledger)
+    with pytest.raises(OSError, match="ledger unavailable"):
+        pipeline.runner.run_date(DATE)
+    targets, unrelated = cached_downloads
+    assert all(not path.exists() for path in targets)
+    assert unrelated.exists()
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+def test_cli_signal_cleans_downloads(pipeline, cached_downloads, signum):
+    code = f"""
+import os
+import sys
+sys.path.insert(0, {str(MONEYFLOW)!r})
+import run_l2_from_share as runner
+runner.already_complete = lambda date: False
+runner.wait_share_file = lambda date: None
+runner.ensure_transferred = lambda *args: {{'file': {{'size': 0}}, 'inbox': '/offline', 'meta': {{}}}}
+runner.download = lambda *args, **kwargs: None
+runner.process_date = lambda *args: os.kill(os.getpid(), {int(signum)})
+sys.argv = ['run_l2_from_share.py', {DATE!r}]
+runner.main()
+"""
+    result = pipeline.real_run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=20,
+    )
+    assert result.returncode in (-int(signum), 128 + int(signum)), result.stderr
+    targets, unrelated = cached_downloads
+    assert all(not path.exists() for path in targets)
+    assert unrelated.read_bytes() == b"another trade date"
