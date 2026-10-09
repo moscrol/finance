@@ -1899,7 +1899,7 @@ def ensure_track_contract_visible(
 def _grounded_registry_for_synthesis(answer_spec: answer_model.AnswerSpec, query: str) -> str:
     """有共同边界的历史表整体进窗；装不下就 fail closed，不送残表或偷升事实等级。"""
     return answer_model.grounded_claim_registry_block(
-        answer_spec, query=query, max_chars=12_000,
+        answer_spec, query=query, max_chars=12_000, require_support=True,
         required_claim_ids=tuple(
             claim.claim_id for claim in answer_spec.candidate_facts
             if claim.claim_id == "data:D10:context"
@@ -2005,6 +2005,10 @@ def repair_unfulfilled_answer(
         return None
     if not registry_block.strip():
         return None
+    try:
+        admitted_spec = answer_model.answer_spec_for_registry(answer_spec, registry_block)
+    except ValueError:
+        return None
     perspective_block = (
         _active_perspective_prompt(options) if options is not None else ""
     )
@@ -2034,7 +2038,7 @@ def repair_unfulfilled_answer(
         question=question,
         required_outputs=required_outputs,
         answer_text=revised.answer,
-        answer_spec=answer_spec,
+        answer_spec=admitted_spec,
     )
     if recheck.status != "complete":
         return None
@@ -2176,6 +2180,7 @@ def synthesize_shadow_grounded_answer(
     deadline = _shadow_deadline(options)
     try:
         registry_block = _grounded_registry_for_synthesis(result.answer_spec, options.query)
+        admitted_spec = answer_model.answer_spec_for_registry(result.answer_spec, registry_block)
     except ValueError:
         result.grounded_composer_shadow = answer_model.GroundedComposerShadow(
             status="ineligible_evidence", failure_reason="required_context_exceeds_registry_budget",
@@ -2186,9 +2191,7 @@ def synthesize_shadow_grounded_answer(
     required_outputs_block = tuple(result.answer_spec.prompt_constraints)
     brief_started = time.monotonic()
     brief_remaining_ms = deadline.remaining() * 1000
-    decision_brief = answer_model.build_deterministic_decision_brief(
-        result.answer_spec
-    )
+    decision_brief = answer_model.build_deterministic_decision_brief(admitted_spec)
     _record_synthesis_phase(
         result,
         name="brief",
@@ -2289,17 +2292,17 @@ def synthesize_shadow_grounded_answer(
     if result.answer_spec is not None:
         raw_answer = answer_model.canonicalize_grounded_claim_ids(
             raw_answer,
-            result.answer_spec,
+            admitted_spec,
         )
         # 同一类笔误的第二种形状：把聚合 claim 展开成一家一行，却每行都绑回聚合。
         raw_answer = answer_model.rebind_entity_claim_ids(
             raw_answer,
-            result.answer_spec,
+            admitted_spec,
         )
     deterministic_issues = (
         answer_model.validate_grounded_composer_answer(
             raw_answer,
-            result.answer_spec,
+            admitted_spec,
             question=options.query,
         )
     )
@@ -2311,7 +2314,7 @@ def synthesize_shadow_grounded_answer(
         deterministic_repair = (
             answer_model.repair_grounded_composer_answer(
                 raw_answer,
-                result.answer_spec,
+                admitted_spec,
                 drop_invalid=repair_drop_invalid,
                 question=options.query,
             )
@@ -2405,7 +2408,7 @@ def synthesize_shadow_grounded_answer(
     if judge_disabled:
         candidate_answer = answer_model.ensure_chain_mapping_section(
             candidate_answer,
-            result.answer_spec,
+            admitted_spec,
             decision_brief,
         )
         result.grounded_composer_shadow = (
@@ -2417,7 +2420,7 @@ def synthesize_shadow_grounded_answer(
                 presented_answer=(
                     answer_model.present_grounded_composer_answer(
                         candidate_answer,
-                        result.answer_spec,
+                        admitted_spec,
                     )
                 ),
                 deterministic_issues=deterministic_issues,
@@ -2430,7 +2433,7 @@ def synthesize_shadow_grounded_answer(
     if judged is None:
         released = _judge_outage_release(
             candidate_answer,
-            result.answer_spec,
+            admitted_spec,
             judge_reason,
         )
         result.grounded_composer_shadow = (
@@ -2492,7 +2495,7 @@ def synthesize_shadow_grounded_answer(
         )
         semantic_repair = answer_model.repair_grounded_composer_answer(
             candidate_answer,
-            result.answer_spec,
+            admitted_spec,
             rejected_sentence_indexes=judge_applied_indexes,
             drop_invalid=repair_drop_invalid,
             question=options.query,
@@ -2527,7 +2530,7 @@ def synthesize_shadow_grounded_answer(
     # 它仍然一家都不提，于是 chain_mapping 判缺、整份 919 字答案被 fail-closed 丢弃。
     candidate_answer = answer_model.ensure_chain_mapping_section(
         candidate_answer,
-        result.answer_spec,
+        admitted_spec,
         decision_brief,
     )
     result.grounded_composer_shadow = (
@@ -2539,7 +2542,7 @@ def synthesize_shadow_grounded_answer(
             presented_answer=(
                 answer_model.present_grounded_composer_answer(
                     candidate_answer,
-                    result.answer_spec,
+                    admitted_spec,
                 )
             ),
             deterministic_issues=deterministic_issues,

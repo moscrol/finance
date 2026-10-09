@@ -627,6 +627,24 @@ def test_break_candidates_are_checked_against_the_days_quotes(tmp_path: Path) ->
     assert set(payload["unresolved_reasons"]) >= {"no_trade", "st_scope", "closed_at_limit"}
 
 
+@pytest.mark.parametrize("field", ["close", "pre_close", "amount"])
+@pytest.mark.parametrize("invalid", [None, 0, -1, float("nan"), float("inf"), float("-inf")])
+def test_incomplete_or_invalid_quotes_cannot_confirm_a_break(tmp_path, field, invalid):
+    db = tmp_path / "incomplete.duckdb"
+    _candidate_db(db)
+    quote = {"close": 10.5, "pre_close": 10.0, "amount": 1e8}
+    quote[field] = invalid
+    _quote_table(db, [("2026-09-23", "600001.SH", "真断", quote["close"],
+                       quote["pre_close"], 5.0, quote["amount"])])
+    result = build_board_calendar(db, month="2026-09")
+    day = _day(result, "2026-09-23")
+    assert day["high_board_breaks"] == []
+    candidate = next(row for row in day["high_board_unresolved"] if row["stock_ts_code"] == "600001.SH")
+    expected = "no_trade" if field == "amount" and (invalid is None or invalid <= 0) else "quote_invalid"
+    assert candidate["reason"] == expected
+    assert candidate["reason"] in result["unresolved_reasons"]
+
+
 def test_quotes_not_yet_ingested_leave_candidates_unresolved(tmp_path: Path) -> None:
     db = tmp_path / "quotes-missing.duckdb"
     _candidate_db(db)

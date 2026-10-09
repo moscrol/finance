@@ -21,7 +21,7 @@ def _day(day, amount=100):
     for section in data["sections"]:
         for block in section["blocks"]:
             if block["kind"] == "table" and len(block["columns"]) == 3:
-                block["columns"][1:] = ["09-18", day[5:]]
+                block["columns"][1:] = ["09-16", day[5:]]
     return data
 
 
@@ -52,6 +52,34 @@ def test_fingerprint_is_what_the_page_saw_and_rewrites_fail_closed(tmp_path):
     write(tmp_path, _day("2026-09-23"))
     with pytest.raises(handoff.ReviewEvidenceMismatch):
         handoff.verify_review_evidence(tmp_path, _ref(history))
+
+
+@pytest.mark.parametrize("change", ["rewrite", "create", "delete", "unreadable", "same_value_new_version"])
+def test_window_predecessor_is_part_of_handoff_identity(tmp_path, change):
+    # 09-17 is outside the visible five-day window, but supplies 09-18's delta.
+    if change != "create":
+        write(tmp_path, _day("2026-09-17", 100))
+    write(tmp_path, _day("2026-09-18", 120))
+    history = review_history(tmp_path, end=date(2026, 9, 24), days=5, industry="电子")
+    assert history["points"][0]["date"] == "2026-09-18"
+    assert handoff.verify_review_evidence(tmp_path, _ref(history)) == history
+    predecessor = tmp_path / "2026-09-17-daily-review.json"
+    if change == "delete":
+        predecessor.unlink()
+    elif change == "unreadable":
+        predecessor.write_text("not JSON")
+    else:
+        changed = _day("2026-09-17", 100 if change == "same_value_new_version" else 999)
+        changed["generated_at"] = "2026-10-09 12:00:00"
+        write(tmp_path, changed)
+    with pytest.raises(handoff.ReviewEvidenceMismatch):
+        handoff.verify_review_evidence(tmp_path, _ref(history))
+
+
+def test_unrelated_archive_does_not_invalidate_handoff(tmp_path):
+    history = _archive(tmp_path)
+    write(tmp_path, _day("2026-09-25", 999))
+    assert handoff.verify_review_evidence(tmp_path, _ref(history)) == history
 
 
 @pytest.mark.parametrize("override", [

@@ -18,6 +18,7 @@ const HIGH_BOARD_THRESHOLD = 5;
 const UNRESOLVED_SHORT: Record<BoardCalendarUnresolvedReason, string> = {
   source_mismatch: "来源切换",
   quote_day_missing: "行情未入库",
+  quote_invalid: "行情字段待核",
   no_trade: "停牌/无成交",
   st_scope: "ST口径",
   closed_at_limit: "名单疑缺",

@@ -2904,14 +2904,36 @@ def _registry_atom_view(atom: EvidenceAtom) -> dict[str, object]:
     }
 
 
+def _grounded_registry_row(claim: Claim, atoms: tuple[EvidenceAtom, ...]) -> dict[str, object]:
+    return {
+        "claim_id": claim.claim_id,
+        "claim_type": _grounded_claim_type(claim),
+        "text": claim.text,
+        "theme": claim.theme,
+        "company": claim.company,
+        "evidence_atoms": [
+            _registry_atom_view(atom) for atom in atoms
+            if atom.provenance.get("claim_id") == claim.claim_id
+        ],
+    }
+
+
 def grounded_claim_registry_block(
     answer_spec: AnswerSpec,
     *,
     query: str = "",
     max_chars: int | None = None,
     required_claim_ids: tuple[str, ...] = (),
+    require_support: bool = False,
 ) -> str:
-    """Bounded registry; explicitly required rows are atomic, never silently omitted."""
+    """Atomic rows under one budget, with an optional synthesis admission floor.
+
+    A synthesis caller reserves one complete verified support per source (or a
+    sourced summary when no verified support exists), plus any omission notice.
+    If these cannot fit, refuse before invoking the model. Generic registry readers
+    can still request only the atomic rows, including an exact one-row budget.
+    Counter/gap reservations then precede the ordinary ranked pool.
+    """
     atoms = evidence_atoms_from_answer_spec(answer_spec)
     # 反证与缺口是「不许过度宣称」的材料：它们被预算挤掉，模型就只剩支持性事实，
     # 越界解读没有对手方。实测 2026-08-26 披露扫描：68 条 claim / 12k 预算只装下
@@ -2924,28 +2946,21 @@ def grounded_claim_registry_block(
     rows: list[tuple[bool, float, int, str]] = []
     required_ids = set(required_claim_ids)
     required_indexes: set[int] = set()
+    fact_sources: dict[int, tuple[str, ...]] = {}
+    support_indexes: set[int] = set()
     found_ids: set[str] = set()
     for index, claim in enumerate(_all_answer_claims(answer_spec)):
         if claim.claim_id in required_ids:
             required_indexes.add(index)
             found_ids.add(claim.claim_id)
-        claim_atoms = tuple(
-            atom
-            for atom in atoms
-            if atom.provenance.get("claim_id") == claim.claim_id
-        )
+        if claim.evidence_ids and claim.status != ClaimStatus.MISSING:
+            if claim in answer_spec.verified_facts and claim.status == ClaimStatus.VERIFIED:
+                fact_sources[index] = claim.evidence_ids
+            if claim in (*answer_spec.summary, *answer_spec.verified_facts):
+                support_indexes.add(index)
         line = json.dumps(
-            {
-                "claim_id": claim.claim_id,
-                "claim_type": _grounded_claim_type(claim),
-                "text": claim.text,
-                "theme": claim.theme,
-                "company": claim.company,
-                "evidence_atoms": [
-                    _registry_atom_view(atom) for atom in claim_atoms
-                ],
-            },
-            ensure_ascii=False,
+            _grounded_registry_row(claim, atoms),
+            ensure_ascii=False, separators=(",", ": "),
         )
         rows.append(
             (
@@ -2975,6 +2990,28 @@ def grounded_claim_registry_block(
         selected.append(line)
         taken.add(position)
         used_chars += cost
+    if require_support:
+        if not support_indexes:
+            raise ValueError("registry has no eligible support claims")
+        # A D1 fact cannot stand in for all of D4. Reserve source families, not
+        # the first lucky fact. Shortest complete rows leave room for boundaries;
+        # remaining rows still compete by the existing relevance/hardness rank.
+        families = tuple(dict.fromkeys(source for sources in fact_sources.values() for source in sources))
+        floors = [{index for index, sources in fact_sources.items() if source in sources}
+                  for source in families] or [support_indexes]
+        for floor in floors:
+            if any(rows[position][2] in floor for position in taken):
+                continue
+            candidates = [(len(line), position, line) for position, (_keep, _score, index, line) in enumerate(rows)
+                          if index in floor and position not in taken]
+            _length, position, line = min(candidates)
+            cost = len(line) + (1 if selected else 0)
+            if used_chars + cost > max_chars:
+                raise ValueError("required context and support claims exceed budget")
+            selected.append(line)
+            taken.add(position)
+            used_chars += cost
+    # Protect the admitted support as well as atomic context from notice eviction.
     required_count = len(selected)
     # 保留席位：反证与缺口先在 max_chars//4 里挑，挑不下的回到公共池按分数竞争。
     # 为什么是「有上限的席位」而不是绝对优先——绝对优先在预算紧到只够一行时会让
@@ -3025,7 +3062,43 @@ def grounded_claim_registry_block(
             )
         if used_chars + len(note) + (1 if selected else 0) <= max_chars:
             selected.append(note)
+        elif require_support:
+            raise ValueError("registry omission notice exceeds budget")
     return "\n".join(selected)
+
+
+def answer_spec_for_registry(answer_spec: AnswerSpec, registry_block: str) -> AnswerSpec:
+    """Model-facing subset; keep the full AnswerSpec untouched for audit/fallback.
+
+    The brief and deterministic validation must share the exact admission set.
+    A reference in a brief must not smuggle an omitted claim back into the prompt.
+    """
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    expected = {claim.claim_id: _grounded_registry_row(claim, atoms) for claim in _all_answer_claims(answer_spec)}
+    admitted: set[str] = set()
+    for line in registry_block.splitlines():
+        row = json.loads(line)
+        if not isinstance(row, dict):
+            raise ValueError("registry row is not an object")
+        if set(row) == {"note"} and isinstance(row["note"], str):
+            continue
+        claim_id = row.get("claim_id")
+        if not isinstance(claim_id, str) or claim_id in admitted or row != expected.get(claim_id):
+            raise ValueError("registry differs from the answer claim contract")
+        admitted.add(claim_id)
+
+    def keep(group: tuple[Claim, ...]) -> tuple[Claim, ...]:
+        return tuple(claim for claim in group if claim.claim_id in admitted)
+
+    return replace(
+        answer_spec, summary=keep(answer_spec.summary), verified_facts=keep(answer_spec.verified_facts),
+        candidate_facts=keep(answer_spec.candidate_facts), counter_evidence=keep(answer_spec.counter_evidence),
+        gaps=keep(answer_spec.gaps), triggers=keep(answer_spec.triggers),
+        company_table=tuple(replace(company, claims=keep(company.claims))
+                            for company in answer_spec.company_table if keep(company.claims)),
+        research_evidence_atoms=tuple(atom for atom in answer_spec.research_evidence_atoms
+                                     if atom.provenance.get("claim_id") in admitted),
+    )
 
 
 def parse_decision_brief(

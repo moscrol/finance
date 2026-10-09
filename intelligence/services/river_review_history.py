@@ -81,16 +81,18 @@ def _matrix_day(report: dict, mode: str, industry: str, day: str) -> dict:
 
 
 def window_fingerprint(history: dict) -> str:
-    """Identity of what a window *shows*: dates, archive status and file hashes.
+    """Bind visible archives AND comparison inputs, including the outside predecessor.
 
-    Shared by the API response (what the page saw) and the hand-off check.
+    Missing/unreadable inputs are identities too: creating one can change a delta.
+    Version 2 deliberately rejects references issued before this dependency fix.
     """
     points = [
-        [p.get("date"), p.get("status"), p.get("reason"), (p.get("provenance") or {}).get("sha256")]
+        [p.get("date"), p.get("status"), p.get("reason"), (p.get("provenance") or {}).get("sha256"),
+         p.get("comparison_source")]
         for p in history.get("points") or []
     ]
     payload = {
-        "v": 1,
+        "v": 2,
         "start": history.get("start"),
         "end": history.get("end"),
         "days": history.get("requested_days"),
@@ -150,7 +152,7 @@ def review_history(exports: Path, *, end: date | None = None, days: int = 20, in
             "reason": failures.get(day), "provenance": snapshot.get("provenance"),
             "metrics": {}, "deltas": {}, "top_industries": [], "industry_rank": None,
             "industry_status": "unknown", "engines": None, "engines_status": "unknown", "matrices": {},
-            "warnings": [], "comparison_date": None,
+            "warnings": [], "comparison_date": None, "comparison_source": None,
             "detail_url": f"/api/river/daily-review?as_of={day}",
         }
         if report:
@@ -184,7 +186,15 @@ def review_history(exports: Path, *, end: date | None = None, days: int = 20, in
             point["warnings"] = report["warnings"] + report["diagnostics"]
             idx = sessions.index(session)
             previous = sessions[idx - 1].isoformat() if idx > 0 else None
-            prior_report = (snapshots.get(previous, {}) if previous else {}).get("report")
+            prior_snapshot = snapshots.get(previous, {}) if previous else {}
+            if previous:
+                point["comparison_source"] = {
+                    "date": previous,
+                    "status": "unavailable" if previous in failures else prior_snapshot.get("status", "missing"),
+                    "reason": failures.get(previous),
+                    "sha256": (prior_snapshot.get("provenance") or {}).get("sha256"),
+                }
+            prior_report = prior_snapshot.get("report")
             if prior_report:
                 point["comparison_date"] = previous
                 point["deltas"] = {

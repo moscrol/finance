@@ -380,16 +380,16 @@ def test_restricted_material_scope_skips_history_before_reading(market_db, monke
 
 
 @pytest.mark.parametrize("grounded", [False, True])
-@pytest.mark.parametrize("crowded", [False, True])
-def test_ask_mocked_provider_receives_lens_without_external_call(market_db, tmp_path, monkeypatch, grounded, crowded):
+@pytest.mark.parametrize("fact_repeat", [None, 12, 100])
+def test_ask_mocked_provider_receives_lens_without_external_call(market_db, tmp_path, monkeypatch, grounded, fact_repeat):
     from intelligence.services import answer_model, ask_synthesis, llm_refine
     from intelligence.services.ask_types import AskOptions, PreparedAnswer
 
     result = _offline_ask(market_db, tmp_path, monkeypatch)
-    if crowded:
+    if fact_repeat is not None:
         result.answer_spec = replace(result.answer_spec, verified_facts=tuple(
             answer_model.Claim(
-                claim_id=f"synthetic:{i}", text="合成附加行情资料。" * 100,
+                claim_id=f"synthetic:{i}", text="合成附加行情资料。" * fact_repeat,
                 claim_type="market_data", theme="合成市场", status=answer_model.ClaimStatus.VERIFIED,
                 evidence_tier="market_data", evidence_ids=("D1",),
             ) for i in range(40)
@@ -408,6 +408,13 @@ def test_ask_mocked_provider_receives_lens_without_external_call(market_db, tmp_
                            daily_agent_grounded_presenter=grounded, shadow_grounded_composer=False),
         result=result,
     ))
+    if grounded and fact_repeat == 100:
+        # Joint admission is stricter than D10-only delivery: even one complete
+        # fact cannot fit. Keep the context intact and do not call a provider.
+        assert captured == []
+        assert result.grounded_composer_shadow.failure_reason == "required_context_exceeds_registry_budget"
+        assert result.grounded_fallback_used
+        return
     assert captured
     prompt = "\n".join(x["content"] for x in captured[0])
     assert "多维对照镜头" in prompt and "逐维贡献" in prompt
@@ -529,8 +536,9 @@ def test_oversized_context_fails_closed_before_model_call(market_db, tmp_path, m
 
 
 @pytest.mark.parametrize("oversized", [False, True])
+@pytest.mark.parametrize("fact_repeat", [12, 100])
 def test_fulfillment_repair_keeps_full_lens_or_refuses_request(
-    market_db, tmp_path, monkeypatch, oversized,
+    market_db, tmp_path, monkeypatch, oversized, fact_repeat,
 ):
     import json
 
@@ -547,7 +555,7 @@ def test_fulfillment_repair_keeps_full_lens_or_refuses_request(
     # 长资料会挤满旧版 registry；补写须走真实的预算逻辑，而不是 registry 替身。
     spec = replace(spec, verified_facts=tuple(
         answer_model.Claim(
-            claim_id=f"synthetic:{i}", text="合成附加行情资料。" * 100,
+            claim_id=f"synthetic:{i}", text="合成附加行情资料。" * fact_repeat,
             claim_type="market_data", theme="合成市场", status=answer_model.ClaimStatus.VERIFIED,
             evidence_tier="market_data", evidence_ids=("D1",),
         ) for i in range(40)
@@ -577,13 +585,15 @@ def test_fulfillment_repair_keeps_full_lens_or_refuses_request(
         required_outputs=(RequiredOutput("historical_analogs", "历史比较"),), timeout=30,
     )
     assert context.status == answer_model.ClaimStatus.INFERRED
-    if oversized:
+    if oversized or fact_repeat == 100:
         assert repaired is None
         assert captured == [] and rechecked == []
         return
     assert repaired is not None and repaired[0] == "合成补写文本"
     assert len(captured) == len(rechecked) == 1
-    assert rechecked[0]["answer_spec"] is spec
+    admitted = answer_model.answer_spec_for_registry(spec, ask_synthesis._grounded_registry_for_synthesis(spec, QUESTION))
+    assert rechecked[0]["answer_spec"] == admitted
+    assert 0 < len(admitted.verified_facts) < len(spec.verified_facts)
     assert rechecked[0]["answer_text"] == "合成补写文本"
     prompt = "\n".join(m["content"] for m in captured[0])
     rows = [json.loads(line) for line in prompt.splitlines() if line.startswith('{"claim_id":')]

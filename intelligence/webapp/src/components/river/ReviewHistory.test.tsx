@@ -20,6 +20,17 @@ it("keeps the window pinned when selecting a missing day and opens that exact re
   expect(props.onOpenReport).toHaveBeenCalledWith("2026-09-23");
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+it("puts coverage and market readings before the optional reading guide", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => response(fixture())));
+  render(<ReviewHistory {...props}/>);
+  await screen.findByText("test-hash");
+  const guide = screen.getByText("数据读法与 Agent 交接").closest("details")!;
+  expect(guide).not.toHaveAttribute("open");
+  const metrics = screen.getByRole("region", { name: "当前日市场读数" });
+  expect(metrics.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const coverage = screen.getByText("归档可读 1 / 2 日");
+  expect(coverage.compareDocumentPosition(metrics) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
 it("rejects mismatched responses and can retry", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response({ ...fixture(), requested_end: "2026-09-22" })).mockResolvedValue(response(fixture())));
   render(<ReviewHistory {...props}/>);

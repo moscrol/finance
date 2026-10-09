@@ -453,6 +453,7 @@ export type BoardCalendarStatus =
 export type BoardCalendarUnresolvedReason =
   | "source_mismatch"
   | "quote_day_missing"
+  | "quote_invalid"
   | "no_trade"
   | "st_scope"
   | "closed_at_limit";

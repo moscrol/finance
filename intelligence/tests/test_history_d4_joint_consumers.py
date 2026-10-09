@@ -128,13 +128,21 @@ def test_one_ask_request_keeps_d10_and_d4_fact_roles(joint_db, tmp_path, monkeyp
         registry = ask_synthesis._grounded_registry_for_synthesis(spec, QUESTION)
         assert registry in prompt and len(registry) <= 12_000
         records = [json.loads(line) for line in registry.splitlines()]
-        item = next(r for r in records if r["claim_id"] == history.claim_id)
+        item = next(r for r in records if r.get("claim_id") == history.claim_id)
         assert item["text"] == history.text and item["claim_type"] == "inference"
         fact_ids = {c.claim_id for c in rows}
         delivered = [r for r in records if r.get("claim_id") in fact_ids]
         assert delivered, {"registry_chars": len(registry), "rows": records,
                            "d4_claims": [c.text for c in rows]}
         assert all(r["text"] in {c.text for c in rows} for r in delivered)
+        admitted_ids = {r["claim_id"] for r in records if "claim_id" in r}
+        brief = result.grounded_composer_shadow.decision_brief
+        assert brief is not None
+        for ids in brief.to_dict().values():
+            if isinstance(ids, list):
+                assert set(ids) <= admitted_ids
+        assert "未纳入" in records[-1]["note"]
+        assert any(r.get("claim_id", "").startswith(("counter:", "gap:")) for r in records)
     else:
         assert history.text in prompt
         assert all(c.text in prompt for c in rows)

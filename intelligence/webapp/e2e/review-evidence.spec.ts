@@ -22,6 +22,12 @@ test.beforeEach(async ({ page }, info) => {
   await page.getByLabel("连续复盘截止日").fill(end);
   await page.getByLabel("连续复盘窗口").selectOption("5");
   await expect(page.getByText("归档可读 3 / 5 日")).toBeVisible();
+  const guide = page.locator("details").filter({ has: page.locator("summary", { hasText: /^数据读法与 Agent 交接$/ }) });
+  await expect(guide).not.toHaveAttribute("open");
+  const metrics = page.getByRole("region", { name: "当前日市场读数", exact: true });
+  await expect(metrics).toBeVisible();
+  expect(await metrics.evaluate(node => !!(node.compareDocumentPosition(document.querySelector(".rh-reading")!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await guide.locator("summary").click();
 });
 
 test("readable layout and lossless agent packet after matrix switching and collapse", async ({ page, request }, info) => {
@@ -76,6 +82,7 @@ test("missing day stays pinned; same-day return, session draft recovery and clea
   await expect(page.getByLabel("复盘当前交易日")).toHaveValue("2026-09-23");
   await expect(page.getByRole("heading", { name: "这一天尚无结构化日报归档" })).toBeVisible();
   await page.getByRole("button", { name: "连续复盘 · 时间线" }).click();
+  await page.getByText("数据读法与 Agent 交接", { exact: true }).click();
   await page.getByText("告诉 Agent：这些数据应该怎样联立解读", { exact: true }).click();
   await expect(page.getByLabel("先看什么，再结合什么")).toHaveValue("保留方法草稿，不写入日报。");
   await page.getByRole("button", { name: "清空解读说明" }).click();

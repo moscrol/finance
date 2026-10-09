@@ -11,6 +11,7 @@ export interface HistoryPoint {
   metrics: Record<string, number | null>;
   deltas: Record<string, number | null>;
   comparison_date: string | null;
+  comparison_source?: { date: string; status: "available" | "missing" | "unavailable"; reason: string | null; sha256: string | null } | null;
   top_industries: string[];
   industry_rank: number | null;
   industry_status: "ranked" | "not_in_list" | "unknown";
@@ -43,6 +44,6 @@ export interface ReviewHistory {
   coverage: { available: number; total: number };
   notes: string[];
   limits: Record<string, number>;
-  /** Identity of what this window shows (dates, archive status, file hashes); the Agent hand-off proves it. */
+  /** Includes the preceding archive used by the first day's delta, even outside the visible window. */
   window_fingerprint?: string;
 }

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import date, timedelta
+import math
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +45,7 @@ _UP_PRICE_SQL = (
 UNRESOLVED_REASONS = {
     "source_mismatch": "前后两日名单来源不同，口径不可比较",
     "quote_day_missing": "当日个股行情未入库，无法核对",
+    "quote_invalid": "收盘价、涨停参考价或成交额缺失/无效，无法确认断板",
     "no_trade": "当日无成交行情（停牌或行情缺失），停牌不等于断板",
     "st_scope": "ST 个股；部分名单来源不纳入 ST，缺席不代表断板",
     "closed_at_limit": "行情显示收盘仍在涨停价，名单疑似缺漏",
@@ -260,7 +262,9 @@ def _classify_break_candidates(
             names = f"{name or ''}{item.get('stock_name') or ''}".upper()
             if "ST" in names:
                 reason = "st_scope"
-            elif close is not None and up_px is not None and close >= up_px - 1e-6:
+            elif any(value is None or not math.isfinite(value) or value <= 0 for value in (close, up_px, _amount)):
+                reason = "quote_invalid"
+            elif close >= up_px - 1e-6:
                 reason = "closed_at_limit"
             else:
                 breaks[day].append(
