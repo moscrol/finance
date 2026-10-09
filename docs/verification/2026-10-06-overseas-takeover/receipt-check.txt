@@ -1,0 +1,21 @@
+========================================================================
+读数收据校验 — 判「能不能采信」，不重跑测试
+========================================================================
+  收据     /Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/python-receipts/gate-3EjmiOYI/pytest.json
+  产生于   2026-10-06T15:26:18+00:00
+  来自树   /Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6
+  目标     /Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6
+  读数     passed=20711 failed=0 error=0 skipped=76
+
+  ✓ 执行读数 20711 条（passed+failed+error）
+  ✓ 收集面未被收窄（collected=20789）
+  ✓ 收执对账平：collected=20789 == 读数合计=20789
+  ✓ revision 一致
+  ✓ 解释器一致
+  ✓ python 版本一致
+  ✓ 依赖指纹一致
+  ✓ 收据来自干净树
+  ✓ 依赖门禁未被绕过
+  ✓ 收据 revision == 3c57aab6a5d0
+
+✅ 可采信 —— 收据成立的条件与当前环境一致，无需重跑。
