@@ -349,6 +349,10 @@ def run(args: argparse.Namespace) -> int:
         events = read_jsonl(root / "pi" / "events.jsonl")
         assistants = [e["message"] for e in events
                       if e.get("type") == "message_end" and e.get("message", {}).get("role") == "assistant"]
+        drafts = [{"stop_reason": message.get("stopReason"),
+                   "text": "\n".join(c["text"] for c in message.get("content", []) if c.get("type") == "text")}
+                  for message in assistants if message.get("stopReason") == "stop"]
+        save(root / "pi" / "completed-drafts.json", drafts)
         final = assistants[-1] if assistants else {}
         text = "\n".join(c["text"] for c in final.get("content", []) if c.get("type") == "text")
         (root / "pi" / "answer.md").write_text(text)
@@ -362,12 +366,19 @@ def run(args: argparse.Namespace) -> int:
         skill_reads = [e for e in events if e.get("type") == "tool_execution_end"
                        and e.get("toolName") == "read" and e.get("isError") is False]
         sub_agents = [e for e in events if e.get("type") == "tool_execution_start" and e.get("toolName") == "spawn_sub_agent"]
+        transport = call(plan["bridge_port"], "/health")
+        if transport["case"] != plan["case"]:
+            raise RuntimeError("bridge case changed during execution")
+        tool_events = [e for e in events if e.get("toolName") == "finance_call"]
         result["arm"] = {
             "exit": pi_exit, "stop_reason": final.get("stopReason"), "model_admission": admission,
             "physical_requests": len(requests), "responses": len(responses),
-            "tool_calls": len(tool_calls), "tools_used": sorted({t["tool"] for t in tool_calls}),
+            "tool_calls": transport["tool_calls"], "tool_observations": len(tool_calls),
+            "parent_tool_attempts": sum(e.get("type") == "tool_execution_start" for e in tool_events),
+            "parent_tool_errors": sum(e.get("type") == "tool_execution_end" and e.get("isError") is True for e in tool_events),
+            "tools_used": sorted({t["tool"] for t in tool_calls}),
             "skill_reads": len(skill_reads), "sub_agent_calls": len(sub_agents),
-            "answer_chars": len(text),
+            "answer_chars": len(text), "completed_drafts": len(drafts),
         }
         if not arm_completed(result["arm"]):
             result["failure"] = {"type": "IncompleteRun", "message": "Pi did not deliver a complete model-admitted answer"}

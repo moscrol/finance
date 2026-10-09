@@ -79,13 +79,18 @@ function isMountedSkill(target: string, cwd: string): boolean {
 	}
 }
 
-function childPrompt(task: string): string {
-	if (!MENU_FILE) throw new Error("FINANCE_PI_MENU_FILE is required for isolated child research");
+function toolMenu() {
+	if (!MENU_FILE) throw new Error("FINANCE_PI_MENU_FILE is required for financial research");
 	const menu = JSON.parse(readFileSync(MENU_FILE, "utf8"));
-	if (menu.case !== CASE || !menu.as_of || !Array.isArray(menu.authorized_tools)) {
-		throw new Error("child tool menu does not match the configured research case");
+	if (menu.case !== CASE || !menu.as_of || !Array.isArray(menu.authorized_tools)
+		|| !menu.authorized_tools.length || menu.authorized_tools.some((tool: { name?: unknown }) => typeof tool.name !== "string")) {
+		throw new Error("tool menu does not match the configured research case");
 	}
-	return `Task: ${task}\n\nAuthorized tools and information cutoff:\n${JSON.stringify(menu)}`;
+	return menu;
+}
+
+function childPrompt(task: string): string {
+	return `Task: ${task}\n\nAuthorized tools and information cutoff:\n${JSON.stringify(toolMenu())}`;
 }
 
 const RESEARCHER_PRESET = [
@@ -214,6 +219,7 @@ function childSucceeded(result: ChildResult): boolean {
 export default function financeMode(pi: ExtensionAPI) {
 	let secondLookDone = false;
 	let activeChildren = 0;
+	const toolNames = toolMenu().authorized_tools.map((tool: { name: string }) => tool.name);
 	pi.registerProvider(PROVIDER, {
 		baseUrl: `${BRIDGE}/v1`,
 		api: "openai-completions",
@@ -256,9 +262,9 @@ export default function financeMode(pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({ name: "finance_call", label: "finance",
-		description: "调用题面列出的已授权金融研究工具，args 必须遵循对应 schema。返回共享注册表的真实观察（带来源、日期与状态），与 8792 同一份工具与截止日。",
+		description: "调用已授权金融研究工具，args 遵循题面的对应 schema。结构化查询的 tool 是 finance_query，dataset 名放在 args.dataset。返回共享注册表的真实观察（带来源、日期与状态）。",
 		parameters: Type.Object({
-			tool: Type.String({ description: "授权清单里的工具名" }),
+			tool: Type.String({ enum: toolNames, description: "授权工具名，不是 dataset 名" }),
 			args: Type.Object({}, { additionalProperties: true, description: "该工具的参数，按其 schema" }),
 		}),
 		async execute(_id, params, signal) {

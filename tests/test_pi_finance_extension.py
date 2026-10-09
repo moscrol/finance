@@ -156,11 +156,33 @@ def test_real_entry_exposes_finance_tool_and_executes_skill_read(run_pi):
     with endpoint(respond) as (url, requests, errors):
         events = run(url)
     assert not errors
-    assert {t["function"]["name"] for t in _model_requests(requests)[0]["tools"]} == {"read", "finance_call"}
+    published = _model_requests(requests)[0]["tools"]
+    assert {t["function"]["name"] for t in published} == {"read", "finance_call"}
+    finance = next(t["function"] for t in published if t["function"]["name"] == "finance_call")
+    assert finance["parameters"]["properties"]["tool"]["enum"] == ["market_data"]
     results = [e for e in events if e["type"] == "tool_execution_end"]
     assert {e["toolName"] for e in results} == {"read", "finance_call"}
     assert all(not e["isError"] for e in results)
     assert len([r for r in requests if r[0] == "/tool"]) == 1
+
+
+def test_dataset_name_cannot_be_used_as_a_financial_tool(run_pi):
+    run, _ = run_pi
+    turns = 0
+
+    def respond(path, _body):
+        nonlocal turns
+        assert path != "/tool", "invalid tool name must be rejected before bridge transport"
+        turns += 1
+        if turns == 1:
+            return tools(("finance_call", {"tool": "invented_dataset", "args": {}}))
+        return complete()
+
+    with endpoint(respond) as (url, _, errors):
+        events = run(url)
+    assert not errors
+    result = next(e for e in events if e["type"] == "tool_execution_end")
+    assert result["isError"] is True
 
 
 def test_second_look_settles_after_exactly_one_continuation(run_pi):
@@ -269,7 +291,8 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
         assert body["model"] == MODEL
         assert body["temperature"] == 0
         if turns == 1:
-            return tools(("finance_call", {"tool": "memory_lookup", "args": {"query": "fixture-prior"}}))
+            return tools(("finance_call", {"tool": "memory_lookup", "args": {"wrong": "fixture-prior"}}),
+                         ("finance_call", {"tool": "memory_lookup", "args": {"query": "fixture-prior"}}))
         return complete()
 
     with endpoint(respond) as (url, requests, errors):
@@ -288,6 +311,12 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
     assert result["arm"]["model_admission"] is True
     assert result["arm"]["physical_requests"] == len(requests) == 2
     assert result["arm"]["tools_used"] == ["memory_lookup"]
+    assert result["arm"]["tool_calls"] == 2
+    assert result["arm"]["tool_observations"] == 1
+    assert result["arm"]["parent_tool_attempts"] == 2
+    assert result["arm"]["parent_tool_errors"] == 1
+    assert json.loads((root / "pi/completed-drafts.json").read_text()) == [
+        {"stop_reason": "stop", "text": "Complete test answer."}]
     assert result["quality"] == "UNREVIEWED"
     assert (root / "pi/answer.md").read_text() == "Complete test answer."
     transport = (root / "pi-model-requests.jsonl").read_text() + (root / "pi-model-responses.jsonl").read_text()

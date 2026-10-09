@@ -8,14 +8,15 @@
 
 ## 1. 根因与形状
 
-8792 没有**面向模型的方法论层**：仓里的 `skills/*/SKILL.md` 全是编码 agent 的工作流，Episode 的模型一个也拿不到
-（`skill_tools.py` 只注册 serenity-alpha，且只在 `intelligence.cli agent` 可达）。「怎么研究」于是被塞进两处替代品：
-程序门禁（`admit_finish` → 语义校验器 → `invalid_model_finish`）与预塑形合同（`evidence_plan` 把 `mainline_context`
-设 mandatory）。knevo 把同一份知识放在 `finance-mode`（OS）+ 8 个专项里让模型自己执行，harness 只管传输、身份、预算。
-2026-10-09 同模型对照里 Pi 赢 8792，不是机制多，是没有这两样替代品。
+目标缺口是**可按需加载的运行时专项 skill 入口**，不是「8792 没有任何方法论」。
+现有 `reading_baseline`、`research_workflow_guidance` 与工具结果内的判读指导已经把部分方法送到模型；
+本轮真实 `mainline_context` 返回仍含 FY/SPT 方法卡，是反驳原绝对说法的直接证据。
+`skill_tools.py` 的受限 CLI 技能桥不等于本设计所需的 OS 常驻 + 专项渐进加载。
 
-对应 70_tutor《单入口派单与平铺 skill 路由》：Router 定路径、Base Contract 定下限、专项定上限、Presenter 不新增事实。
-8792 有 Router（`mode_governor`）与 Presenter（`session_projection`），缺 Base Contract 与专项两层，并把 Adjudicator 做成了拒收门。
+旧单题对照暴露了出口拒收和路径预塑形问题，但不足以把所有能力差距归因于缺少 skill。
+本分支先在 Pi 上独立验证方法论载体，不替换既有传输、身份、预算或事实边界。
+对应 70_tutor 的 Router/Base Contract/专项/Presenter 分工，本次补专项的模型可达入口，
+不据此否认现有基础合同，也不预先宣称加载后就能提高金融质量。
 
 ## 2. 资产层（harness 中立）
 
