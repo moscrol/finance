@@ -1475,3 +1475,11 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 - `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。兼容 Workbench `trace.jsonl` 的调用台账，只读 `reported_model` 并核对身份状态/冲突；累计快照去重不覆盖旧错配，编码的子分支引用仍追查。没有台账的普通 Episode trace 不重复充当模型证据；身份准入不等于内容质量通过。
 - `intelligence/eval/thin_react.py`：复用既有薄循环评测对照；非生产factory；真实驱动仍需独立预算/原始HTTP/内容评分。
 - 范围与反证：`docs/verification/2026-10-02-model-harness-f4-preflight-results.md`。
+
+### Pi 原生验证臂：knevo skill 层（2026-10-09，非生产 / 非质量放行）
+
+`integrations/pi/` 把 knevo 的「1 入口 + 专项」炼化成运行时资产挂到 Pi 原生 CLI 上：`skills/finance-mode` 常驻 system、
+四个专项经 `--skill` 渐进加载、`spawn_sub_agent` 只读派单；数据仍走共享注册表（`bridge.py` → `build_episode_registry`），
+库只读克隆、模型请求逐条落盘。它不是第三条引擎，不改两条生产引擎、不写记忆；8792 侧的 `list_skills/use_skill`、
+system 分段与记忆丰度注入是后续接线（spec §4），且在 Codex 线收完出口门之后再做。
+设计与对照表：`superpowers/specs/2026-10-09-knevo-skill-layer-design.md`；跑法与读数纪律：`integrations/pi/README.md`。
