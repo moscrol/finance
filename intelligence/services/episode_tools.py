@@ -145,6 +145,9 @@ def mainline_snapshot_tool_result(
             "## 主线题材结构数据块 [D4]",
             "- 口径：本表当日主题、每组最多预览8行；完整覆盖与历史聚合见 query_basis。"
             "量价描述不是资金因果或公司基本面证据；diff_ratio 是成交额环比%，不是净流入。",
+            "- 全量计数：query_basis.groups[].full_group_counts 在每组截取预览之前计算涨跌、"
+            "成交额增减与严格双红数量，unknown 保留缺值/非有限值；按主题板块登记行计，不是个股数。"
+            "distinct_sector_codes 用于核对组内是否有重复板块代码；跨组不可直接相加成唯一板块数。",
             f"- 最新主线日期：{snapshot.snapshot_date}；本表共{snapshot.total_groups}组、"
             f"{snapshot.total_rows}行，交付{len(evidence)}条板块行情事实。",
             *(["### 判读指导（方法，不是事实证据）"] if snapshot.guidance else []),
@@ -214,7 +217,8 @@ def _mainline_snapshot_query_basis(snapshot: ask_blocks.MainlineContextSnapshot)
         "groups": [
             {"theme_name": group.theme_name, "total_rows": group.total_rows,
              "preview_rows": group.preview_rows, "omitted_rows": group.omitted_rows,
-             "non_null_counts": dict(group.non_null_counts)}
+             "non_null_counts": dict(group.non_null_counts),
+             **({"full_group_counts": dict(group.full_group_counts)} if group.full_group_counts else {})}
             for group in snapshot.groups
         ],
         "history_window": {

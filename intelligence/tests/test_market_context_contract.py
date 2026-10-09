@@ -259,6 +259,54 @@ def test_full_group_non_null_counts_are_before_preview_and_keep_none_and_zero(tm
     assert "板块成交额亿元=0" in result.evidence[1].detail
 
 
+def test_full_group_price_volume_counts_include_rows_outside_preview(tmp_path):
+    db_path = _database(tmp_path, [("T", f"S{i:02}", f"板块{i:02}", i) for i in range(12)])
+    _write(db_path, "update fact_sector_daily_generation set pct_chg=-2,diff_ratio=3 where sector_ts_code='S08'")
+    _write(db_path, "update fact_sector_daily_generation set pct_chg=-1,diff_ratio=-2 where sector_ts_code='S09'")
+    _write(db_path, "update fact_sector_daily_generation set pct_chg=0,diff_ratio=0 where sector_ts_code='S10'")
+    _write(db_path, "update fact_sector_daily_generation set pct_chg=NULL,diff_ratio=NULL,amount=NULL where sector_ts_code='S11'")
+    _write(db_path, "update fact_mainline_sector_daily set today_pct=NULL,amount=NULL where sector_ts_code='S11'")
+    observation, _projection, facing = _consume(db_path)
+    group = facing["query_basis"]["groups"][0]
+    assert len(observation.evidence) == 8
+    assert group["full_group_counts"] == {
+        "distinct_sector_codes": 12,
+        "price_up": 8, "price_down": 2, "price_flat": 1, "price_unknown": 1,
+        "turnover_up": 9, "turnover_down": 1, "turnover_flat": 1, "turnover_unknown": 1,
+        "double_red": 8, "not_double_red": 3, "double_red_unknown": 1,
+    }
+    assert "全量计数" in facing["observation"]
+    assert group["omitted_rows"] == 4
+
+
+def test_omitted_double_red_cannot_be_reported_as_zero(tmp_path):
+    db_path = _database(tmp_path, [("T", f"S{i:02}", f"板块{i:02}", i) for i in range(9)])
+    _write(db_path, "update fact_sector_daily_generation set pct_chg=-1 where sector_ts_code<>'S08'")
+    observation, _projection, facing = _consume(db_path)
+    assert all(not row["strict_double_red"] for row in observation.query_basis["price_volume_signals"])
+    counts = facing["query_basis"]["groups"][0]["full_group_counts"]
+    assert counts["double_red"] == 1 and counts["price_up"] == 1
+    assert counts["price_down"] == 8 and counts["distinct_sector_codes"] == 9
+
+
+def test_nonfinite_omitted_values_are_unknown_in_full_counts(tmp_path):
+    db_path = _database(tmp_path, [("T", f"S{i:02}", f"板块{i:02}", i) for i in range(9)])
+    _write(db_path, "update fact_sector_daily_generation set pct_chg=?,diff_ratio=?,amount=? where sector_ts_code='S08'",
+           [float('nan'), float('inf'), float('inf')])
+    _observation, _projection, facing = _consume(db_path)
+    counts = facing["query_basis"]["groups"][0]["full_group_counts"]
+    assert counts["price_unknown"] == counts["turnover_unknown"] == counts["double_red_unknown"] == 1
+    assert counts["double_red"] == 8
+
+
+def test_full_counts_follow_canonical_double_red_thresholds(tmp_path, monkeypatch):
+    db_path = _database(tmp_path, [("T", "S", "板块", 1)])
+    monkeypatch.setattr(market_signals, "DOUBLE_RED_DIFF", 50.0)
+    snapshot = ask_blocks.mainline_context_snapshot("市场主线", None, db_path)
+    assert snapshot.signals[0].strict_double_red is False
+    assert dict(snapshot.groups[0].full_group_counts)["double_red"] == 0
+
+
 def test_fact_projection_does_not_round_large_or_precise_source_values(tmp_path):
     db_path = _database(tmp_path, [("T", "S1", "板块", 1)])
     _write(db_path,

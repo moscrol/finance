@@ -1483,3 +1483,7 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 库只读克隆、模型请求逐条落盘。它不是第三条引擎，不改两条生产引擎、不写记忆；8792 侧的 `list_skills/use_skill`、
 system 分段与记忆丰度注入是后续接线（spec §4），且在 Codex 线收完出口门之后再做。
 设计与对照表：`superpowers/specs/2026-10-09-knevo-skill-layer-design.md`；跑法与读数纪律：`integrations/pi/README.md`。
+2026-10-10 候选补齐两项数据边界：Pi 工具结果将私有 telemetry/trace 与公开证据分开；D4 来源的
+`query_basis.groups[].full_group_counts` 在截取前统计涨跌、成交变化、严格双红及未知数量，并报告不同板块代码数。
+这是每组登记行的全量描述，不是跨组去重股票数，也不新增 owned 文本认证角色；未部署，不以工程通过代替首答质量。
+验收：`verification/2026-10-10-pi-model-view-cutoff.md`、`verification/2026-10-10-mainline-full-group-counts.md`。

@@ -267,7 +267,9 @@ def compile_owned_results(
     preview = omitted = 0
     names: list[str] = []
     for group in groups:
-        if not isinstance(group, dict) or set(group) != {"theme_name", "total_rows", "preview_rows", "omitted_rows", "non_null_counts"}:
+        required = {"theme_name", "total_rows", "preview_rows", "omitted_rows", "non_null_counts"}
+        if (not isinstance(group, dict) or not required <= set(group)
+                or set(group) - required - {"full_group_counts"}):
             raise OwnedResultError("source_scope_conflict")
         name = group["theme_name"]
         if not isinstance(name, str) or not name or name in names:
@@ -281,6 +283,18 @@ def compile_owned_results(
         non_null = group["non_null_counts"]
         if not isinstance(non_null, dict) or any(_count(n) > count for n in non_null.values()):
             raise OwnedResultError("source_scope_conflict")
+        if "full_group_counts" in group:
+            full = group["full_group_counts"]
+            partitions = (
+                ("price_up", "price_down", "price_flat", "price_unknown"),
+                ("turnover_up", "turnover_down", "turnover_flat", "turnover_unknown"),
+                ("double_red", "not_double_red", "double_red_unknown"),
+            )
+            expected = {"distinct_sector_codes", *(key for part in partitions for key in part)}
+            if (not isinstance(full, dict) or set(full) != expected
+                    or _count(full["distinct_sector_codes"]) > count
+                    or any(sum(_count(full[key]) for key in part) != count for part in partitions)):
+                raise OwnedResultError("source_scope_conflict")
     scope = basis["scope"]
     target = basis["target_theme"]
     if (preview != len(rows) or preview + omitted != total
