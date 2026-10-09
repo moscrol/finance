@@ -900,6 +900,10 @@ class SemanticEpisodeOutcome:
     guided_retrieval: GuidedRetrievalTelemetry = field(
         default_factory=lambda: GuidedRetrievalTelemetry()
     )
+    owned_coverage: dict[str, object] | None = None
+    # Original adopted nodes remain inspectable after a legal rewrite, while
+    # the numeric proof on VerifiedEpisodeOutcome is cleared for a changed body.
+    _owned_public_proof: object | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not self.repair_output_ids:
@@ -1019,7 +1023,38 @@ class SemanticEpisodeOutcome:
         if self.claim_scope is not None:
             payload["claim_scope_mode"] = self.claim_scope["mode"]
             payload["claim_scope"] = self.claim_scope
+        if self.owned_coverage is not None:
+            payload["owned_coverage"] = self.owned_coverage
         return payload
+
+
+def recheck_owned_public_delivery(
+    outcome: SemanticEpisodeOutcome, *, context: ResearchRunContext | None, projected: str | None = None,
+) -> SemanticEpisodeOutcome:
+    """Reconcile actual retained public nodes; this is fragment coverage only."""
+    proof = outcome._owned_public_proof
+    if context is None or proof is None:
+        return outcome
+    from intelligence.services.owned_results import OwnedResultError, _public_owned_coverage
+
+    public = outcome.public_answer if projected is None else projected
+    try:
+        coverage = _public_owned_coverage(proof, public, context=context)
+    except OwnedResultError as exc:
+        return replace(outcome, status="partial", judge_status="rejected", owned_coverage=None,
+                       public_answer=view(TerminalFacts(
+                           cause=CAUSE_VERIFICATION_INCOMPLETE, question=context.contract.question,
+                           gap_body="本轮结果的来源权限无法确认，暂不能发布该回答。",
+                       )),
+                       issues=tuple(dict.fromkeys((*outcome.issues, "owned_answer: " + exc.reason))))
+    if coverage is not None and coverage["owned_changed"]:
+        return replace(outcome, status="partial", judge_status="rejected", owned_coverage=coverage,
+                       public_answer=view(TerminalFacts(
+                           cause=CAUSE_VERIFICATION_INCOMPLETE, question=context.contract.question,
+                           gap_body="本轮程序结果在公开处理后发生变化，暂不能发布该回答。",
+                       )),
+                       issues=tuple(dict.fromkeys((*outcome.issues, "owned_answer: public_owned_node_changed"))))
+    return replace(outcome, owned_coverage=coverage)
 
 
 def semantic_repair_feedback(outcome: SemanticEpisodeOutcome) -> tuple[str, ...]:
@@ -1909,7 +1944,14 @@ class SemanticEpisodeVerifier:
             annotated = _with_numeric_doubt_note(sentence, numeric_doubt_note(tokens_for[index]))
             if not sentence.strip() or annotated in marked or sentence not in marked:
                 continue
-            marked = marked.replace(sentence, annotated, 1)
+            if verified._owned_answer is not None:
+                from intelligence.services.owned_results import _rewrite_free_sentence
+
+                marked, changed = _rewrite_free_sentence(verified, sentences, index, marked, annotated)
+                if not changed:
+                    continue
+            else:
+                marked = marked.replace(sentence, annotated, 1)
             applied.append(index)
         issues = tuple(dict.fromkeys((*outcome.issues, _NUMERIC_CONDITION_ISSUE.serialize())))
         if not applied:
@@ -1962,6 +2004,17 @@ class SemanticEpisodeVerifier:
             ):
                 raise ValueError("semantic runtime context does not match current task")
             self._runtime_date_context = runtime_date_context(context)
+        # Proof is scoped to this current body/context; an old instance cannot grant it.
+        from intelligence.services.owned_results import OwnedResultError
+
+        try:
+            structurally_verified = self._prepare_owned_answer(frame=frame, structurally_verified=structurally_verified, context=context)
+        except OwnedResultError as exc:
+            return SemanticEpisodeOutcome(
+                verified=replace(structurally_verified, _owned_answer=None), status="partial", judge_status="rejected",
+                public_answer=self._generic_gap_answer(frame), issues=("owned_answer: " + exc.reason,),
+                repair_output_ids=tuple(o.output_id for o in context.contract.required_outputs if o.required),
+            )
         self._sentence_verdicts = []
         self._judge_round = 0
         self._judge_mode = semantic_judge_mode()
@@ -1976,6 +2029,10 @@ class SemanticEpisodeVerifier:
             structurally_verified=structurally_verified,
             deadline=deadline,
         )
+        if structurally_verified._owned_answer is not None:
+            proof = structurally_verified._owned_answer
+            numeric_proof = proof if outcome.verified.outcome.draft == proof.draft else None
+            outcome = replace(outcome, verified=replace(outcome.verified, _owned_answer=numeric_proof), _owned_public_proof=proof)
         if self._guided_result != GuidedRetrievalTelemetry() and (
             outcome.guided_retrieval == GuidedRetrievalTelemetry()
         ):
@@ -2022,7 +2079,23 @@ class SemanticEpisodeVerifier:
         verdicts.extend(row for row in outcome.sentence_verdicts if row not in verdicts)
         if tuple(verdicts) != outcome.sentence_verdicts:
             outcome = replace(outcome, sentence_verdicts=tuple(verdicts))
-        return review_public_claim_scope(outcome, question=frame.raw_question)
+        outcome = review_public_claim_scope(outcome, question=frame.raw_question)
+        return recheck_owned_public_delivery(outcome, context=context)
+
+    @staticmethod
+    def _prepare_owned_answer(
+        *, frame: TaskFrame, structurally_verified: VerifiedEpisodeOutcome, context: ResearchRunContext | None,
+    ) -> VerifiedEpisodeOutcome:
+        from intelligence.services.owned_results import _make_owned_proof
+
+        cleared = replace(structurally_verified, _owned_answer=None)
+        contract = cleared.contract
+        if (context is None or contract is None or not isinstance(context, ResearchRunContext)
+                or context.contract.task_id != contract.task_id
+                or context.contract.task_frame_hash != frame.task_frame_hash
+                or context.contract.question != frame.raw_question):
+            return cleared
+        return replace(cleared, _owned_answer=_make_owned_proof(cleared.outcome, context=context))
 
     def _guided_retrieve_and_rejudge(
         self,
@@ -5628,10 +5701,15 @@ def _novel_numeric_condition_tokens(
     money_fields = _bound_qualified_money_values(verified.outcome)
     condition_section = False
     condition_columns: tuple[int, ...] = ()
+    from intelligence.services.owned_results import _owned_sentence_indexes
+
+    owned_indexes = _owned_sentence_indexes(sentences, verified)
     for item in sentences:
         index = item.get("index")
         text = str(item.get("text") or "")
         if not isinstance(index, int):
+            continue
+        if index in owned_indexes:
             continue
         if text in historical or index in memory_restatements:
             continue

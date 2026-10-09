@@ -25,7 +25,9 @@ from intelligence.services import llm_refine
 from intelligence.services.agent_runtime import AgentOutcome, AgentRuntime
 from intelligence.services.material_delivery import material_pack_turn_seconds
 from intelligence.services.evidence_ledger import EvidenceLedger, EvidenceLedgerSnapshot
-from intelligence.services.episode_factory import build_episode_context
+from intelligence.services.episode_factory import (
+    build_episode_context, legacy_frame_temporal_contract, pin_episode_context_temporal,
+)
 from intelligence.services.episode_issues import (
     Issue,
     IssueCode,
@@ -41,7 +43,6 @@ from intelligence.services.episode_semantic_verifier import (
     DEFAULT_JUDGE_TIMEOUT_SECONDS,
     SemanticEpisodeOutcome,
     comparison_baseline_unsupported,
-    draft_sentence_count,
     numeric_condition_repair_feedback,
     numeric_condition_unsupported,
     recheck_material_public_delivery,
@@ -592,6 +593,11 @@ class ContinuousTurnAdapter:
                 "latest_data_date": self._latest_data_date,
                 "conversation_context": control.conversation_context,
             }
+            temporal = frame.temporal_contract or legacy_frame_temporal_contract(frame, today=self._today)
+            if temporal.errors:
+                raise ValueError("temporal clarification required: " + "；".join(temporal.errors))
+            if _accepts_keyword(self._context_factory, "temporal_contract"):
+                context_kwargs["temporal_contract"] = temporal
             # 视角约束只在激活时进 kwargs：neutral 的 context 构造调用保持
             # 逐字节不变，不认识该参数的注入式 factory 也不会在中立轮炸掉。
             perspective_context = str(
@@ -622,6 +628,7 @@ class ContinuousTurnAdapter:
             context_candidate = self._context_factory(frame, **context_kwargs)
             if not isinstance(context_candidate, ResearchRunContext):
                 raise TypeError("context factory must return ResearchRunContext")
+            context_candidate = pin_episode_context_temporal(context_candidate, frame, temporal, today=self._today)
             # 身份只由入口盖章：context 工厂（含注入替身）写什么都不算，这里无条件覆写。
             # 绑定发生在 episode 号铸出之后，所以一份身份不可能被搬到另一个 episode 上。
             context = replace(
@@ -746,6 +753,14 @@ class ContinuousTurnAdapter:
                 context.contract.research_tier
             )
             repair_terminal = False
+            prepare_owned = getattr(self._semantic_verifier, "_prepare_owned_answer", None)
+            if callable(prepare_owned):
+                try:
+                    structural = prepare_owned(frame=frame, structurally_verified=structural, context=context)
+                except ValueError:
+                    # This diagnostic never grants authority or alters completion.
+                    # The real semantic entry reports the source violation later.
+                    structural = replace(structural, _owned_answer=None)
             backfill_plan = _issue_backfill_plan(
                 structural,
                 context,
@@ -1290,6 +1305,11 @@ class ContinuousTurnAdapter:
             semantic, question=frame.raw_question, delivered_answer=answer,
             evidence_outcome=outcome,
         )
+        from intelligence.services.episode_semantic_verifier import recheck_owned_public_delivery
+
+        semantic = recheck_owned_public_delivery(semantic, context=context, projected=answer)
+        if semantic.judge_status == "rejected" and any(issue.startswith("owned_answer:") for issue in semantic.issues):
+            answer, status = semantic.public_answer, "partial"
         artifact = {
             "schema_version": 1,
             # 事件日志的 schema 版本（运行底座 P2 G9）：与 store 里 state.json 的同一个数。
@@ -1734,8 +1754,6 @@ class ContinuousTurnAdapter:
                 draft=outcome.draft,
                 bindings=candidate.bindings or outcome.bindings,
             )
-        if draft_sentence_count(candidate.draft) > draft_sentence_count(outcome.draft):
-            return None
         verified = self._structural_verifier(context.contract, candidate)
         if not isinstance(verified, VerifiedEpisodeOutcome):
             raise TypeError("structural verifier must return VerifiedEpisodeOutcome")
@@ -2226,6 +2244,8 @@ def _episode_context_provenance(
         ),
         "history_results": list(context.history_results),
     }
+    if context.temporal_contract is not None:
+        payload["temporal_contract"] = context.temporal_contract.to_dict()
     if context.prior_evidence is not None:
         payload["prior_evidence"] = context.prior_evidence.receipt()
     pack = getattr(context, "stance_pack", None)

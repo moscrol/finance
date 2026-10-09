@@ -23,7 +23,7 @@ from intelligence.services.evidence_capabilities import (
 from intelligence.services.mandatory_satisfiability import (
     apply_static_chain_mapping_precheck,
 )
-from intelligence.services.honesty_gates import requested_information_cutoff
+from intelligence.services.temporal_contract import TemporalContract, compile_temporal_contract
 from intelligence.services.research_contract import (
     FORWARD_HYPOTHESIS_OUTPUT_IDS,
     InformationCutoff,
@@ -727,10 +727,15 @@ def build_episode_context(
     knowledge: KnowledgeAdapter | None = None,
     stance_pack: object | None = None,
     retrieval_stages: tuple[str, ...] = (),
+    temporal_contract: TemporalContract | None = None,
 ) -> ResearchRunContext:
     """Freeze control output into one immutable research run contract."""
 
     from intelligence.services.material_grounding import freeze_material_grounding
+
+    temporal = temporal_contract or frame.temporal_contract or legacy_frame_temporal_contract(frame, today=today)
+    if temporal.errors:
+        raise ValueError("temporal clarification required: " + "；".join(temporal.errors))
 
     material = frame.material_contract
     material_only = _material_restricted(material)
@@ -919,7 +924,7 @@ def build_episode_context(
             "general",
         ),
         freshness="current",
-        timeframe=frame.timeframe,
+        timeframe=temporal.market_target.timeframe if temporal.market_target else frame.timeframe,
         evidence_plan=evidence_plan,
         task_frame_hash=frame.task_frame_hash,
         material_contract=material,
@@ -951,13 +956,17 @@ def build_episode_context(
         # 本地证据仍由已审定 runner 获取，不把未分类读取当作预置缺口依据。
         contract = apply_static_chain_mapping_precheck(contract, knowledge=knowledge)
     cutoff = (
-        information_cutoff
-        or requested_information_cutoff(frame.raw_question, today=today)
-        or _default_information_cutoff(
+        InformationCutoff(date.fromisoformat(temporal.information_cutoff), "requested")
+        if temporal.information_cutoff else _default_information_cutoff(
             today=today,
             latest_data_date=latest_data_date,
         )
     )
+    if information_cutoff is not None:
+        cutoff = InformationCutoff(
+            min(cutoff.as_of_date, information_cutoff.as_of_date),
+            "requested" if "requested" in {cutoff.source, information_cutoff.source} else cutoff.source,
+        )
     if frame.history_intent is not None and frame.history_intent.information_cutoff:
         cutoff = InformationCutoff(
             min(cutoff.as_of_date, date.fromisoformat(frame.history_intent.information_cutoff)),
@@ -989,7 +998,45 @@ def build_episode_context(
         stance_pack=None if material_only else stance_pack,
         retrieval_stages=() if material_only else tuple(retrieval_stages or ()),
         history_intent=None if material_only else frame.history_intent,
+        temporal_contract=temporal,
     )
+
+
+def legacy_frame_temporal_contract(frame: TaskFrame, *, today: str | None) -> TemporalContract:
+    """Hand-built legacy frames may recover only their original user string."""
+    try:
+        runtime_date = date.fromisoformat(str(today or "")[:10])
+    except ValueError:
+        runtime_date = date.today()
+    temporal = compile_temporal_contract(frame.raw_question, today=runtime_date)
+    return replace(temporal, cutoff_origin="legacy_user") if temporal.information_cutoff else temporal
+
+
+def pin_episode_context_temporal(
+    context: ResearchRunContext, frame: TaskFrame, temporal: TemporalContract,
+    *, today: str | None = None,
+) -> ResearchRunContext:
+    """Clamp injected context factories to the same pre-model permission."""
+    if temporal.errors:
+        raise ValueError("temporal clarification required: " + "；".join(temporal.errors))
+    upper = (
+        InformationCutoff(date.fromisoformat(temporal.information_cutoff), "requested")
+        if temporal.information_cutoff else _default_information_cutoff(today=today, latest_data_date=None)
+    )
+    cutoff = InformationCutoff(
+        min(context.information_cutoff.as_of_date, upper.as_of_date),
+        "requested" if "requested" in {context.information_cutoff.source, upper.source} else upper.source,
+    )
+    history = frame.history_intent
+    for bound in (
+        history.information_cutoff if history else None,
+        history.requested_end if history and history.strict_window else None,
+    ):
+        if bound:
+            cutoff = InformationCutoff(min(cutoff.as_of_date, date.fromisoformat(bound)), "requested")
+    timeframe = temporal.market_target.timeframe if temporal.market_target else frame.timeframe
+    contract = context.contract if context.contract.timeframe == timeframe else replace(context.contract, timeframe=timeframe)
+    return replace(context, temporal_contract=temporal, information_cutoff=cutoff, contract=contract)
 
 
 _MATERIAL_KIND_LABEL = {

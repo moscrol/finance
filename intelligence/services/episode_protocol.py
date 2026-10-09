@@ -24,11 +24,13 @@ from intelligence.services.episode_output_substance import (
 from intelligence.services import knowledge_injection_policy
 from intelligence.services.material_grounding import (
     ClaimSourceBinding, QUOTE_REPAIR_RULE, binding_source_issues, grounding_scope, material_grounding_payload,
-    material_private_tokens, render_material_claims, split_claim_sentences,
+    material_private_tokens,
 )
 from intelligence.services.material_answer_authoring import (
-    MaterialAuthoringError, compile_material_author_finish,
-    material_author_model_view, material_author_schema,
+    material_author_model_view,
+)
+from intelligence.services.finish_authoring import (
+    FinishAuthoringError, _legacy_finish_schema, compile_finish_authoring, finish_author_contract,
 )
 from intelligence.services.judgment_delta import episode_judgment_delta_rule
 from intelligence.services.pricing_split import episode_pricing_split_rule
@@ -57,7 +59,6 @@ from intelligence.services.track_contract import (
 )
 
 
-_FINISH_STATUSES = frozenset({"completed", "partial"})
 # Episode 终局 draft 的篇幅上限（汉字），系统提示、收口提醒与终局恢复器三处共用。
 # 2026-10-05 由 1000/1200 放到 4000：同题对照里 8792 正确但篇幅只有 Pi 的三到六成，
 # Pi 最长一份 3412 字。原上限是「保证 FINAL_JSON 不被截断」的传输预算；GLM 工具轮
@@ -90,85 +91,17 @@ class EpisodeFinish:
     # EVAL_ONLY：本次把 hashes+gap 滑档挪到顶层 gaps 的格数。
     # 无滑档时为 0，字段仍在场。不参与任何判定。
     caveat_slips: int = 0
+    owned_answer: dict[str, object] | None = None
 
 
 def finish_json_schema(
     contract: ResearchTaskContract | None = None, *, prior_evidence: PriorTurnEvidence | None = None,
+    context: ResearchRunContext | None = None,
 ) -> dict[str, object]:
-    """Return the closed provider-facing schema for a terminal episode."""
-
-    author_schema = material_author_schema(contract, prior_evidence=prior_evidence)
-    if author_schema is not None:
-        return author_schema
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "status": {
-                "type": "string",
-                "enum": ["completed", "partial"],
-            },
-            "draft": {"type": "string"},
-            "render_from_claims": {"type": "boolean"},
-            "gaps": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
-            "bindings": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "output_id": {"type": "string"},
-                        "evidence_hashes": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": (
-                                "Episode ordinals E1..En from the observation, "
-                                "or an exact collected content_hash"
-                            ),
-                        },
-                        "basis": {
-                            "type": "string",
-                            "enum": [
-                                "evidence",
-                                "user_premise",
-                                "model_reasoning",
-                            ],
-                        },
-                        "gap": {"type": "string"},
-                        "claims": {
-                            "type": "array",
-                            "items": {
-                                "type": "object", "additionalProperties": False,
-                                "properties": {
-                                    "text": {"type": "string"},
-                                    "kind": {"type": "string", "enum": ["material_fact", "reasoning", "premise_declaration", "historical_assistant_statement"]},
-                                    "material_anchors": {"type": "array", "items": {
-                                        "type": "object", "additionalProperties": False,
-                                        "properties": {"material_id": {"type": "string"}, "quote": {"type": "string"}},
-                                        "required": ["material_id", "quote"],
-                                    }},
-                                    "old_answer_coordinate": {"type": "string"},
-                                    "historical_quote": {"type": "string"},
-                                    "basis": {"type": "string"},
-                                },
-                                "required": ["text", "kind"],
-                            },
-                        },
-                    },
-                    "required": [
-                        "output_id",
-                        "evidence_hashes",
-                        "basis",
-                        "gap",
-                    ],
-                },
-            },
-        },
-        "required": ["status", "draft", "gaps", "bindings"],
-    }
+    """Copy the selected schema; context-free callers retain the original bytes."""
+    if context is not None:
+        return finish_author_contract(context).schema_payload()
+    return _legacy_finish_schema(contract, prior_evidence=prior_evidence)
 
 
 # Borrowed name only. Marks the seam: above = byte-stable system (cache
@@ -343,6 +276,8 @@ def build_episode_instructions(
     """
 
     del task_frame, context, registry
+    # 2026-10-09：普通新会话的作者格式显式改变，唯一 wire 描述在 user.finish_format。
+    # 旧会话由 durable prompt_assembled 恢复原文，不靠新默认重造历史指令。
     # 只改形状，一个字不改：本函数的静态契约文本去掉全部空白后，sha256 与重排前
     # 逐字节相同（`test_episode_protocol` 里那条指纹测试锁住这一点）。所以下面新增
     # 的只有换行和六个分组标题，**约束的措辞与前后顺序都没动**。
@@ -415,33 +350,27 @@ def build_episode_instructions(
         "必需输出都有直接证据、关键判断已尽量交叉核对（另一数据源、相邻日期或反证）"
         "后再停止研究；不得为了耗尽步数调用与问题无关的工具。\n"
         "不要套固定标题、行数或段落模板。终止时不要调用工具。"
-        f"draft 篇幅由问题决定，上限 {EPISODE_DRAFT_MAX_CHARS} 汉字（只为保证结构化终止完整）："
+        f"最终正文篇幅由问题决定，上限 {EPISODE_DRAFT_MAX_CHARS} 汉字（只为保证结构化终止完整）："
         "先直接回答，再写清关键数据及其日期与来源、推理、继续条件和失效条件；"
         "不要为了压缩篇幅省掉证据里的关键数字；这不要求固定标题或段数。\n"
         "\n"
         "【排版】\n"
         "上面禁止的是「按固定小标题填空」，不是禁止排版：用哪些结构由内容"
         "决定，但不得整篇不分段、不换行地一段到底。\n"
-        "draft 用 Markdown 写：段落之间空一行；并列的情景、条件、跟踪指标"
+        "最终正文用 Markdown 写：段落之间空一行；并列的情景、条件、跟踪指标"
         "或风险点写成列表项；核心判断用 **加粗** 标出。\n"
         "\n"
         "【终局 JSON】\n"
-        "若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架："
-        "若其format=material_claims_v1，正文只写answers中的逐句claims及sources，"
-        "不提交draft、bindings、basis或evidence_hashes；运行时从冻结合同编译。"
-        "未提供 finish_format 时使用下面的旧格式。\n"
-        "只输出一个 JSON 对象：\n"
-        '{"status":"completed|partial","draft":"自然语言回答",'
-        '"gaps":["..."],"bindings":[{"output_id":"...",'
-        '"evidence_hashes":["E1","E2"],"basis":"evidence|user_premise|model_reasoning",'
-        '"gap":""}]}。\n'
+        "只输出一个 JSON 对象，按本轮 finish_format 的 wire_template 与 rule 提交完整正文。"
+        "材料格式继续服从 material_grounding 的来源与逐句规则；格式描述不授予来源、工具或完成权限。"
+        "未提供作者描述的历史合同保留原 status、draft、gaps、bindings 格式，不升级作者模式。\n"
         "每个 binding 的 basis 必须与对应 required output 的 grounding_mode 一致；"
         "evidence 表示当前世界事实，user_premise 表示只评估用户给出的条件，"
         "model_reasoning 表示方法论或推理框架，不得伪造证据序号或哈希。"
         "evidence_hashes 填观察里的序号 E1、E2…，不要誊抄 content_hash。\n"
         "binding.gap 只在该 required output 无法回答时填写；"
         "若 output 已由证据序号支持并完成，binding.gap 必须为空，"
-        "限制条件写入顶层 gaps 或 draft。\n"
+        "限制条件写入顶层 gaps 或最终正文。\n"
         "completed 必须覆盖所有 required outputs；partial 必须明确缺口。\n"
     )
 
@@ -494,7 +423,7 @@ def build_episode_input(
         contract_for_model["research_dimensions"] = dimensions
     date_context = runtime_date_context(context)
     payload: dict[str, object] = {
-        "task_frame": task_frame.to_dict(),
+        "task_frame": task_frame.to_model_dict(),
         "research_contract": contract_for_model,
         "today": date_context["today"],
         "latest_data_date": date_context["latest_data_date"],
@@ -514,6 +443,9 @@ def build_episode_input(
         ),
         "question_type_rules": _question_type_rules(task_frame, context),
     }
+    author_format = finish_author_contract(context).prompt_payload()
+    if author_format is not None:
+        payload["finish_format"] = author_format
     if dimensions:
         payload["research_dimensions_rule"] = (
             "research_dimensions 是内部研究自检，不是必填章节。围绕完整用户原问，"
@@ -596,6 +528,35 @@ def build_episode_input(
             "只有用户所需且尚无证据支持的内容才声明缺口，无关阶段未执行不算缺口。"
             "阶段表本身不是证据，也不改变 research_contract 的证据边界或工具权限"
         )
+    # Index existing inputs without copying prose or requesting extra retrieval.
+    # These roles never enter evidence, source-floor or authorization checks.
+    roles = {
+        "task_frame": "user_request",
+        "research_contract.evidence_plan": "retrieval_requirements",
+        "available_tools": "currently_allowed_tools",
+    }
+    if task_frame.method_candidates:
+        roles["task_frame.method_candidates"] = "unverified_method_candidates"
+    if task_frame.competing_explanations:
+        roles["task_frame.competing_explanations"] = "hypotheses_to_test"
+    for field, role in (
+        ("conversation_context", "conversation_and_user_prior"),
+        ("reading_baseline", "domain_method_guidance"),
+        ("perspective_context", "viewpoint"), ("stance_pack", "personal_prior"),
+        ("material_delivery", "user_material_under_original_contract"),
+        ("material_grounding", "material_and_prior_evidence_under_original_contract"),
+        ("calculation_delivery", "conditional_premise_calculation"),
+        ("retrieval_stages", "optional_retrieval_guidance"),
+    ):
+        if payload.get(field):
+            roles[field] = role
+    payload["input_roles"] = roles
+    payload["input_roles_rule"] = (
+        "沿原字段阅读：原问决定目标，取证计划说明需求；方法候选、判读基线、观点与个人先验"
+        "不成为当前市场事实。材料和历史证据仍服从各自原始坐标、日期、授权与绑定合同；"
+        "未来条件是待验证条件，不是当日已发生的反证。按相关性选择资料，无需新增章节或强制查询。"
+        "资料被提供、响应已交付、答案实际引用、来源支持结论是不同判断；角色声明不认证后两者。"
+    )
     return json.dumps(material_author_model_view(
         payload, context.contract, task_frame, prior_evidence=context.prior_evidence,
     ), ensure_ascii=False)
@@ -1065,35 +1026,13 @@ def validate_episode_finish(
     if decoded is None:
         raise _reject("not_json_object", "finish must be one JSON object" + _json_failure_position(value))
     try:
-        decoded = compile_material_author_finish(
-            decoded, context.contract, prior_evidence=getattr(context, "prior_evidence", None),
-        )
-    except MaterialAuthoringError as exc:
-        if exc.code == "historical_excerpt_shape":
-            raise _reject("historical_excerpt_shape", str(exc)) from exc
+        authored = compile_finish_authoring(decoded, context=context)
+    except FinishAuthoringError as exc:
         raise _reject(exc.code, str(exc)) from exc
-    status = decoded.get("status")
-    if status not in _FINISH_STATUSES:
-        raise _reject("bad_status", "finish status must be completed or partial")
-    draft = decoded.get("draft")
-    if not isinstance(draft, str):
-        raise _reject("draft_not_string", "finish draft must be a string")
-    render_from_claims = decoded.get("render_from_claims", False)
-    if not isinstance(render_from_claims, bool):
-        raise _reject("bad_claim_binding", "render_from_claims must be a boolean")
-    if render_from_claims:
-        if draft:
-            raise _reject("bad_claim_binding", "claim rendering cannot include a second draft")
-        try:
-            draft = render_material_claims(context.contract, decoded.get("bindings"))
-        except ValueError as exc:
-            raise _reject("bad_claim_binding", str(exc)) from exc
-        # The writer's text is published as written; only its bindings are cut per sentence,
-        # so per-claim review and every source check below still see one sentence per claim.
-        decoded, claim_origins = split_claim_sentences(decoded)
-    else:
-        claim_origins = {}
-        draft = _normalize_natural_language_layout(draft)
+    decoded = authored.envelope_payload()
+    status, draft = decoded["status"], decoded["draft"]
+    claim_origins = authored.claim_origins
+    owned_answer = authored.owned_answer_payload()
     # 题设计算的程序表准入跟在两条 draft 来源之后：无论 draft 是模型原文还是按
     # 材料主张渲染出来的，只要合同带 premise_calculation，就要过同一道表格硬校验。
     calculation = context.contract.premise_calculation
@@ -1380,6 +1319,7 @@ def validate_episode_finish(
         gaps=gaps,
         bindings=tuple(bindings),
         caveat_slips=caveat_slips,
+        owned_answer=owned_answer,
     )
 
 
@@ -1537,12 +1477,6 @@ def _decode_finish_json(text: str) -> dict[str, object] | None:
 
 def _looks_like_finish_envelope(value: dict[str, object]) -> bool:
     return {"status", "draft", "gaps", "bindings"}.issubset(value)
-
-
-def _normalize_natural_language_layout(value: str) -> str:
-    """Decode double-escaped newline literals in natural-language drafts."""
-
-    return value.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
 
 
 def _recover_finish_with_raw_draft(text: str) -> dict[str, object] | None:

@@ -223,10 +223,9 @@ def test_real_run_turn_passes_inherited_history_to_checkpoint_boundary(tmp_path,
     store = ConversationStore("history-contract", root=tmp_path / "messages")
     runs = RunStore("history-contract", root=tmp_path / "runs")
     conv = store.create_conversation()
-    first = decide_turn(FIRST, llm_complete=lambda _: (None, None, "offline"))
-    store.append_message(conv.conversation_id, "user", FIRST)
-    store.append_message(conv.conversation_id, "assistant", "尚无历史样本结论。",
-                         turn_intent=first.turn_intent.to_dict())
+    from tests.test_history_live_seams import _persist_frozen_prior
+
+    first = _persist_frozen_prior(store, runs, conv.conversation_id, FIRST, tmp_path, monkeypatch)
     run_id, message_id = _prepare_turn(store, runs, conv.conversation_id, FOLLOWUPS[0])
     captured = []
     writes = []

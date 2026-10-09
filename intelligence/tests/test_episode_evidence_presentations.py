@@ -24,7 +24,7 @@ def test_presentation_links_roundtrip_without_changing_first_writer_or_coverage(
     )
     decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
     restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
-    assert payload["schema_version"] == 4
+    assert payload["schema_version"] == 5
     assert decoded.presented_evidence == changed
     assert decoded.presented_hashes == ("first", "second")
     assert restored.items() == ledger.items()
@@ -33,18 +33,51 @@ def test_presentation_links_roundtrip_without_changing_first_writer_or_coverage(
     assert decoded.to_dict() == payload
 
 
+@pytest.mark.parametrize("directions", [("support", "counter"), ("counter", "support")])
+def test_two_retrieval_directions_keep_each_presentation_without_rewriting_admission(directions):
+    original = _atom(retrieval_direction=directions[0], supports=("direct",), contradicts=())
+    later = replace(original, retrieval_direction=directions[1])
+    ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
+    ledger.append(original)
+    before = ledger.snapshot()
+    first = snapshots.capture_evidence_snapshot(
+        episode_id="episode", ledger=ledger, presented_evidence=(original,),
+    )
+    assert ledger.append(later) == ()
+    second = snapshots.capture_evidence_snapshot(
+        episode_id="episode", ledger=ledger, presented_evidence=(later,),
+    )
+
+    assert first["presentations"][0]["atom"]["retrieval_direction"] == directions[0]
+    assert second["presentations"][0]["atom"]["retrieval_direction"] == directions[1]
+    assert first["entries"] == second["entries"]
+    assert first["sha256"] != second["sha256"]
+    for payload, expected in ((first, original), (second, later)):
+        decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
+        restored = EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode")
+        assert decoded.presented_evidence == (expected,)
+        assert decoded.to_dict() == payload
+        assert payload["presentations"][0]["classification"] == "admitted"
+        assert restored.items() == (original,)
+        assert restored.snapshot() == before == ledger.snapshot()
+        assert decoded.presented_evidence[0].to_observation("E1") == original.to_observation("E1")
+
+
 @pytest.mark.parametrize("changes", [
     {"detail": "replacement"}, {"title": "replacement"}, {"source": "replacement"},
     {"source_date": "2026-07-23"}, {"derived_from": ("replacement",)},
     {"observations": (StructuredObservation("公司", "2026-07-24", "营收亿元", 99),)},
     {"internal_locator": "replacement"}, {"deep_read": False},
 ])
-def test_same_hash_presentations_may_not_replace_any_fact(changes):
+@pytest.mark.parametrize("direction", [None, "counter"])
+def test_same_hash_presentations_may_not_replace_any_fact(changes, direction):
     ledger, presented, _ = _fixture()
     with pytest.raises(ValueError):
         snapshots.capture_evidence_snapshot(
             episode_id="episode", ledger=ledger,
-            presented_evidence=(replace(presented[0], supports=("request",), **changes),),
+            presented_evidence=(replace(
+                presented[0], supports=("request",), retrieval_direction=direction, **changes
+            ),),
         )
 
 
@@ -83,7 +116,7 @@ def test_unadmitted_presentations_require_real_future_date_not_title(cutoff, sou
         ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=(item,))
 
 
-@pytest.mark.parametrize("version", [1, 2, 3])
+@pytest.mark.parametrize("version", [1, 2, 3, 4])
 def test_legacy_read_preserves_version_digest_and_presentation_semantics(version):
     ledger, presented, payload = _fixture()
     payload = _legacy_payload(payload, version)
@@ -91,11 +124,12 @@ def test_legacy_read_preserves_version_digest_and_presentation_semantics(version
     decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(payload, episode_id="episode")
     assert decoded.to_dict() == original
     assert decoded.presented_evidence == presented
+    assert all(item.retrieval_direction is None for item in decoded.presented_evidence)
     assert EvidenceLedger.from_recovery_snapshot(payload, episode_id="episode").snapshot() == ledger.snapshot()
     state = EpisodeState(episode_id="episode", phase="planning", last_sequence=2,
                          evidence_snapshot=payload, evidence_snapshot_sequence=2)
     assert EpisodeState.from_dict(state.to_dict()).to_dict()["evidence_snapshot"] == original
-    assert ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=presented)["schema_version"] == 4
+    assert ledger.to_recovery_snapshot(episode_id="episode", presented_evidence=presented)["schema_version"] == 5
 
 
 @pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate", "unknown", "coverage", "digest"])
@@ -126,13 +160,13 @@ def test_v1_reader_retains_strict_legacy_validation(mutation):
     ("2026-07-24", "/tmp/2026-7-25"), ("2026-07-24", "2026-7-25 09:30:00+08:00garbage"),
     ("2026-07-24", "2026-W30-6"),
 ])
-@pytest.mark.parametrize("version", [2, 3, 4])
+@pytest.mark.parametrize("version", [2, 3, 4, 5])
 def test_reader_rechecks_future_classification_even_with_recomputed_digest(cutoff, source_date, version):
     ledger = EvidenceLedger(information_cutoff=date(2026, 7, 24))
     payload = ledger.to_recovery_snapshot(
         episode_id="episode", presented_evidence=(_atom("future", source_date="2026-07-25"),),
     )
-    if version < 4:
+    if version < 5:
         payload = _legacy_payload(payload, version)
     payload["information_cutoff"] = cutoff
     payload["presentations"][0]["atom"]["source_date"] = source_date
@@ -213,9 +247,13 @@ def test_real_episode_reaches_next_model_after_future_only_or_mixed_results(tmp_
     assert len(model.calls) == 2 and outcome.stop_reason == "model_finish"
     assert outcome.persistence == ("durable" if durable else "ephemeral")
     assert not any(event.kind == "persistence_failed" for event in outcome.events)
-    assert outcome.evidence[0].source_date == ("2026-07-25" if future_only else "2026-07-24")
     if future_only:
-        assert "晚于问句日 2026-07-24" in outcome.evidence[0].title
+        assert outcome.evidence == ()
+        delivered = json.dumps(model.calls, ensure_ascii=False)
+        assert "2026-07-25" not in delivered
+        assert "不是源里没有" in delivered
+    else:
+        assert outcome.evidence[0].source_date == "2026-07-24"
     if store is not None:
         state = store.load(context.contract.task_id)[1]
         decoded = snapshots.EpisodeEvidenceSnapshot.from_dict(state.evidence_snapshot, episode_id=context.contract.task_id)
@@ -223,7 +261,7 @@ def test_real_episode_reaches_next_model_after_future_only_or_mixed_results(tmp_
         assert decoded.presented_evidence == outcome.evidence
         if future_only:
             assert restored.items() == ()
-            assert not restored.mark_output_covered("direct_assessment", evidence_ids=(outcome.evidence[0].content_hash,))
+            assert not restored.mark_output_covered("direct_assessment", evidence_ids=("evidence-1",))
 
 
 @pytest.mark.parametrize("durable", [False, True])

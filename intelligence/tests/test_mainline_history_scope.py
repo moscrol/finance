@@ -13,10 +13,10 @@ def scope_db(tmp_path: Path) -> Path:
     path = tmp_path / 'scope.duckdb'
     with duckdb.connect(str(path)) as con:
         con.execute('''create table fact_mainline_sector_daily(
-          trade_date date, theme_name varchar, sector_ts_code varchar, sector_name varchar,
+          trade_date date, theme_code varchar, theme_name varchar, sector_ts_code varchar, sector_name varchar,
           sort_no integer, cycle_status varchar, cycle_level varchar, today_pct double,
           limit_up_count integer, startup_date_small date, high_status_label varchar,
-          near_breakout_label varchar, amount double)''')
+          near_breakout_label varchar, net_inflow_1d double, amount double)''')
         con.execute('''create table fact_sector_daily(
           trade_date date, sector_ts_code varchar, sw_l1 varchar, pct_chg double,
           diff_ratio double, amount double)''')
@@ -95,7 +95,7 @@ def test_current_membership_does_not_depend_on_thirty_row_preview(scope_db):
           values ('2026-07-10','AAA',?,?,?,1.2,100000)''',
           [(f'a{i}',f'a{i}',i) for i in range(31)])
     block = render(scope_db)
-    assert '现乙核心板块' not in block  # deterministic current-row preview was truncated
+    assert '现乙核心板块' in block  # previews are bounded per theme; no theme is silently omitted
     assert '现乙：出现1天、板块行1，已观测日期2026-07-10~2026-07-10，截止日记录=有' in history(block)
 
 
@@ -110,12 +110,39 @@ def test_snapshot_freshness_retained_and_scope_survives_evidence_projection(scop
     assert card.content_hash
 
 
+@pytest.mark.parametrize(('limit_up_count', 'expected_label'), [
+    (None, '涨停未提供'),
+    (0, '涨停0'),
+    (7, '涨停7'),
+])
+def test_current_sector_limit_up_count_preserves_missing_and_observed_values(
+    scope_db, limit_up_count, expected_label,
+):
+    with duckdb.connect(str(scope_db)) as con:
+        con.execute('''update fact_mainline_sector_daily set limit_up_count = ?
+          where trade_date = '2026-07-10' ''', [limit_up_count])
+
+    block = render(scope_db)
+    items, _ = block_lines_to_evidence('mainline_context', block, 'fixture',
+                                      limit=12, detail_chars=1000, source_date='2026-07-10')
+    for theme_name in ('现甲', '现乙'):
+        line = next(line for line in block.splitlines()
+                    if line.startswith(f'- {theme_name}核心板块（本表'))
+        assert f'亿，{expected_label}，' in line
+        card = next(item for item in items
+                    if item.detail.startswith(f'{theme_name}核心板块（本表'))
+        assert card.detail == line.removeprefix('- ')
+        assert f'亿，{expected_label}，' in card.detail
+
+
 def test_existing_current_sector_facts_remain(scope_db):
     block = render(scope_db)
-    assert '现甲核心板块：' in block
+    assert '现甲核心板块（本表' in block
     assert '涨1.20%' in block
-    assert '现乙核心板块：' in block
+    assert '现乙核心板块（本表' in block
 
 
 def test_missing_database_still_has_no_invented_scope(tmp_path):
-    assert render(tmp_path/'missing.duckdb') == ''
+    block = render(tmp_path/'missing.duckdb')
+    assert '本地主线数据库不可用' in block
+    assert '本表查询窗口' not in block

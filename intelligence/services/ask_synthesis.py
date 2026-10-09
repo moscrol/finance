@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 import os
+import json
 import random
 import re
 import time
@@ -28,6 +29,7 @@ from intelligence.services import (
     research_workflow_guidance,
     scenario_tree,
     track_contract,
+    ask_blocks,
 )
 from intelligence.services.session_projection import (
     CAUSE_TRANSIENT_VERIFIER_OUTAGE,
@@ -176,6 +178,10 @@ def _claims_from_data_block(
     label: str,
     theme: str,
 ) -> list[answer_model.Claim]:
+    if tag == "D4":
+        # Untyped producer prose cannot mint structured market facts or method
+        # claims. Formal D4 providers supply the same immutable read product.
+        return []
     claims: list[answer_model.Claim] = []
     for index, raw in enumerate(block.splitlines(), start=1):
         line = raw.strip().lstrip("-").strip()
@@ -216,6 +222,31 @@ def _claims_from_data_block(
             )
         )
     return claims
+
+
+def _claims_from_mainline_snapshot(snapshot: ask_blocks.MainlineContextSnapshot, theme: str) -> list[answer_model.Claim]:
+    from intelligence.services.episode_tools import mainline_snapshot_tool_result
+
+    result = mainline_snapshot_tool_result(snapshot)
+    return [answer_model.make_claim(
+        claim_id=f"data:D4:row:{index}", text=f"主线题材结构：{item.title}；{item.detail}",
+        claim_type="market_data", theme=theme, status=answer_model.ClaimStatus.VERIFIED,
+        evidence_tier=item.evidence_tier, evidence_ids=("D4",), freshness=item.freshness,
+    ) for index, item in enumerate(result.evidence, 1)]
+
+
+def _mainline_snapshot_guidance(snapshot: ask_blocks.MainlineContextSnapshot) -> str:
+    return "\n".join(f"判读[{rule.id}] {rule.title}：{rule.rule}；来源：{rule.source}。" for rule in snapshot.guidance)
+
+
+def _append_mainline_model_scope(messages: list[dict], snapshot: ask_blocks.MainlineContextSnapshot) -> None:
+    from intelligence.services.episode_tools import mainline_snapshot_tool_result
+
+    basis = mainline_snapshot_tool_result(snapshot).query_basis
+    messages[-1]["content"] += (
+        "\n\n本次查询的公开范围与完整覆盖统计；不是新增资料许可，事实仍以 AnswerSpec 为边界：\n"
+        + json.dumps({"query_basis": {"D4": basis}}, ensure_ascii=False)
+    )
 
 
 _company_name_from_official_title = evidence_providers._company_name_from_official_title
@@ -831,6 +862,7 @@ def _prepare_answer_spec_synthesis(
     citations: list[Citation],
     quality_context: AnswerQualityContext,
     is_market_review: bool,
+    mainline_snapshot: ask_blocks.MainlineContextSnapshot | None = None,
 ) -> list[dict]:
     if result.answer_spec is None:
         return []
@@ -931,6 +963,13 @@ def _prepare_answer_spec_synthesis(
         )
         if pricing_guidance:
             contract_parts.append(pricing_guidance)
+    baseline = knowledge_injection_policy.reading_guidance_for(
+        knowledge_injection_policy.routed_question_type(question_plan)
+    )
+    if mainline_snapshot is not None:
+        guidance = _mainline_snapshot_guidance(mainline_snapshot)
+        if guidance:
+            baseline = "\n\n".join(part for part in (baseline, guidance) if part)
     messages = llm_refine.build_synthesis_messages(
         options.query,
         theme,
@@ -944,10 +983,12 @@ def _prepare_answer_spec_synthesis(
         # （directness -1.4），门控点与 W 源共用 knowledge_injection_policy。
         # ⚠️ 必须走 routed_question_type()：question_plan.question_type 是被
         # answer_orchestrator.py:272 翻译掉之后的值，里面没有 market_watch。
-        baseline_guidance=knowledge_injection_policy.reading_guidance_for(
-            knowledge_injection_policy.routed_question_type(question_plan)
-        ),
+        baseline_guidance=baseline,
     )
+    if mainline_snapshot is not None:
+        # Public execution semantics stay outside prose truncation and claim
+        # minting. This is an in-memory model view, never an AskResult ledger.
+        _append_mainline_model_scope(messages, mainline_snapshot)
     messages[0]["content"] = (
         f"{messages[0]['content']}\n\n## 本轮视角约束\n"
         f"{perspective_context.prompt}"

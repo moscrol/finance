@@ -4540,6 +4540,56 @@ p {
   white-space: nowrap;
 }
 
+/* 超过 5 板的高标：独立紫相，和常规米色筹码、红绿涨跌都区分开 */
+.board-calendar-group--x5 {
+  border-radius: 6px;
+  background: #f8f4fd;
+}
+
+.board-calendar-group-title--x5 {
+  color: #6d28d9;
+}
+
+.board-calendar-stock--x5 {
+  border-color: #d4bdf2;
+  background: #f4edfd;
+  color: #5b21b6;
+  font-weight: 600;
+}
+
+.board-calendar-high-swatch {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 5px;
+  border: 1px solid #d4bdf2;
+  border-radius: 4px;
+  background: #f4edfd;
+  color: #5b21b6;
+  font-size: 9px;
+  line-height: 1.5;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+/* 高标断板：当天收盘不再涨停。复用个股同款实心圆角标签，只把颜色换成「掉出板」的淡灰，
+   与当前高标的紫色、普通米色区分开；写法落在当天那格里，风格统一、不多占版面。 */
+.board-calendar-stock--break {
+  background: #f2f0ec;
+  border-color: #d7d0c6;
+  /* 9px 小字需 ≥4.5:1：#857d71 只有 3.57:1，#6f6a61 = 4.72:1 达标且仍是同族淡灰 */
+  color: #6f6a61;
+}
+
+.board-calendar-group-title--break {
+  color: #6f6a61;
+}
+
+.board-calendar-legend-swatch {
+  display: inline-block;
+  margin: 0 2px;
+  vertical-align: baseline;
+}
+
 .board-calendar-empty {
   margin: 28px 0 0;
   color: var(--faint);

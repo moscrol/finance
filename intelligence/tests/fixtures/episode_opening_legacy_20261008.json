@@ -1,0 +1,247 @@
+{
+  "base": "074ffb03661eb30ca32f24c5a0666fafdd8298f6",
+  "protocol_source": "b4a1e80ebf4949ddf0049fc0216fb2da710d0f05",
+  "events": [
+    {
+      "sequence": 1,
+      "kind": "configure",
+      "payload": {
+        "log_version": 1,
+        "persistence_mode": "durable",
+        "task_id": "episode-protocol-test",
+        "research_tier": "quick",
+        "allowed_capabilities": [
+          "market_data"
+        ],
+        "authorized_tools": [
+          "market_data"
+        ],
+        "tool_replay": {
+          "market_data": "safe"
+        },
+        "tool_contracts_hash": "0c7d9a1612cc61b047da185463a14a882627c691259547a5a6248de7547c6022",
+        "sub_research_available": false,
+        "policy_total_seconds": 30.0,
+        "policy_max_steps": 3,
+        "llm_timeout": 20.0,
+        "repair_seconds_cap": 30.0,
+        "provider_name": null,
+        "harness": "OriginalHarness",
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "at": "2026-10-09T01:50:34.876+08:00"
+      }
+    },
+    {
+      "sequence": 2,
+      "kind": "task",
+      "payload": {
+        "question": "目前市场怎么看",
+        "task_frame": {
+          "raw_question": "目前市场怎么看",
+          "user_goal": "判断当前市场结构",
+          "question_type": "market_forecast",
+          "subject": "A股市场",
+          "subject_kind": "market_pattern",
+          "market_scope": "A股",
+          "timeframe": "最近交易日",
+          "required_outputs": [
+            "direct_assessment"
+          ],
+          "assumptions": [
+            "按A股市场理解"
+          ],
+          "ambiguities": [],
+          "clarification_question": null,
+          "evidence_policy": "current_market_scenarios",
+          "confidence": 0.95,
+          "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98"
+        },
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "at": "2026-10-09T01:50:34.876+08:00"
+      }
+    },
+    {
+      "sequence": 3,
+      "kind": "prompt_assembled",
+      "payload": {
+        "system": "你是连续运行的金融研究 Agent。始终回答最初的不可变任务。\n\n【任务与计划】\n第一轮可以先只输出一个 kind=PLAN 的 JSON 对象，字段为 task_summary、answer_elements、hypotheses、evidence_needs、candidate_actions、open_gaps、requested_mode(quick|deep)、revision，以及可选 branch_goals（最多 3 个可分离的只读研究目标）；也可以在任务简单时直接调用已授权工具。\nPLAN 只是可观察研究意图，不能授权工具、预算、证据或完成状态；候选动作不等于调用许可。branch_goals 只是申请，只有运行时批准 deep 后才能执行；它不能指定权限、预算或继续派生分支。计划修订必须保持原任务且 revision 严格递增。\n\n【工具与观察】\n若本轮提供 material_grounding，以下工具证据要求按其 data_scope 条件化：材料事实在 binding.claims 绑定材料坐标，历史纠错绑定旧答坐标；其它事实仍绑定工具证据。\n每次看到工具原始观察后，自主决定继续查、改写查询或停止。只能调用本轮提供的只读工具，不能臆造工具结果。\n事实判断必须绑定工具观察里的证据序号 E1、E2…；缺数据要写 gap。\n未命中不等于事件未发生：成功查询的空结果只支持本次条件与截止时点内未命中本地记录；未查询或调用失败只能写尚未查证，不得写成本地没有记录。\n自身或分支的 gaps 是待核验声明，不是事实证据；否定事实同样须有直接证据。已收录的明确零值或否定事实可按其主体、日期和覆盖口径引用。\n区间累计涨跌与平均日涨跌幅不同：已有本地行情摘要能力时，累计收益引用 return_compound_pct，同时交代 return_valid_count/return_observed_count 与请求窗口；单日范围引用 return_min_pct/return_max_pct 或完整逐日证据。\n逐日复利包含窗口首日涨跌，不能用首日收盘到末日收盘冒充同窗口收益；不得从截断日线心算累计或据局部行断言全段涨跌范围。\n比较相对强弱须对齐实际观测日期集合及行情口径，收益率相减用百分点；日期集合不同、摘要未知或无可核验计算时列缺口，不猜数或强判跑赢跑输。\n观察事实与分析判断分开；不得编造精确数值阈值。\n\n【表达边界】\n不得在答案中暴露内部工具名、provider 或哈希，要改写成自然语言过程说明。\n数据中“阶段第N天”只是数据提供方的阶段标签，不等于连续N个上涨日。\n用户要求预测、空间、持续时间或估值时，必须给出一个明确标注的基准判断，并说明不确定性。\n\n【证据绑定】\ndraft 中每个精确数字事实都必须由相应 required output 的binding 包含其直接证据序号（E1、E2…）；不能绑定就省略该数字。\n公开网页中的预测或观点只能明确标作外部观点，不能冒充当前事实或历史概率。\n对于原因归因题，news_search 未返回同一时间窗口证据时，不得用普通 web_search 摘要补成已核验因果；应保留已核验盘面，把原因写为 gap 或明确标注为外部观点候选。\n每条被正文使用的观察事实都必须把直接证据序号加入对应 output binding；不得用同一次工具返回的相邻证据代替，也不得正文使用后漏绑。\n\n【何时停止】\n必需输出都有直接证据、关键判断已尽量交叉核对（另一数据源、相邻日期或反证）后再停止研究；不得为了耗尽步数调用与问题无关的工具。\n不要套固定标题、行数或段落模板。终止时不要调用工具。draft 篇幅由问题决定，上限 6000 汉字（只为保证结构化终止完整）：先直接回答，再写清关键数据及其日期与来源、推理、继续条件和失效条件；不要为了压缩篇幅省掉证据里的关键数字；这不要求固定标题或段数。\n\n【排版】\n上面禁止的是「按固定小标题填空」，不是禁止排版：用哪些结构由内容决定，但不得整篇不分段、不换行地一段到底。\ndraft 用 Markdown 写：段落之间空一行；并列的情景、条件、跟踪指标或风险点写成列表项；核心判断用 **加粗** 标出。\n\n【终局 JSON】\n若本轮 material_grounding 提供 finish_format，使用其中 wire_template 的字段骨架：若其format=material_claims_v1，正文只写answers中的逐句claims及sources，不提交draft、bindings、basis或evidence_hashes；运行时从冻结合同编译。未提供 finish_format 时使用下面的旧格式。\n只输出一个 JSON 对象：\n{\"status\":\"completed|partial\",\"draft\":\"自然语言回答\",\"gaps\":[\"...\"],\"bindings\":[{\"output_id\":\"...\",\"evidence_hashes\":[\"E1\",\"E2\"],\"basis\":\"evidence|user_premise|model_reasoning\",\"gap\":\"\"}]}。\n每个 binding 的 basis 必须与对应 required output 的 grounding_mode 一致；evidence 表示当前世界事实，user_premise 表示只评估用户给出的条件，model_reasoning 表示方法论或推理框架，不得伪造证据序号或哈希。evidence_hashes 填观察里的序号 E1、E2…，不要誊抄 content_hash。\nbinding.gap 只在该 required output 无法回答时填写；若 output 已由证据序号支持并完成，binding.gap 必须为空，限制条件写入顶层 gaps 或 draft。\ncompleted 必须覆盖所有 required outputs；partial 必须明确缺口。\n",
+        "user": "{\"task_frame\": {\"raw_question\": \"目前市场怎么看\", \"user_goal\": \"判断当前市场结构\", \"question_type\": \"market_forecast\", \"subject\": \"A股市场\", \"subject_kind\": \"market_pattern\", \"market_scope\": \"A股\", \"timeframe\": \"最近交易日\", \"required_outputs\": [\"direct_assessment\"], \"assumptions\": [\"按A股市场理解\"], \"ambiguities\": [], \"clarification_question\": null, \"evidence_policy\": \"current_market_scenarios\", \"confidence\": 0.95, \"task_frame_hash\": \"771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98\"}, \"research_contract\": {\"question\": \"目前市场怎么看\", \"subject\": \"A股市场\", \"subject_kind\": \"market_pattern\", \"question_type\": \"market_forecast\", \"required_outputs\": [{\"output_id\": \"direct_assessment\", \"description\": \"直接判断\", \"evidence_types\": [\"market_data\"], \"required\": true, \"grounding_mode\": \"evidence\", \"preplaced_gap\": \"\", \"allowed_history_operations\": []}], \"allowed_capabilities\": [\"market_data\"], \"research_tier\": \"quick\", \"presentation_profile\": \"general\", \"freshness\": \"current\", \"timeframe\": \"最近交易日\", \"evidence_plan\": {\"profile\": \"general\", \"freshness\": \"current\", \"requirements\": []}, \"contract_version\": \"1\", \"task_frame_hash\": \"771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98\"}, \"today\": \"2026-07-25\", \"latest_data_date\": \"2026-07-24\", \"information_cutoff\": {\"as_of_date\": \"2026-10-08\", \"source\": \"runtime_default\"}, \"conversation_context\": \"\", \"conversation_context_rule\": \"历史对话仅用于消解指代、延续用户目标及复核或撤回旧判断，不得当作事实证据。E1、E2等证据序号仅在本轮有效，旧回答的编号不能跨轮引用。核验旧事实须在本轮授权范围取得原始证据并使用本轮编号；若本轮禁止重新读取或无法取得，则说明未重新核验，不把旧回答当已证实事实\", \"date_rule\": \"today 不是行情日期；information_cutoff 是所有查询与引用事实的不可变日期上限；市场事实还须服从 latest_data_date 和证据日期。latest_data_date 只证明库内更新到哪天，不证明市场最近收盘在哪天；未取得对应时点的交易日历、时区与收盘证据时，必须写‘库内最新可用交易日’，不得把库内日期称为‘最近一个已收盘交易日’。历史类比须逐一对应窗口、后续期限和指标；累计终点涨跌不证明中间先涨或先跌。择优时交代本轮实际比较范围及筛选维度，完整候选池规模未知就说明未知\", \"task_frame_hash\": \"771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98\", \"available_tools\": \"- market_data（market_data，local，current）：结构化行情与市场时序\", \"question_type_rules\": \"\\n\\n\\n【情景树表达契约】本题为推演/预测类问题，draft 必须按此结构组织：\\n1. 关键变量的当前取值必须带证据序号 E1、E2…；没有证据的变量写缺口，禁止填印象值。\\n2. 情景分支（2-4 支）只写「可观察触发条件 → 条件化结论」。likelihood 只允许 高/中/低，且必须紧跟依据（证据序号或已检索历史事实）。禁止任何数值概率或概率区间。\\n3. 每支给 1-3 个带时间窗的领先信号；信号必须是可获取的公开数据/公告/盘面指标。\\n4. 若 memory_lookup 或 conversation_context 有用户既有判断，情景分支应显式承接或反驳。\\n5. 决策者行为只能作为可观察条件，禁止编心理活动。\\n6. 互斥因果假说（与情景分支不是同一物）：先写同一现象，再给 ≥2 条互斥因果假说（解释为什么发生，不是量能/涨跌路径换皮）。裁决必须带证据序号 E1、E2…；裁不了必须写「证据不足，两假说并立」。禁止数值概率。最后写一句操作含义。若证据里已有外盘领跌相对强弱，必须用它裁决（例如龙头弱于链条 vs 链条弱于龙头），不得只写成交抱团/缩量避险三分支。【判断增量表达契约】材料要按「什么会改变判断」组织，不按「说了几遍」组织（以下为按需使用的表达建议，不是可绑定的 output_id）：\\n1. **保留判据**：写进答案的每条材料都要能回答「它改变哪项判断，或帮助裁决哪个未解问题」；答不上来的归入「重复确认」，与同事件的其它报道合并成一条（保留全部出处与最早时点），不单独占篇幅。禁止因为「不是主线」直接丢掉一条材料——新线索和反证常常就在非主线里。\\n2. **反证优先**：主动考虑足以削弱或推翻主判断的反证，带证据序号 E1、E2…与时点；说明它如何影响判断。未找到反证时如实界定检索范围，不把未找到当作不存在。\\n3. **待验证问题**：无法证实但一旦坐实会改判的消息应保留为待核实问题，说明哪份公开材料或数据能证实；不得把传闻直接当事实并入结论。\\n4. **裁判变量**：有实际争论时说明下一份什么材料或数据可以裁决，包括观察时点及不同结果如何改变判断。\\n5. 有关键缺口时给出可执行的下一步，例如补关键缺口、比较替代解释或检验条件；证据已足够时不必额外扩写。\\n6. 主矛盾可以不止一条：真有两条并行的争论就并列写出，不为了整齐压成一条。\\n以上是按需使用的研究方法；答案按用户问题组织，不要求固定标题、顺序或套话。\\n\", \"reading_baseline\": \"这些规则是有适用范围的判读方法，不是事实证据或固定研究顺序。只使用与本题主张和已取得材料相符的规则，无关规则可跳过；不能为套用规则扩大读取权限、补造条件或改写题设。\\n- [FY-A10] 框架自身可被证伪：不把单次观察写成定律。使用下列任何一条判读规则时，若本轮证据与规则冲突，以证据为准并明说冲突，不得机械套用；规则被证伪时说明是哪一条、因何失效。\\n- [FY-A09] 反顺从检查：不因为已经给出过某个方向的判断，就在后续论证里调低它的风险权重；对自己上文的结论做一次反向检查再收尾。\\n- [CR-01] 市场阶段用于交易强弱判断：判断板块或个股的交易强弱、主线地位时，结合市场阶段与板块周期，不脱离阶段断言新主线。市场阶段不是所有研究的起点；解释利润、供需或核对材料时，不强制先分析成交额、指数或板块。\\n- [CR-02] 证据资格取决于待证主张：先判断证据能否直接支持待证主张，再比较来源、时点与口径。盘面量价适合证明交易表现，不能仅凭股价或成交额否定利润、订单或产能事实；产业事实也不能直接证明资金流向或交易强弱。卖方观点与传闻不能冒充硬事实，证据间冲突要核对它们是否在回答同一个问题。\\n- [CR-03] 结论条件化并自带证伪：给判断时说明适用条件，以及哪些可观察证据会使它降级或被放弃。条件应对应待解释机制；只有交易强弱判断才要求相应量价确认，不把量价条件套到所有结论上，也不为简单查数或定义追加情景分析。\\n- [CR-04] 组合信号优先于单点：不用单一指标定性。按层级或多条件组合判断，并说明各条件当前状态；缺条件时说明缺哪一条，不得用其他条件补位凑成结论。\\n- [SPT-A10] 基本面定地图，交易面定买卖：讨论交易决策时，基本面结论（赛道容量、渗透率位置、验证链）不能单独确定买卖时点；交易强弱仍需量价资金结构确认。若本题仅解释经营机制或财务结果，不额外要求给出交易判断。\", \"reading_baseline_rule\": \"判读基线是有适用范围的领域方法，不是固定视角、强制顺序或事实证据；无关规则可跳过。适用规则与本轮证据冲突时以证据为准并说明冲突，不得为了保住规则而改写题设、忽略反证或越过读取权限\"}",
+        "system_sha256": "9968cf1fc8ba80c5233964ee6059834efebde6f6a2546d1ea32aaea50a138e16",
+        "user_sha256": "895fc658336d42f20ce17ea742656e883a26f7805aa741f25f98934a75195cd1",
+        "system_chars": 2525,
+        "user_chars": 3954,
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "at": "2026-10-09T01:50:34.877+08:00"
+      }
+    },
+    {
+      "sequence": 4,
+      "kind": "tool_menu",
+      "payload": {
+        "visible": [
+          "market_data"
+        ],
+        "hidden": [],
+        "min_window_seconds": {},
+        "would_grant": 29.997,
+        "reason": "min_window_exceeds_grant",
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "at": "2026-10-09T01:50:34.879+08:00"
+      }
+    },
+    {
+      "sequence": 5,
+      "kind": "model_intent",
+      "payload": {
+        "turn_id": "turn-1",
+        "timeout_asked": 20.0,
+        "phase": "planning",
+        "retries_remaining": 1,
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "at": "2026-10-09T01:50:34.879+08:00"
+      }
+    }
+  ],
+  "state": {
+    "episode_id": "episode-protocol-test",
+    "phase": "model_pending",
+    "turn_index": 1,
+    "reserved_ids": [
+      "turn-1"
+    ],
+    "consumed_seconds": 0.0034157080808654428,
+    "deadline_at": "2026-10-09T01:51:04.875+08:00",
+    "retry": {
+      "remaining": 1
+    },
+    "contract_snapshot": {
+      "log_version": 1,
+      "persistence_mode": "durable",
+      "task_id": "episode-protocol-test",
+      "research_tier": "quick",
+      "allowed_capabilities": [
+        "market_data"
+      ],
+      "authorized_tools": [
+        "market_data"
+      ],
+      "tool_replay": {
+        "market_data": "safe"
+      },
+      "tool_contracts_hash": "0c7d9a1612cc61b047da185463a14a882627c691259547a5a6248de7547c6022",
+      "sub_research_available": false,
+      "policy_total_seconds": 30.0,
+      "policy_max_steps": 3,
+      "llm_timeout": 20.0,
+      "repair_seconds_cap": 30.0,
+      "provider_name": null,
+      "harness": "OriginalHarness"
+    },
+    "cancel": null,
+    "log_version": 1,
+    "last_sequence": 5,
+    "updated_at": "2026-10-09T01:50:34.879+08:00",
+    "budget_snapshot": null,
+    "budget_snapshot_sequence": null,
+    "authorization_snapshot": {
+      "schema_version": 1,
+      "kind": "episode_authorization",
+      "episode_id": "episode-protocol-test",
+      "contract": {
+        "task_id": "episode-protocol-test",
+        "question": "目前市场怎么看",
+        "subject": "A股市场",
+        "subject_kind": "market_pattern",
+        "question_type": "market_forecast",
+        "required_outputs": [
+          {
+            "output_id": "direct_assessment",
+            "description": "直接判断",
+            "evidence_types": [
+              "market_data"
+            ],
+            "required": true,
+            "grounding_mode": "evidence",
+            "preplaced_gap": "",
+            "allowed_history_operations": []
+          }
+        ],
+        "allowed_capabilities": [
+          "market_data"
+        ],
+        "research_tier": "quick",
+        "presentation_profile": "general",
+        "freshness": "current",
+        "timeframe": "最近交易日",
+        "evidence_plan": {
+          "profile": "general",
+          "freshness": "current",
+          "requirements": []
+        },
+        "contract_version": "1",
+        "task_frame_hash": "771106cac1d71005f0e33352af1869afba4562a3817c3344d224de28c9533c98",
+        "material_contract": null
+      },
+      "policy": {
+        "tier": "quick",
+        "max_steps": 3,
+        "total_seconds": 30.0,
+        "synthesis_reserve": 0.0
+      },
+      "information_cutoff": {
+        "as_of_date": "2026-10-08",
+        "source": "runtime_default"
+      },
+      "trace_parent_id": "episode-protocol-test",
+      "registry": {
+        "read_scope": "full",
+        "tools": [
+          {
+            "name": "market_data",
+            "capability": "market_data",
+            "description": "结构化行情与市场时序",
+            "contract": "",
+            "cost": "local",
+            "freshness": "current",
+            "query_scope": "query",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "检索词本身，纯文本。例：\"瑞华泰 聚酰亚胺薄膜 产能\"。不要再包一层 JSON——写成 \"{\\\"query\\\": \\\"…\\\"}\" 时，系统会拆掉外层并在返回里说明，但那一轮已经浪费了。"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "additionalProperties": false
+            },
+            "produces": [],
+            "min_window_seconds": null,
+            "replay": "safe",
+            "io_effect": "unknown"
+          }
+        ]
+      },
+      "registry_sha256": "b2b4e8ed568b036391f28429f637dc39d48dad73ad3e6a854a60bec896ab2e42"
+    },
+    "evidence_snapshot": {
+      "schema_version": 5,
+      "kind": "episode_evidence",
+      "episode_id": "episode-protocol-test",
+      "information_cutoff": "2026-10-08",
+      "entries": [],
+      "covered_outputs": [],
+      "open_gaps": [
+        "direct_assessment"
+      ],
+      "presentations": [],
+      "sha256": "3b696a8dd522e8830e6e03aafe24c2e3f0f9964468e33e5ba4b7e26483def7b2"
+    },
+    "evidence_snapshot_sequence": 5,
+    "entry_identity": null,
+    "unreconciled_effects": []
+  }
+}

@@ -3,6 +3,8 @@ from __future__ import annotations
 from intelligence.services.episode_protocol import EPISODE_DRAFT_MAX_CHARS
 
 from copy import deepcopy
+from dataclasses import replace
+from datetime import date
 import json
 
 import pytest
@@ -19,6 +21,7 @@ from intelligence.services.research_contract import (
     ResearchTaskContract,
 )
 from intelligence.services.task_frame import TaskFrame
+from intelligence.services.temporal_contract import compile_temporal_contract
 
 
 class RecordingModel:
@@ -96,6 +99,23 @@ def _evidence(content_hash: str = "h1") -> AgentEvidence:
         evidence_tier="L4",
         content_hash=content_hash,
     )
+
+
+def test_actual_recovery_model_request_uses_public_temporal_projection_and_keeps_private_source():
+    original = compile_temporal_contract("复盘2026年9月30日A股，只用截至当日的信息。", today=date(2026, 10, 7),
+                                         message_id="private-ancestor-source")
+    temporal = compile_temporal_contract("继续分析反证", today=date(2026, 10, 7), message_id="current-source",
+                                         previous=original, continuing=True)
+    frame = replace(_frame(), raw_question="继续分析反证", temporal_contract=temporal)
+    model = RecordingModel(ModelTurn("{}", (), "offline", ""))
+    EpisodeFinalizer(model, llm_timeout=1).recover(task_frame=frame, context=_context(frame),
+                                                 evidence=(_evidence(),), gaps=(), failure_reason="invalid_model_finish")
+    assert len(model.calls) == 1
+    sent = model.calls[0]["messages"][1]["content"]
+    assert json.loads(sent)["task_frame"]["temporal_contract"] == temporal.to_model_dict()
+    assert all(marker not in sent for marker in ("private-ancestor-source", temporal.cutoff_source.message_sha256,
+                                               "relative_anchor_sha256", "message_sha256", "excerpt"))
+    assert frame.to_dict()["temporal_contract"]["cutoff_source"] == original.cutoff_source.to_dict()
 
 
 def test_recovery_contains_task_required_outputs_and_existing_evidence_only() -> None:

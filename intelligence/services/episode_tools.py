@@ -7,6 +7,9 @@ used by the Workbench, then exposes them through ``ResearchToolRegistry``.
 
 from __future__ import annotations
 
+from intelligence.services.owned_results import D4_SOURCE_DESCRIPTOR
+from intelligence.services.research_source_context import source_context
+
 import copy
 import json
 from dataclasses import dataclass, replace
@@ -84,6 +87,162 @@ def _market_technical_focus(question: str) -> str:
 # 抄第二份必然分叉，且分叉时没有门禁会发红。
 _NON_EVIDENCE_PREFIXES = agent_research.QUALIFIER_LINE_PREFIXES
 _OFFICIAL_L3_RUNNER = object()
+
+
+def _mainline_value(value: object) -> str:
+    """Retain missing versus real zero in a compact source-row evidence card."""
+    if value is None:
+        return "未提供"
+    if isinstance(value, (int, float)) and value == 0:
+        return "0"
+    return str(value)
+
+
+def mainline_snapshot_tool_result(
+    snapshot: ask_blocks.MainlineContextSnapshot,
+    *,
+    capability: str = "mainline_context",
+) -> ToolRunResult:
+    """Shared D4 projection for both engines: row facts, safe scope, method prose.
+
+    One previewed source row becomes one L4_structured card; computed signals
+    live only in query_basis and ReadingRule guidance only in observation. No
+    renderer parsing, prose filtering or card budget determines table coverage.
+    """
+    evidence = []
+    for fact in snapshot.facts:
+        values = (
+            ("主线涨幅%", fact.today_pct), ("涨停家数", fact.limit_up_count),
+            ("主线净流入1日（源值）", fact.net_inflow_1d), ("主线成交额（源值）", fact.amount),
+            ("周期状态", fact.cycle_status), ("级别", fact.cycle_level),
+            ("启动日期", fact.startup_date_small), ("新高标签", fact.high_status_label),
+            ("接近突破标签", fact.near_breakout_label), ("板块涨幅%", fact.sector_pct),
+            ("成交额环比%", fact.diff_ratio), ("板块成交额亿元", fact.sector_amount),
+            ("申万一级", fact.sw_l1),
+        )
+        detail = (
+            f"{fact.trade_date}；主题={fact.theme_name}（{fact.theme_code}）；"
+            f"板块={fact.sector_name}（{fact.sector_ts_code}）；排序={_mainline_value(fact.sort_no)}；"
+            + "；".join(f"{name}={_mainline_value(value)}" for name, value in values)
+            + f"；涨幅来源={_mainline_value(fact.pct_source)}；"
+            f"成交额来源={_mainline_value(fact.amount_source)}"
+        )
+        item = agent_research.AgentEvidence(
+            tool="mainline_context", title=f"{fact.theme_name} / {fact.sector_name}",
+            detail=detail,
+            source="本地 DuckDB · fact_mainline_sector_daily × fact_sector_daily（published 视图）",
+            source_date=fact.trade_date, evidence_tier="L4_structured", freshness="current",
+            independent_key=json.dumps(
+                [fact.trade_date, fact.theme_code, fact.sector_ts_code], ensure_ascii=False,
+            ),
+        )
+        evidence.append(replace(item, content_hash=agent_research.evidence_content_hash(item)))
+    status = {
+        "available": "success", "stale": "stale", "empty": "empty", "unavailable": "request_error",
+    }[snapshot.status]
+    if snapshot.status == "available":
+        observation = "\n".join([
+            "## 主线题材结构数据块 [D4]",
+            "- 口径：本表当日主题、每组最多预览8行；完整覆盖与历史聚合见 query_basis。"
+            "量价描述不是资金因果或公司基本面证据；diff_ratio 是成交额环比%，不是净流入。",
+            f"- 最新主线日期：{snapshot.snapshot_date}；本表共{snapshot.total_groups}组、"
+            f"{snapshot.total_rows}行，交付{len(evidence)}条板块行情事实。",
+            *(["### 判读指导（方法，不是事实证据）"] if snapshot.guidance else []),
+            *[
+                f"- 判读[{rule.id}] {rule.title}：{rule.rule}；来源：{rule.source}。"
+                for rule in snapshot.guidance
+            ],
+        ])
+    else:
+        observation = ask_blocks.render_mainline_context_snapshot(snapshot)
+    return ToolRunResult(
+        evidence=tuple(evidence), observation=observation,
+        trace=ProviderTrace(
+            provider="agent:mainline_context", capability=capability, status=status,
+            detail="current_mainline_context", requested_date=snapshot.requested_as_of,
+            source_trade_date=snapshot.snapshot_date, result_count=len(evidence),
+        ),
+        gaps=snapshot.gap_messages, dataset="mainline_sector_daily",
+        caliber="fact_mainline_sector_daily × fact_sector_daily（published 视图）",
+        payload_field_names=tuple(ask_blocks.MainlineSectorFact.__dataclass_fields__),
+        query_basis=_mainline_snapshot_query_basis(snapshot),
+        source_context=source_context(
+            role="structured_market_data", status=status,
+            execution_scope={
+                "dataset": "mainline_sector_daily", "source_population": "subset",
+                "scope": "current_table_single_theme" if snapshot.target_theme else "current_table_all_themes",
+                "row_unit": "theme_sector_records", "group_by": ["theme_name"],
+                "requested_as_of": snapshot.requested_as_of,
+                "snapshot_date": snapshot.snapshot_date,
+                "history_window": {"start": snapshot.history_start, "end": snapshot.history_end,
+                                   "unit": "calendar_days", "inclusive": True},
+                "preview_limit_per_group": ask_blocks.MAINLINE_PREVIEW_ROWS_PER_THEME,
+                "preview_meaning": "bounded_sector_rows_in_each_theme; not_all_stock_members",
+                "membership": "group_disjointness_not_established",
+                "member_identities": "not_delivered",
+                "counts_and_values": "query_basis_and_original_evidence",
+            },
+            metric_semantics={
+                "total_rows": "theme_sector_record_count; not_unique_stocks",
+                "total_groups": "theme_groups_in_this_source_table",
+                "history.day_count": "distinct_observed_dates_in_this_source_table_and_window",
+                "history.first_date,last_date": "date_span_of_observations; not_consecutive_days",
+                "history.sector_rows": "theme_sector_records_across_observed_dates; may_repeat_entities",
+                "price_volume": "descriptive_same_key_market_values; no_index_weights_or_capital_causality",
+            },
+            method_sources=tuple({"id": rule.id, "source": rule.source, "role": "method_guidance"}
+                                 for rule in snapshot.guidance),
+        ),
+    )
+
+
+def _mainline_snapshot_query_basis(snapshot: ask_blocks.MainlineContextSnapshot) -> dict[str, object]:
+    """Public execution semantics only: no SQL, physical path, trace or method cards."""
+    return {
+        "schema": D4_SOURCE_DESCRIPTOR["schema"],
+        "scope": "current_table_single_theme" if snapshot.target_theme else "current_table_all_themes",
+        "status": snapshot.status,
+        "market_date": snapshot.market_date,
+        "snapshot_date": snapshot.snapshot_date,
+        "requested_as_of": snapshot.requested_as_of,
+        "target_theme": snapshot.target_theme,
+        "theme_names": [group.theme_name for group in snapshot.groups],
+        "total_rows": snapshot.total_rows,
+        "total_groups": snapshot.total_groups,
+        "preview_limit_per_theme": ask_blocks.MAINLINE_PREVIEW_ROWS_PER_THEME,
+        "ordering": list(ask_blocks._MAINLINE_ORDERING),
+        "groups": [
+            {"theme_name": group.theme_name, "total_rows": group.total_rows,
+             "preview_rows": group.preview_rows, "omitted_rows": group.omitted_rows,
+             "non_null_counts": dict(group.non_null_counts)}
+            for group in snapshot.groups
+        ],
+        "history_window": {
+            "start": snapshot.history_start, "end": snapshot.history_end,
+            "lookback_days": snapshot.lookback_days, "unit": "calendar_days",
+            "inclusive_start": True, "inclusive_end": True,
+        },
+        "history": [
+            {"theme_name": history.theme_name, "day_count": history.day_count,
+             "first_date": history.first_date, "last_date": history.last_date,
+             "sector_rows": history.sector_rows, "has_snapshot_day": history.has_snapshot_day}
+            for history in snapshot.history
+        ],
+        "metric_semantics": dict(D4_SOURCE_DESCRIPTOR["metric_semantics"]),
+        "price_volume_signals": [
+            {"trade_date": signal.trade_date, "theme_code": signal.theme_code,
+             "theme_name": signal.theme_name, "sector_ts_code": signal.sector_ts_code,
+             "sector_pct": signal.sector_pct,
+             "diff_ratio": signal.diff_ratio, "sector_amount": signal.sector_amount,
+             "strict_double_red": signal.strict_double_red, "state": signal.state,
+             "inputs_complete": signal.inputs_complete, "missing_inputs": list(signal.missing_inputs)}
+            for signal in snapshot.signals
+        ],
+        "scope_note": (
+            "本表当日主题的完整计数与每组预览；省略的是板块行而非主题。"
+            "历史出现及缺行均不等于市场存在或不存在，也不能推出排名或资金因果。"
+        ),
+    }
 
 
 def parse_financial_data_request(raw: str) -> tuple[str, tuple[str, ...]]:
@@ -192,6 +351,7 @@ def _finance_payload_kwargs(
     }
     if result is not None:
         payload["query_basis"] = _finance_query_basis(spec, result)
+        payload["source_context"] = finance_query.query_source_context(spec, result)
     return payload
 
 
@@ -363,7 +523,15 @@ def _structured_freshness_floor(
     snapshot_date = _iso_date(context.latest_data_date)
     if snapshot_date is None:
         return None
-    return min(snapshot_date, context.information_cutoff.as_of_date)
+    return min(snapshot_date, _structured_target_bound(context))
+
+
+def _structured_target_bound(context: ResearchRunContext) -> date:
+    cutoff = context.information_cutoff.as_of_date
+    temporal = context.temporal_contract
+    if temporal is not None and temporal.market_target is not None:
+        cutoff = min(cutoff, date.fromisoformat(temporal.market_target.end))
+    return cutoff
 
 
 def _should_attach_overnight_leaders(
@@ -437,15 +605,11 @@ def _overnight_news_evidence(
     else:
         cutoff_text = str(as_of)[:10]
     after_cutoff = bool(not result.items and result.after_cutoff_items)
-    source_items = result.items[:6] or result.after_cutoff_items[:6]
+    source_items = result.items[:6]
     evidence = [
         agent_research.AgentEvidence(
             tool="news_search",
-            title=(
-                f"晚于问句日 {cutoff_text}｜{item.title}"
-                if after_cutoff and cutoff_text
-                else item.title
-            ),
+            title=item.title,
             detail=f"{item.date} {item.source}",
             source=item.url,
             source_date=item.date[:10] or None,
@@ -458,12 +622,8 @@ def _overnight_news_evidence(
         replace(item, content_hash=agent_research.evidence_content_hash(item))
         for item in evidence
     ]
-    if after_cutoff and cutoff_text and evidence:
-        listed = "；".join(f"{item.detail}《{item.title}》" for item in evidence)
-        observation = (
-            f"源返回 {len(evidence)} 条，全部晚于问句日 {cutoff_text}，"
-            f"已标注后交付；不是源里没有。{listed}"
-        )
+    if after_cutoff and cutoff_text:
+        observation = "已检索但内容晚于信息截止日，未交付；不是源里没有。"
     else:
         observation = "；".join(
             f"{item.detail}《{item.title}》" for item in evidence
@@ -481,7 +641,7 @@ def _structured_as_of(context: ResearchRunContext) -> str:
     floor = _structured_freshness_floor(context)
     if floor is not None:
         return floor.isoformat()
-    return context.information_cutoff.as_of_date.isoformat()
+    return _structured_target_bound(context).isoformat()
 
 
 def _is_current_query_stale(
@@ -1525,41 +1685,16 @@ def build_episode_registry(
                 floor=freshness_floor,
                 detail="market_snapshot_newer_than_structured_mainline",
             )
-        block = ask_blocks._market_review_mainline_context_block_for_llm(
+        snapshot = ask_blocks.market_review_mainline_context_snapshot(
             frame.raw_question,
             frame.subject,
             market_db_path,
             as_of=_structured_as_of(context),
+            history_start=(context.history_intent.requested_start
+                           if context.history_intent is not None and context.history_intent.strict_window else None),
         )
         tool_context.check_cancelled()
-        if not block or "当前交易日的题材级主线未知" in block:
-            evidence = []
-            observation = block or "同日主线结构无可用数据"
-        else:
-            evidence, observation = agent_research.block_lines_to_evidence(
-                "mainline_context",
-                block,
-                "本地 DuckDB · D4 同日主线结构",
-                limit=12,
-                detail_chars=1000,
-                source_date=structured_source_date,
-            )
-            evidence = [
-                item
-                for item in evidence
-                if not item.detail.startswith(_NON_EVIDENCE_PREFIXES)
-            ]
-        return (
-            evidence,
-            observation,
-            ProviderTrace(
-                provider="agent:mainline_context",
-                capability="mainline_context",
-                status="success" if evidence else "empty",
-                detail="current_mainline_context",
-                result_count=len(evidence),
-            ),
-        )
+        return mainline_snapshot_tool_result(snapshot)
 
     def official_l3_runner(
         query: str,
@@ -1813,11 +1948,19 @@ def build_episode_registry(
                     dataset_label=value.dataset,
                 )
                 if exit_result is not None:
+                    initial_context = finance_query.query_source_context(bounded_value, result)
                     return replace(
                         exit_result,
                         query_basis={
                             **_finance_query_basis(bounded_value, result),
                             "historical_followup": exit_result.query_basis,
+                        },
+                        source_context={
+                            **initial_context,
+                            "execution_scope": {
+                                **initial_context["execution_scope"],
+                                "historical_followup": exit_result.source_context.get("execution_scope", {}),
+                            },
                         },
                     )
             gaps = result.quality_gaps + (

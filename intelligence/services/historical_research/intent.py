@@ -6,6 +6,8 @@ from dataclasses import dataclass, asdict, replace
 from datetime import date
 import re
 
+from intelligence.services.temporal_contract import _SHORT_RANGE_END
+
 _DISCOVERY = re.compile(
     r"事后(?:复盘|分析|发现)|(?:这一波|这波|那一波|上一波|行情|强势股|板块|题材).{0,32}"
     r"(?:怎么走出来|如何走出来|诞生|回溯|演变|复盘)|"
@@ -35,11 +37,6 @@ _FULL_COMPARISON_REQUEST = re.compile(
     r"(?:收益|后续|历史|普遍|共同).{0,8}规律|规律(?:是否|成立|验证)"
 )
 _DATE = re.compile(r"(?<!\d)(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})日?(?!\d)")
-_SHORT_RANGE_END = re.compile(
-    r"\s*(?:到|至|~|～|—|-)\s*"
-    r"(?:(?P<month>\d{1,2})[月/-](?P<day>\d{1,2})日?|(?P<same_month_day>\d{1,2})日)"
-    r"(?!\d)"
-)
 
 
 @dataclass(frozen=True)

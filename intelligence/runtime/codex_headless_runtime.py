@@ -653,7 +653,7 @@ class CodexHeadlessRuntime:
                     )
             schema_path = run_dir / "episode-finish.schema.json"
             schema_path.write_text(
-                json.dumps(finish_json_schema(context.contract, prior_evidence=context.prior_evidence), ensure_ascii=False, indent=2),
+                json.dumps(finish_json_schema(context=context), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
             with HeadlessToolGateway(
@@ -663,6 +663,7 @@ class CodexHeadlessRuntime:
                 run_dir=run_dir,
                 transport=self._gateway_transport,
                 finalization_floor_ratio=self._finalization_floor_ratio,
+                harness=self._harness,
             ) as gateway:
                 command = self._build_command(
                     task_frame=task_frame,

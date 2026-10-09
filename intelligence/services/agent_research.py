@@ -28,9 +28,11 @@ import re
 import sys
 import time
 import urllib.parse
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Literal
 
 from intelligence.services import (
     closed_loop_retrieval,
@@ -273,6 +275,9 @@ class AgentEvidence:
     # Stamped by the dispatch boundary from the actual runner's audited IO
     # declaration, never inferred from tool/provider names or freshness.
     io_effect: str = "unknown"
+    # Retrieval bucket only, not verified support/counterevidence or an output
+    # binding. Presentation metadata does not change evidence content identity.
+    retrieval_direction: Literal["support", "counter"] | None = None
 
     def to_observation(self, evidence_id: str) -> EvidenceObservation:
         return EvidenceObservation(
@@ -394,9 +399,26 @@ class AgentToolContext:
         return timeout
 
 
-# 工具执行器契约：query (+ 可选 context) -> (evidence 列表, 观察文本, trace)。
-# 单参数 runner 继续兼容测试和外部扩展；内置 runner 都接收 context。
-ToolRunner = Callable[..., tuple[list[AgentEvidence], str, ProviderTrace]]
+@dataclass(frozen=True)
+class AgentToolOutput:
+    """Tool facts/prose plus approved query metadata, never extra evidence.
+
+    ``query_basis`` is the registry's public structured projection. The loop
+    retains it outside observation/recent-step budgets and sends it separately
+    on every subsequent model request. It does not change evidence admission.
+    """
+
+    evidence: tuple[AgentEvidence, ...]
+    observation: str
+    trace: ProviderTrace
+    query_basis: Mapping[str, object] = field(default_factory=dict)
+
+
+ToolQueryBasis = tuple[str, Mapping[str, object]]
+# 单参数 runner 和旧三元 tuple 继续兼容测试与外部扩展。
+ToolRunner = Callable[
+    ..., tuple[list[AgentEvidence], str, ProviderTrace] | AgentToolOutput
+]
 
 
 # 检索**失败**与检索**没有结果**必须让模型区分得开。
@@ -2184,7 +2206,7 @@ def _run_tool(
     context: AgentToolContext,
     *,
     mode: str | None = None,
-) -> tuple[list[AgentEvidence], str, ProviderTrace]:
+) -> tuple[list[AgentEvidence], str, ProviderTrace] | AgentToolOutput:
     if context.deadline.expired:
         raise TimeoutError("agent tool deadline expired")
     if mode is None or not _tool_accepts_mode(runner):
@@ -2243,6 +2265,7 @@ def run_agent_loop(
     task_instructions: str = "",
     research_state: ResearchState | None = None,
     context_block: str = "",
+    preloaded_query_basis: Sequence[ToolQueryBasis] = (),
 ) -> AgentLoopResult:
     """跑一轮 agent 检索循环；任何失败都返回已收集的部分结果（可降级）。
 
@@ -2272,6 +2295,12 @@ def run_agent_loop(
     no_information_steps = 0
     finish_rejections = 0
     premature_gap_rejections = 0
+    # One loop-owned channel for prefetch and live tools. Keep every approved
+    # execution's metadata even when later steps evict its prose from the view.
+    tool_query_basis: list[ToolQueryBasis] = [
+        (tool, deepcopy(dict(basis)))
+        for tool, basis in preloaded_query_basis if basis
+    ]
 
     def untried_required_tools(assessment: str) -> tuple[str, ...]:
         """Return useful tools that have not been attempted for a required output.
@@ -2348,12 +2377,23 @@ def run_agent_loop(
             f"{_research_state_block(result.research_state, result.steps)}\n\n"
             f"剩余检索步数预算：{budget - executed_steps}"
         )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        if tool_query_basis:
+            messages.append({
+                "role": "user",
+                "content": json.dumps({
+                    "tool_query_basis": [
+                        {"tool": tool, "query_basis": dict(basis)}
+                        for tool, basis in tool_query_basis
+                    ],
+                }, ensure_ascii=False),
+            })
         try:
             content, _provider, reason = complete(
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages,
                 timeout=min(float(llm_timeout), remaining),
                 temperature=0.0,
             )
@@ -2565,13 +2605,20 @@ def run_agent_loop(
             if tool in _TOOL_NAMES
             else None
         )
+        query_basis: Mapping[str, object] = {}
         try:
-            evidence, observation, trace = _run_tool(
+            tool_output = _run_tool(
                 tools[tool],
                 tool_query,
                 tool_context,
                 mode=mode,
             )
+            if isinstance(tool_output, AgentToolOutput):
+                evidence = list(tool_output.evidence)
+                observation, trace = tool_output.observation, tool_output.trace
+                query_basis = tool_output.query_basis
+            else:
+                evidence, observation, trace = tool_output
             evidence = [
                 item
                 if item.content_hash
@@ -2579,6 +2626,7 @@ def run_agent_loop(
                 for item in evidence
             ]
         except Exception as exc:  # noqa: BLE001 —— 单工具失败不炸整轮循环
+            query_basis = {}
             evidence, observation = [], f"工具执行失败：{exc}"
             trace = ProviderTrace(
                 provider=f"agent:{tool}",
@@ -2586,6 +2634,8 @@ def run_agent_loop(
                 status="request_error",
                 detail=str(exc)[:200],
             )
+        if query_basis:
+            tool_query_basis.append((tool, deepcopy(dict(query_basis))))
         elapsed_ms = int((time.monotonic() - started) * 1000)
         result.traces.append(trace)
         if hypothesis_ids and stance in {"support", "contradict"}:

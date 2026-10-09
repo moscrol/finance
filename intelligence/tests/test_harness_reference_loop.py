@@ -359,7 +359,9 @@ def test_zero_grant_timeout_is_the_same_machine() -> None:
     assert left[: len(right)] == right
     extra = left[len(right) :]
     assert len(extra) == 1 and extra[0]["role"] == "user"
-    assert str(extra[0]["content"]).endswith("关闭原因：retrieval_deadline_closed")
+    text, description = str(extra[0]["content"]).rsplit("\n", 1)
+    assert text.endswith("关闭原因：retrieval_deadline_closed")
+    assert json.loads(description)["finish_format"]["format"] == "ordinary_answer_parts_v1"
 
     for model in (episode_model, reference_model):
         tool_payloads = [
@@ -569,7 +571,9 @@ def test_reference_loop_closes_research_when_tool_slots_run_out() -> None:
         str(m["content"]) for m in model.calls[-1]["messages"] if m.get("role") == "user"
     ][-1]
     assert last_user.startswith("研究阶段已关闭，不得再调用工具。")
-    assert last_user.endswith("关闭原因：tool_budget_exhausted")
+    text, description = last_user.rsplit("\n", 1)
+    assert text.endswith("关闭原因：tool_budget_exhausted")
+    assert json.loads(description)["finish_format"]["format"] == "ordinary_answer_parts_v1"
     assert [e.kind for e in outcome.events if e.kind == "finalization"] == ["finalization"]
 
 

@@ -368,6 +368,11 @@ def public_agent_evidence(item: AgentEvidence) -> dict[str, object]:
         "freshness": item.freshness,
         "content_hash": item.content_hash,
         **({"io_effect": item.io_effect} if item.io_effect != "unknown" else {}),
+        **(
+            {"retrieval_direction": item.retrieval_direction}
+            if item.retrieval_direction is not None
+            else {}
+        ),
     }
 
 

@@ -157,15 +157,17 @@ class TestShippedContracts:
         assert "不要反复重试" in contract
 
     def test_evidence_search_flags_the_mixed_stance_list(self) -> None:
-        """``_project_evidence`` 把 conclusion 与 counter_clues 合成同一个列表，
-        立场只在 observation 的 ``[支持]``/``[反方]`` 前缀里，AgentEvidence 不带该字段。
+        """支持与反方证据合并返回，逐卡 ``retrieval_direction`` 保留实际检索分桶。
 
-        只从证据列表引用就会把反证当成支持性证据——这是本工具独有的误读。
+        分桶不授予独立反证、事实硬度或输出支持资格，引用仍须核对正文、来源与时点。
         """
         contract = reg._TOOL_CONTRACTS["evidence_search"]
 
-        assert "反方" in contract
-        assert "不要把反证当成支持性证据" in contract
+        assert "逐卡 retrieval_direction" in contract
+        assert "support=支持方向" in contract
+        assert "counter=反方方向" in contract
+        assert "分桶不认证独立反证、事实硬度或对某个输出的支持/矛盾" in contract
+        assert "引用时仍须根据原正文、来源与时点判断" in contract
 
     def test_evidence_search_declares_its_cost(self) -> None:
         """2026-08-10 实测冷调用 28.2s，占满当时 30s 工具批次的 94%。"""

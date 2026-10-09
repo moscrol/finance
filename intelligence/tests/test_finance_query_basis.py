@@ -128,6 +128,7 @@ def test_executed_query_basis_survives_registry_and_model_budget(query_case, mon
     assert executed.limit == result.audit.applied_limit == result.audit.row_count == cap
     assert len(observation.evidence) == cap
     assert facing["context_budget"]["truncated"] is True
+    assert facing["source_context"] == observation.source_context
     assert f"截断至 {cap} 条" in facing["observation"]
     assert "实际覆盖" in facing["observation"]
     basis = facing["query_basis"]
@@ -163,6 +164,22 @@ def test_no_order_or_window_is_not_invented(query_case):
     assert basis["requested_time_range"] is None
     assert basis["filters"] == []
     assert basis["candidate_pool_size"] is None
+
+
+def test_finance_source_context_reaches_real_registry_and_model(query_case):
+    execute, _, _ = query_case
+    observation, projection, facing = execute()
+
+    context = facing["source_context"]
+    assert context == observation.source_context == projection.audit_payload["source_context"]
+    assert context["schema"] == "research_source_context_v1"
+    assert context["result_status"] == observation.trace.status == "success"
+    assert context["role"] == "structured_market_data"
+    assert context["execution_scope"]["dataset"] == "sector_daily"
+    assert context["metric_semantics"]["amount"]["aggregation"] == "none"
+    assert context["qualifications"]["unique_stock_count"] == "unknown"
+    assert context["qualifications"]["index_contribution"] == "unknown"
+    assert context["qualifications"]["capital_cause"] == "unknown"
 
 
 @pytest.mark.parametrize("query_case", [3], indirect=True)
@@ -220,6 +237,11 @@ def test_grouped_query_keeps_scope_and_full_group_calculation(query_case):
     assert basis["applied_limit"] == basis["returned_row_count"] == 2
     assert basis["candidate_pool_size"] is None
     assert "每组统计基于筛选后全部记录" in facing["observation"]
+    context = facing["source_context"]
+    assert context["metric_semantics"]["amount"]["aggregation"] == "sum"
+    assert context["execution_scope"]["group_inputs"] == "all_filtered_records_before_group_limit"
+    assert context["execution_scope"]["returned_row_count"] == 2
+    assert context["qualifications"]["unique_stock_count"] == "unknown"
 
 
 def test_multiple_filters_and_order_keys_keep_the_executed_meaning(query_case):
@@ -278,6 +300,11 @@ def test_empty_window_and_historical_followup_keep_separate_query_scopes(query_c
     assert followup["order_by"] == [{"field": "trade_date", "direction": "desc"}]
     assert followup["candidate_pool_size"] is None
     assert "历史记录不代替请求窗口内缺失的事实" in "".join(facing["gaps"])
+    scope = facing["source_context"]["execution_scope"]
+    assert scope["requested_time_range"] == {"start": "2026-07-23", "end": "2026-07-23"}
+    assert scope["returned_row_count"] == 0
+    assert scope["historical_followup"]["requested_time_range"] is None
+    assert scope["historical_followup"]["returned_row_count"] == 1
 
 
 def test_normalization_is_reflected_in_executed_contract(query_case):
@@ -302,11 +329,13 @@ def test_failed_query_does_not_advertise_an_executed_contract(query_case):
     assert observation.trace.status == "parse_error" and facing["ok"] is False
     assert not calls
     assert "query_basis" not in facing
+    assert "source_context" not in facing
 
 
 def test_query_basis_also_survives_repeated_prose_pruning(query_case):
     execute, _, _ = query_case
     observation, first, _ = execute()
+    assert first.audit_payload["source_context"] == observation.source_context
     repeated = FinanceResearchHarness().project_tool_result(
         replace(observation, telemetry={"private_runtime_path": "/secret/audit"}),
         evidence_so_far=observation.evidence,
@@ -315,4 +344,75 @@ def test_query_basis_also_survives_repeated_prose_pruning(query_case):
     facing = json.loads(repeated.model_content)
     assert facing["noise_prune"]["collapsed_prose"] is True
     assert facing["query_basis"] == observation.query_basis
+    assert facing["source_context"] == observation.source_context
     assert "telemetry" not in facing and "/secret/audit" not in repeated.model_content
+
+
+def test_overlapping_heat_group_sums_never_become_unique_stocks_or_concentration(query_case):
+    execute, calls, db_path = query_case
+    with duckdb.connect(str(db_path)) as con:
+        con.execute("CREATE TABLE fact_theme_limit_heat_daily (trade_date DATE, sector_ts_code VARCHAR, "
+                    "sector_name VARCHAR, limit_up_count INTEGER)")
+        con.executemany("INSERT INTO fact_theme_limit_heat_daily VALUES (?, ?, ?, ?)", [
+            (day, sector, name, count) for day in ("2026-07-22", "2026-07-23")
+            for sector, name, count in (("AA", "主题甲", 3), ("BB", "主题乙", 4))
+        ])
+    observation, _, facing = execute(
+        dataset="theme_limit_heat_daily", metrics=["limit_up_count"], dimensions=["sector_code"],
+        group_by=["sector_code"], filters=[], order_by=[], limit=2,
+    )
+    assert [row["limit_up_count"] for row in calls[0][1].rows] == [6, 8]
+    assert observation.trace.status == "success"
+    context = facing["source_context"]
+    assert context["execution_scope"]["source_population"] == "full"
+    assert context["execution_scope"]["membership"] == "may_overlap"
+    assert context["execution_scope"]["member_identities"] == "not_delivered"
+    assert context["execution_scope"]["candidate_population_count"] == "unknown_not_counted"
+    assert context["metric_semantics"]["limit_up_count"]["aggregation"] == "sum"
+    assert context["qualifications"]["unique_stock_count"] == "unknown"
+    assert context["qualifications"]["concentration_from_group_sum"] == "unknown"
+    assert context["qualifications"]["group_disjointness"] == "unknown"
+
+
+def test_partial_and_empty_source_context_keep_real_result_status(query_case):
+    execute, _, db_path = query_case
+    with duckdb.connect(str(db_path)) as con:
+        con.execute("UPDATE fact_sector_daily SET pct_chg = NULL WHERE sector_ts_code = '880049.TI'")
+    observation, _, facing = execute(
+        metrics=["return_pct"], filters=[{"field": "sector_code", "op": "eq", "value": "880049.TI"}],
+        order_by=[], limit=5,
+    )
+    assert observation.trace.status == facing["source_context"]["result_status"] == "partial"
+    assert facing["source_context"]["qualifications"]["calendar_continuity"] == "unknown"
+    observation, _, facing = execute(filters=[{"field": "sw_l1", "op": "eq", "value": "未命中行业"}])
+    assert observation.trace.status == facing["source_context"]["result_status"] == "empty"
+    assert facing["source_context"]["execution_scope"]["returned_row_count"] == 0
+
+
+@pytest.mark.parametrize("invalid", [None, float("nan"), float("inf"), float("-inf")])
+def test_amount_summary_semantics_follow_actual_finite_sample_through_registry(query_case, invalid):
+    execute, calls, db_path = query_case
+    with duckdb.connect(str(db_path)) as con:
+        con.execute("CREATE TABLE fact_stock_daily (trade_date DATE, stock_ts_code VARCHAR, "
+                    "stock_name VARCHAR, amount DOUBLE)")
+        con.executemany("INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?)", [
+            (day, "000001.SZ", "样本", value) for day, value in (
+                ("2026-07-20", 0), ("2026-07-21", 10),
+                ("2026-07-22", -2), ("2026-07-23", invalid),
+            )
+        ])
+    observation, projection, facing = execute(
+        dataset="stock_daily", metrics=["amount_mean", "amount_valid_count"],
+        dimensions=["stock_code"], group_by=["stock_code"], filters=[], order_by=[],
+        time_range={"start": "2026-07-20", "end": "2026-07-23"}, limit=1,
+    )
+    result = calls[0][1]
+    assert result.rows == ({"stock_code": "000001.SZ", "amount_mean": pytest.approx(8 / 3),
+                           "amount_valid_count": 3},)
+    semantics = facing["source_context"]["metric_semantics"]
+    assert semantics["amount_valid_count"]["aggregation"] == "count_finite_amount_records_including_zero_and_negative"
+    assert semantics["amount_mean"]["input_scope"] == semantics["amount_valid_count"]["input_scope"] == (
+        "finite_amount_records_including_zero_and_negative"
+    )
+    assert facing["source_context"] == observation.source_context == projection.audit_payload["source_context"]
+    assert "有效成交额样本数=3" in facing["evidence"][0]["detail"]

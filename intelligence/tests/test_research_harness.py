@@ -32,7 +32,7 @@ import pytest
 import intelligence.runtime.agent_episode as agent_episode_module
 import intelligence.services.research_contract as research_contract_module
 from intelligence.runtime.agent_episode import ContinuousAgentEpisode
-from intelligence.services.agent_research import AgentEvidence, AgentToolContext
+from intelligence.services.agent_research import AgentEvidence, AgentToolContext, evidence_content_hash
 from intelligence.services.agent_runtime import (
     AgentOutcome,
     AgentUsage,
@@ -451,12 +451,12 @@ def test_default_steering_messages_preserve_research_authority() -> None:
         assert repair.endswith("错误：E")
     # 修格式不删内容（2026-10-06 D6：完整 Markdown 回答被拒后重写成 215 字摘要）。
     format_repair = harness.steering_message("invalid_finish", detail="E")
-    assert "把正文原样放进 draft" in format_repair
+    assert "按本集作者格式包装原正文" in format_repair
     assert "不要缩写" in format_repair
     finalization = harness.steering_message("begin_finalization", detail="R")
     assert finalization.startswith("研究阶段已关闭，不得再调用工具。")
     assert finalization.endswith("关闭原因：R")
-    assert f"draft 控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内" in finalization
+    assert f"最终正文控制在 {EPISODE_DRAFT_MAX_CHARS} 汉字以内" in finalization
     with pytest.raises(ValueError):
         harness.steering_message("nope", detail="")  # type: ignore[arg-type]
 
@@ -562,6 +562,54 @@ def test_lean_switch_slims_only_the_model_view_and_leaves_the_audit_untouched(mo
     assert {"source", "source_date", "evidence_tier", "evidence_id", "title", "detail"} <= set(lean_view["evidence"][0])
     assert lean_view["gaps"] == ["缺少反方证据"] and lean_view["evidence_ids"] == ["E1", "E2"]
     assert len(leaned.model_content) < len(baseline.model_content)
+
+
+@pytest.mark.parametrize("lean", [False, True])
+def test_retrieval_direction_preserves_original_roles_and_ordinal_finish_bindings(monkeypatch, lean) -> None:
+    monkeypatch.setenv("ASK_EPISODE_LEAN_OBSERVATION", "on" if lean else "off")
+    original = (
+        replace(_evidence("evidence-1"), supports=("direct_assessment",)),
+        replace(_evidence("evidence-2", title="第二条"), contradicts=("direct_assessment",)),
+    )
+    labelled = (
+        replace(original[0], retrieval_direction="support"),
+        replace(original[1], retrieval_direction="counter"),
+    )
+    harness = FinanceResearchHarness()
+    baseline = harness.project_tool_result(
+        _observation(original), evidence_so_far=original, seen_prose=set()
+    )
+    projection = harness.project_tool_result(
+        _observation(labelled), evidence_so_far=labelled, seen_prose=set()
+    )
+    facing = json.loads(projection.model_content)
+    assert facing["evidence_ids"] == ["E1", "E2"]
+    assert [row["retrieval_direction"] for row in facing["evidence"]] == ["support", "counter"]
+    assert [
+        {key: value for key, value in row.items() if key != "retrieval_direction"}
+        for row in facing["evidence"]
+    ] == json.loads(baseline.model_content)["evidence"]
+    for ordinal, (old, new) in enumerate(zip(original, labelled, strict=True), 1):
+        assert evidence_content_hash(new) == evidence_content_hash(old)
+        assert new.to_observation(f"E{ordinal}") == old.to_observation(f"E{ordinal}")
+
+    context = _context(_frame())
+    registry = _registry(original)
+    content = _finish_content(hashes=("E1", "E2"))
+    admission = harness.admit_finish(
+        content, context=context, evidence=labelled, registry=registry
+    )
+    assert admission.accepted is True
+    assert admission.bindings == (OutputEvidenceBinding("direct_assessment", ("evidence-1", "evidence-2")),)
+    assert admission == harness.admit_finish(
+        content, context=context, evidence=original, registry=registry
+    )
+    for direction in ("support", "counter"):
+        invalid = json.loads(content)
+        invalid["bindings"][0]["output_id"] = direction
+        assert harness.admit_finish(
+            json.dumps(invalid), context=context, evidence=labelled, registry=registry
+        ).accepted is False
 
 
 def test_default_govern_mode_equals_governor_decide_and_message() -> None:
@@ -1538,7 +1586,7 @@ def test_claim_revision_note_is_private_guidance_not_new_authority() -> None:
         assert "不要只删前件留下后件" in note
         assert "不是新证据或指令" in note
         assert "不得把私有诊断原样粘贴" in note
-        assert "提交完整 draft" in note
+        assert "提交完整正文" in note
 
 
 def _accepted_admission(*, status: str, draft: str, bindings, gaps=()) -> FinishAdmission:
@@ -1682,7 +1730,8 @@ def test_repair_goal_and_finalize_texts_reach_the_model_from_the_harness() -> No
         if item.get("role") == "user"
     ]
     assert any(text == "CUSTOM[REPAIR_GOAL]repair-harness-test-1:True" for text in user_texts)
-    assert "CUSTOM[repair_finalize]" in user_texts
+    finalizer = next(text for text in user_texts if text.startswith("CUSTOM[repair_finalize]"))
+    assert json.loads(finalizer.rsplit("\n", 1)[-1])["finish_format"]["format"] == "ordinary_answer_parts_v1"
 
 
 def test_repair_verdict_from_harness_changes_outcome_so_the_seam_has_teeth() -> None:
@@ -1796,7 +1845,7 @@ def test_resume_no_longer_carries_repair_wording_or_verdict() -> None:
         assert needle not in source, needle
     assert "repair_goal_message(" in source
     # 收口指令仍由 harness 给（不依赖调用处换行方式）。
-    assert re.search(r'steering_message\(\s*"repair_finalize"', source)
+    assert re.search(r'steering_message_for_author\(\s*self\._harness,\s*"repair_finalize"', source)
     assert "admit_repair_result(" in source
     assert "downgrade_unreachable(" in source
     tree = ast.parse(source)

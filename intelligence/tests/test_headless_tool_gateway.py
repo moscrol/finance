@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -21,6 +22,7 @@ from intelligence.runtime.headless_tool_gateway import (
     HeadlessToolGateway,
 )
 from intelligence.services.provider_observability import ProviderTrace
+from intelligence.services.research_harness import FinanceResearchHarness
 from intelligence.services.research_contract import (
     InMemoryRootBudgetLedger,
     RequiredOutput,
@@ -33,6 +35,7 @@ from intelligence.services.research_tool_registry import (
     EMPTY_TOOL_PARAMETERS,
     InvalidResearchToolArguments,
     ResearchToolRegistry,
+    ToolRunResult,
     ToolSpec,
     parse_snapshot_arguments,
 )
@@ -155,16 +158,257 @@ def test_gateway_executes_authorized_registry_tool() -> None:
         snapshot = gateway.snapshot()
 
     assert result["status"] == "success"
-    assert result["evidence_hashes"] == ["market-hash"]
+    assert result["evidence_ids"] == ["E1"]
     assert result["budget"]["remaining_tool_calls"] == 2
     assert result["budget"]["must_finalize"] is False
     assert calls == [("market_data", "A股最近五日")]
     assert snapshot.evidence[0].content_hash == "market-hash"
     assert snapshot.executed_count == 1
-    assert [event.kind for event in snapshot.events] == [
-        "tool_request",
-        "tool_result",
-    ]
+    assert [event.kind for event in snapshot.events] == ["tool_request", "tool_result"]
+
+
+@pytest.mark.parametrize("status", ["success", "partial", "stale", "empty", "request_error"])
+def test_gateway_preserves_domain_status_and_query_basis_in_real_response(status):
+    evidence = AgentEvidence(
+        tool="market_data", title="观察", detail="公开事实", source="公开本地来源",
+        source_date="2026-07-24", evidence_tier="L4", content_hash="private-evidence-hash",
+    )
+    result = ToolRunResult(
+        (evidence,) if status in {"success", "partial", "stale"} else (), "观察",
+        ProviderTrace(provider="private-provider", capability="market_data", status=status),
+        query_basis={"returned_row_count": 1, "row_unit": "groups"},
+        telemetry={"private_counter": "private-telemetry"},
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="market_data", capability="market_data", description="测试观察",
+        cost="local", freshness="current", runner=lambda _q, _c: result,
+        io_effect="local_read",
+    ),))
+    with HeadlessToolGateway(registry=registry, context=_context()) as gateway:
+        facing = gateway.call("market_data", "观察")
+        snapshot = gateway.snapshot()
+    assert facing["status"] == status
+    assert facing["query_basis"] == result.query_basis
+    assert "private-evidence-hash" not in json.dumps(facing)
+    assert "private-telemetry" not in json.dumps(facing)
+    assert "private-provider" not in json.dumps(facing)
+    audit = next(event.payload for event in snapshot.events if event.kind == "tool_result")
+    assert audit["status"] == status and audit["query_basis"] == result.query_basis
+    assert audit["telemetry"] == {"private_counter": "private-telemetry"}
+
+
+def _owned_delivery_case():
+    from intelligence.tests.owned_result_support import frame_context, source_fixture
+
+    source = source_fixture()
+    result = ToolRunResult(
+        source.evidence, source.observation, source.trace, dataset=source.dataset,
+        caliber=source.caliber, payload_field_names=source.payload_field_names,
+        query_basis=source.query_basis,
+    )
+    registry = ResearchToolRegistry((ToolSpec(
+        name="mainline_context", capability="mainline_context", description="主线",
+        cost="local", freshness="current", io_effect="local_read",
+        runner=lambda _query, _context: result,
+    ),))
+
+    class DeliveryHarness(FinanceResearchHarness):
+        def __init__(self):
+            self.acknowledged = Event()
+            self.receipts = []
+
+        def acknowledge_tool_result(self, observation, projection, **kwargs):
+            self.receipts.append(projection)
+            super().acknowledge_tool_result(observation, projection, **kwargs)
+            self.acknowledged.set()
+
+    return registry, frame_context()[1], DeliveryHarness()
+
+
+@pytest.mark.parametrize("transport", ["http", "mailbox"])
+def test_successful_wrapper_response_seals_same_event_before_ack_and_restore(transport):
+    from intelligence.services.owned_results import _rebuild_owned_sources
+    from intelligence.tests.owned_result_support import frame_context
+
+    registry, context, harness = _owned_delivery_case()
+    with HeadlessToolGateway(registry=registry, context=context, harness=harness,
+                             transport=transport) as gateway:
+        command = [str(gateway.wrapper_path), "mainline_context", "主线"]
+        completed = subprocess.run(command, env={**os.environ, **gateway.subprocess_environment()},
+                                   capture_output=True, text=True, check=True, timeout=10)
+        facing = json.loads(completed.stdout)
+        assert harness.acknowledged.wait(2)
+        snapshot = gateway.snapshot()
+        assert len(context._owned_result_sources) == 1
+        duplicate = subprocess.run(command, env={**os.environ, **gateway.subprocess_environment()},
+                                   capture_output=True, text=True, check=True, timeout=10)
+        assert json.loads(duplicate.stdout)["error"] == "duplicate_query"
+        assert len(context._owned_result_sources) == len(harness.receipts) == 1
+    audit = next(event.payload for event in snapshot.events if event.kind == "tool_result")
+    assert audit["model_content"] == completed.stdout
+    assert audit["model_content_sha256"] == hashlib.sha256(completed.stdout.encode()).hexdigest()
+    assert len(facing["evidence_ids"]) == len(snapshot.evidence) == 24
+    assert "payload_sha256" not in facing and "telemetry" not in facing
+    assert all("content_hash" not in item for item in facing["evidence"])
+    assert all(item.content_hash not in completed.stdout for item in snapshot.evidence)
+    assert len(audit["evidence_hashes"]) == 24
+    assert "budget" in json.loads(audit["model_content"])
+    assert len([event for event in snapshot.events if event.kind == "tool_result"]) == 1
+    recovered = frame_context()[1]
+    _rebuild_owned_sources(snapshot.events, context=recovered, evidence=snapshot.evidence)
+    assert len(recovered._owned_result_sources) == 1
+
+
+@pytest.mark.parametrize("transport", ["http", "mailbox"])
+def test_failed_response_keeps_audit_and_consumption_without_ack_or_restore(transport, tmp_path, monkeypatch):
+    from io import BytesIO
+    from types import SimpleNamespace
+    from intelligence.services.owned_results import _rebuild_owned_sources
+    from intelligence.services.agent_runtime import EpisodeEvent
+    from intelligence.tests.owned_result_support import frame_context
+
+    registry, context, harness = _owned_delivery_case()
+    gateway = HeadlessToolGateway(registry=registry, context=context, harness=harness, transport=transport)
+
+    def fail_write(*_args, **_kwargs):
+        raise OSError("injected physical response write failure")
+
+    if transport == "http":
+        body = json.dumps({"query": "主线"}).encode()
+        handler = SimpleNamespace(
+            headers={"Authorization": f"Bearer {gateway._bearer}", "Content-Length": str(len(body))},
+            path="/tool/mainline_context", rfile=BytesIO(body),
+        )
+        monkeypatch.setattr(gateway, "_send", fail_write)
+        with pytest.raises(OSError):
+            gateway._serve_request(handler)
+    else:
+        request = tmp_path / ("a" * 32 + ".json")
+        request.write_text(json.dumps({"tool": "mainline_context", "query": "主线"}))
+        monkeypatch.setattr(gateway, "_write_mailbox_response", fail_write)
+        gateway._process_mailbox_request(request, tmp_path / "response")
+    snapshot = gateway.snapshot()
+    assert snapshot.executed_count == 1 and len(snapshot.evidence) == 24
+    assert not harness.receipts and not context._owned_result_sources
+    audit = next(event.payload for event in snapshot.events if event.kind == "tool_result")
+    assert "owned_results" in audit
+    assert "model_content" not in audit and "model_content_sha256" not in audit
+    serialized = json.loads(json.dumps([event.to_dict() for event in snapshot.events]))
+    events = tuple(EpisodeEvent(event["sequence"], event["kind"], event["payload"]) for event in serialized)
+    recovered = frame_context()[1]
+    _rebuild_owned_sources(events, context=recovered, evidence=snapshot.evidence)
+    assert not recovered._owned_result_sources
+
+
+def test_cancellation_after_runner_does_not_ack_or_offer_recovery_witness():
+    registry, context, harness = _owned_delivery_case()
+    cancelled = Event()
+    spec = registry.authorized_specs(context.contract.allowed_capabilities)[0]
+    runner = spec.runner
+
+    def cancelling_runner(value, tool_context):
+        result = runner(value, tool_context)
+        cancelled.set()
+        return result
+
+    registry = ResearchToolRegistry((replace(spec, runner=cancelling_runner),))
+    with HeadlessToolGateway(registry=registry, context=context, harness=harness,
+                             is_cancelled=cancelled.is_set) as gateway:
+        facing = gateway.call("mainline_context", "主线")
+        snapshot = gateway.snapshot()
+    assert facing["status"] != "success"
+    assert not harness.receipts and not context._owned_result_sources
+    assert not any(event.kind == "tool_result" for event in snapshot.events)
+
+
+def test_permission_withdrawn_after_response_write_cannot_ack_or_restore(monkeypatch):
+    from intelligence.services.owned_results import _rebuild_owned_sources
+    from intelligence.tests.owned_result_support import frame_context
+
+    registry, context, harness = _owned_delivery_case()
+    original_send = HeadlessToolGateway._send
+
+    def withdraw_after_write(handler, status, payload):
+        original_send(handler, status, payload)
+        monkeypatch.setattr(gateway, "_context", replace(
+            context, contract=replace(context.contract, allowed_capabilities=()),
+        ))
+
+    monkeypatch.setattr(HeadlessToolGateway, "_send", staticmethod(withdraw_after_write))
+    with HeadlessToolGateway(registry=registry, context=context, harness=harness) as gateway:
+        facing = gateway.call("mainline_context", "主线")
+    snapshot = gateway.snapshot()
+    assert facing["status"] == "success"
+    assert not harness.receipts and not context._owned_result_sources
+    assert all("model_content" not in event.payload and "model_content_sha256" not in event.payload
+               for event in snapshot.events if event.kind == "tool_result")
+    assert snapshot.executed_count == 1 and len(snapshot.evidence) == 24
+    recovered = frame_context()[1]
+    _rebuild_owned_sources(snapshot.events, context=recovered, evidence=snapshot.evidence)
+    assert not recovered._owned_result_sources
+
+
+@pytest.mark.parametrize("transport", ["http", "mailbox"])
+@pytest.mark.parametrize("withdrawal", ["closed", "scope_permission"])
+def test_withdrawn_publication_keeps_audit_without_restorable_witness(tmp_path, monkeypatch, transport, withdrawal):
+    from io import BytesIO
+    from types import SimpleNamespace
+    from intelligence.services.agent_runtime import EpisodeEvent
+    from intelligence.services.episode_scope import Authorization
+    from intelligence.services.owned_results import _rebuild_owned_sources
+    from intelligence.tests.owned_result_support import frame_context
+
+    registry, context, harness = _owned_delivery_case()
+    gateway = HeadlessToolGateway(registry=registry, context=context, harness=harness, transport=transport)
+    before = []
+
+    def withdraw():
+        before.append(gateway.snapshot())
+        if withdrawal == "closed":
+            gateway.close()
+        else:
+            monkeypatch.setattr(gateway, "_scope", SimpleNamespace(authorize=lambda tool: Authorization(
+                False, tool, "mainline_context", "current_scope_permission_withdrawn",
+            )))
+
+    if transport == "http":
+        class WithdrawingSink(BytesIO):
+            def write(self, raw):
+                withdraw()
+                return super().write(raw)
+
+        sink = WithdrawingSink()
+        body = json.dumps({"query": "主线"}).encode()
+        gateway._serve_request(SimpleNamespace(
+            headers={"Authorization": f"Bearer {gateway._bearer}", "Content-Length": str(len(body))},
+            path="/tool/mainline_context", rfile=BytesIO(body), wfile=sink,
+            send_response=lambda _status: None, send_header=lambda *_args: None, end_headers=lambda: None,
+        ))
+        assert json.loads(sink.getvalue())["status"] == "success"
+    else:
+        request = tmp_path / ("d" * 32 + ".json")
+        response = tmp_path / "published.json"
+        request.write_text(json.dumps({"tool": "mainline_context", "query": "主线"}))
+        original_write = gateway._write_mailbox_response
+
+        def withdrawing_write(path, payload, **kwargs):
+            withdraw()
+            return original_write(path, payload, **kwargs)
+
+        monkeypatch.setattr(gateway, "_write_mailbox_response", withdrawing_write)
+        gateway._process_mailbox_request(request, response)
+        assert json.loads(response.read_text())["status"] == "success"
+    snapshot = gateway.snapshot()
+    assert snapshot.executed_count == 1 and len(snapshot.evidence) == 24
+    assert not harness.receipts and not context._owned_result_sources
+    audit = next(event.payload for event in snapshot.events if event.kind == "tool_result")
+    assert "model_content" not in audit and "model_content_sha256" not in audit
+    assert all("model_content" not in event.payload for event in before[0].events)
+    serialized = json.loads(json.dumps([event.to_dict() for event in snapshot.events]))
+    events = tuple(EpisodeEvent(event["sequence"], event["kind"], event["payload"]) for event in serialized)
+    recovered = frame_context()[1]
+    _rebuild_owned_sources(events, context=recovered, evidence=snapshot.evidence)
+    assert not recovered._owned_result_sources
 
 
 def test_gateway_bind_skips_reverse_dns_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -790,7 +1034,7 @@ def test_mailbox_gateway_executes_without_network_or_bearer() -> None:
         wrapper = gateway.wrapper_path.read_text(encoding="utf-8")
 
     assert result["status"] == "success"
-    assert result["evidence_hashes"] == ["market-hash"]
+    assert result["evidence_ids"] == ["E1"]
     assert calls == [("market_data", "A股最近五日")]
     assert snapshot.executed_count == 1
     assert len(snapshot.mailbox_exchanges) == 1

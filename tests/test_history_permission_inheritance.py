@@ -192,15 +192,20 @@ def test_real_orchestrator_replays_elliptical_turns(tmp_path, monkeypatch):
     def controller(raw, **kwargs):
         captured.append(decide_turn(raw, **kwargs, llm_complete=_offline,
                                     resolver=QueryResolver(knowledge=OfflineKnowledge())))
+        return captured[-1]
+
+    def stop_after_freeze(*_args, **_kwargs):
         raise Reached
 
     monkeypatch.setattr(runtime, "decide_turn", controller)
+    monkeypatch.setattr(runtime.ResearchPlan, "from_intent", stop_after_freeze)
     store = ConversationStore("history", root=tmp_path / "conversations")
     runs = RunStore("history", root=tmp_path / "runs")
     conv = store.create_conversation()
     orchestrator = runtime.TurnOrchestrator(repo_root=tmp_path, conversation_store=store, run_store=runs)
+    previous_run = None
     for query in (BASE, *FOLLOWUPS, *FOLLOWUPS):
-        run = runs.create_run(query, "ask", session_id=conv.conversation_id)
+        run = runs.create_run(query, "ask", session_id=conv.conversation_id, parent_run_id=previous_run)
         store.append_message(conv.conversation_id, "user", query, run_id=run.run_id)
         pending = store.append_message(conv.conversation_id, "assistant", "", status="running", run_id=run.run_id)
         with pytest.raises(Reached):
@@ -211,6 +216,8 @@ def test_real_orchestrator_replays_elliptical_turns(tmp_path, monkeypatch):
         assert_local(decision, tmp_path)
         store.append_message(conv.conversation_id, "assistant", "可以联网，截止到2026年9月20日。",
                              turn_intent=decision.turn_intent.to_dict(), run_id=run.run_id)
+        runs.finish_run(run.run_id, "completed")
+        previous_run = run.run_id
     assert len(captured) == 5
 
 
@@ -248,10 +255,12 @@ def test_legacy_controller_cannot_replace_trusted_ceiling(query, trusted_history
     store = ConversationStore("history", root=tmp_path / "conversations")
     runs = RunStore("history", root=tmp_path / "runs")
     conv = store.create_conversation()
-    store.append_message(conv.conversation_id, "user", BASE, run_id="prior")
-    store.append_message(conv.conversation_id, "assistant", "可以联网。", run_id="prior",
-                         turn_intent=previous.to_dict())
-    run = runs.create_run(query, "ask", session_id=conv.conversation_id)
+    from tests.test_history_live_seams import _persist_frozen_prior
+
+    prepared = _persist_frozen_prior(store, runs, conv.conversation_id, BASE, tmp_path, monkeypatch)
+    assert prepared.task_frame.history_intent == previous.history_intent
+    run = runs.create_run(query, "ask", session_id=conv.conversation_id,
+                          parent_run_id=store.load_conversation(conv.conversation_id).last_run_id)
     store.append_message(conv.conversation_id, "user", query, run_id=run.run_id)
     pending = store.append_message(conv.conversation_id, "assistant", "", status="running", run_id=run.run_id)
     orchestrator = runtime.TurnOrchestrator(
