@@ -1,30 +1,30 @@
 ## This Branch
-Delete L2 download artifacts after every completed attempt, including failures and normal termination. User authorized both immediate cleanup and the new retention policy.
+L2 downloads are cleaned ONLY after confirmed success. The user's latest clarification overrides the earlier interpretation: failed or interrupted attempts retain archives and resumable parts.
 
 ## Decisions
 | Selected | Rejected | Reason |
 | --- | --- | --- |
-| Date-scoped cleanup in finally | Keep failed archives for retry | Six retained archives occupied 29.63 GiB; retry can download again. |
-| Patch the existing nightly base ffe1c60d84da | Switch nightly to newer main or edit its frozen tree | Isolate this change from unrelated releases and preserve rollback. |
-| Pin generation to its original root | Let generation inherit the new root | Preserve the existing generation deployment. |
+| Cleanup after processing and metadata writes succeed | Unconditional finally cleanup | An unsuccessful attempt must retain its download for retry. |
+| Cleanup on already_complete only after existing data checks pass | Delete based only on exit or elapsed time | Previously completed work is eligible only after ledger/result validation. |
+| Keep path/symlink guards and visible cleanup errors | Remove all prior safeguards | Success-only retention does not weaken deletion boundaries. |
 
-Details: ../2026-10-09-l2-download-cleanup.md.
+Current decision record: ../2026-10-09-l2-success-only-cleanup.md. The earlier l2-download-cleanup snapshot is historical, not the current policy.
 
 ## Current State
-Source commit e47d3308c is local on this branch. Nightly snapshot 08bd01154 is installed at ~/.finance-runtime/finance-l2-cleanup-1009 and locked against worktree cleanup. LaunchAgent configuration is loaded, not started. No main merge, push or PR was performed.
+Source fix a0e2742ba is local on this branch. Deployed runtime f08653925 is at ~/.finance-runtime/finance-l2-cleanup-1009, detached and worktree-locked; named ref fix/l2-success-runtime-1009 also preserves it. The earlier 08bd01154 policy is superseded. LaunchAgent loaded, not started; no main merge, push or PR.
 
 ## Verified
-- Source: 154 related tests passed; clean e47d3308c rerun: 81 passed.
-- Installed snapshot, original production interpreter: 53 passed.
-- Ruff, diff checks and commit hooks passed.
-- Loaded 20:40 finalize job points to the new snapshot; sync configuration unchanged; generation and interpreter still use ffe1c60d84da.
-- Six archives removed under the shared pipeline lock: 31,814,138,727 bytes. Cache retained only 16 KiB of text files.
+- Changed retention expectations caught the old behavior: 10 expected failures.
+- Corrected source: 81 related tests passed; runtime f08653925 using the production interpreter: 53 passed.
+- Ruff, whitespace and commit hooks passed; deployed runner/tests match source bytes.
+- Finalize still runs at 20:40. Generation, interpreter and sync configuration unchanged.
+- No production downloads were deleted or financial jobs triggered during this correction.
 
 ## Boundaries
-No live download, production database write, scheduled run or repository-wide CI was executed. SIGINT/SIGTERM are covered; SIGKILL and power loss cannot execute finally. Filesystem cleanup failures surface as errors. Source main is unchanged, so future deployment must retain this patch until it is merged.
+No live upstream run or repository-wide CI was performed. Existing extraction scratch cleanup inside process_date is unchanged; the retained retry assets are the downloaded archive and partial-download files. The earlier six deleted archives cannot be restored by this correction and require re-download if needed.
 
 ## Next Steps
-Main integration requires user approval and normal repository gates. Observe the next scheduled L2 attempt without triggering a new financial run. Local deployment receipt and rollback plist: ~/.finance-runtime/l2-download-cleanup-1009/.
+Observe the next scheduled attempt. Main integration still requires approval and normal gates. Current local receipt: ~/.finance-runtime/l2-download-cleanup-1009/success-only-deployment.json. Use the success-only rollback plist named there, not a configuration that reinstalls 08bd01154.
 
 ## Pitfalls
-The main checkout is stale and dirty with other work. It was not edited. Keep ffe1c60d84da: generation and the new snapshot's venv still depend on it. A 45-second expanded test attempt timed out; only the subsequent completed runs support the test claims. This task's identified pytest scratch directories were removed after all its test processes ended.
+Keep ffe1c60d84da: generation and the interpreter depend on it. The dedicated runtime checkout was advanced only while the job was unloaded from it; use commit identities, not the directory name, when interpreting older receipts. Source main and other worktrees were not modified.
