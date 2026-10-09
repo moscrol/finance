@@ -824,6 +824,13 @@ _FEATURE_LABELS = {
 
 
 class _ReadoutDumper(yaml.SafeDumper):
+    def choose_scalar_style(self):
+        # YAML normalizes unescaped NEL; quote Unicode line separators so
+        # labels and source strings survive a JSON -> YAML -> JSON round trip.
+        if any(char in self.event.value for char in ("\x85", "\u2028", "\u2029")):
+            return '"'
+        return super().choose_scalar_style()
+
     def write_indicator(self, indicator, need_whitespace, whitespace=False, indention=False):
         # Flow collections permit adjacent entries: [a,b]. Keep YAML's
         # scalar quoting/type rules, only omit the optional comma space.

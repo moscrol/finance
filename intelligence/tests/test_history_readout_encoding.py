@@ -13,7 +13,7 @@ from intelligence.services.market_regime_analogs import model_readout_block
 @pytest.mark.parametrize("value", [
     None, True, False, 0, -1, 1.25, 1e-20, -0.0, "", "null", "true", "False",
     "2025-04-10", "001", "1e-9", "a,b", "a: b", "[a,b]", "{key: value}",
-    "# note", "*alias", "!tag", "quoted \"value\"", "line\nnext", "\t", "source\\path",
+    "# note", "*alias", "!tag", "quoted \"value\"", "line\nnext", "\t", "source\\path", "\x85", "\u2028", "\u2029", "\r", "\x00",
 ])
 def test_model_readout_keeps_json_types_values_and_nested_rows(value):
     payload = {"schema": "readout", "rows": [[value, None, False], [True, value, 0]],
