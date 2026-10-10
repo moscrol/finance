@@ -349,6 +349,9 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         turns += 1
         assert {tool["function"]["name"] for tool in body["tools"]} == {"read"}
         encoded = json.dumps(body, ensure_ascii=False)
+        method = (REPO / "skills/finance-market-review/SKILL.md").read_text().partition("\n---\n")[2].strip()
+        system = "\n".join(m["content"] for m in body["messages"] if m["role"] == "system")
+        assert method in system
         assert "ADMITTED_FACT" in encoded
         assert "PRIVATE_AUDIT_SENTINEL" not in encoded and "OLD_DRAFT_SENTINEL" not in encoded
         if turns == 1:
@@ -371,7 +374,8 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "offline-fixture-key")
         monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_BASE_URL", url + "/v1")
         assert runner.main(["prepare", "--root", str(root), "--source-run", str(source),
-                            "--delivery-style", style, "--launcher", str(launcher),
+                            "--delivery-style", style, "--delivery-skill", "finance-market-review",
+                            "--launcher", str(launcher),
                             "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40"]) == 0
         assert not (root / "market_feature_store.duckdb").exists()
         assert runner.main(["run", "--root", str(root)]) == 0
@@ -379,6 +383,7 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
     result = json.loads((root / "RESULT.json").read_text())
     assert result["status"] == "completed"
     assert result["arm"]["data_tools_disabled"] is True
+    assert result["arm"]["delivery_method_in_first_request"] is True
     assert result["arm"]["tool_calls"] == result["arm"]["tool_observations"] == 0
     assert result["arm"]["skill_reads"] == 1
     assert result["arm"]["completed_drafts"] == (2 if style == "aligned" else 1)

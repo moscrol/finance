@@ -186,7 +186,8 @@ def test_delivery_freeze_covers_packet_origin_and_no_retrieval_contract(frozen, 
     plan.update(mode="delivery", source_run=str(source), source_hashes=hashes,
                 packet_sha256=runner.digest(root / "evidence-packet.json"),
                 question=packet["question"], information_cutoff=packet["information_cutoff"], model=source_plan["model"],
-                subagents=False, second_look=False, tool_calls=0, rag_bindings="off")
+                subagents=False, second_look=False, tool_calls=0, rag_bindings="off",
+                delivery_skill="finance-mode", app_skills=["finance-mode"])
     runner.verify_plan(plan, root)
     if change == "packet":
         (root / "evidence-packet.json").write_text("{}")
@@ -210,3 +211,15 @@ def test_delivery_command_cannot_expose_data_or_subagents(tmp_path):
             "thinking": "low", "subagents": False}
     command = runner.pi_command(plan, tmp_path, "frozen packet")
     assert command[command.index("--tools") + 1] == "read"
+
+
+def test_delivery_method_receipt_requires_full_body_in_first_system_request(tmp_path):
+    skill = tmp_path / "skills/app/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("---\nname: app\n---\nWHOLE_METHOD\nSECOND_REQUIRED_LINE\n")
+    plan = {"code_root": str(tmp_path), "delivery_skill": "app"}
+    full = {"payload": {"messages": [{"role": "system", "content": "WHOLE_METHOD\nSECOND_REQUIRED_LINE"}]}}
+    partial = {"payload": {"messages": [{"role": "system", "content": "WHOLE_METHOD"}]}}
+    assert runner.delivery_method_received(plan, [full])
+    assert not runner.delivery_method_received(plan, [partial, full])
+    assert not runner.delivery_method_received(plan, [])

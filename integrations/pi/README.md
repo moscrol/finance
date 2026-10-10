@@ -38,12 +38,15 @@ python integrations/pi/run_native.py run --root <产物目录>
 ```bash
 python integrations/pi/run_native.py prepare \
   --root <新定稿目录> --source-run <已有研究运行目录> \
-  --delivery-style direct --turn-seconds 300 --call-cap 12
+  --delivery-style direct --delivery-skill finance-market-review \
+  --turn-seconds 300 --call-cap 12
 python integrations/pi/run_native.py run --root <新定稿目录>
 ```
 
 `direct` 在干净上下文直接定稿；`aligned` 先生成可公开的主张/证据/范围表，再续写一次完整正文。
-每种方式用不同的新目录。源运行须完整、身份匹配且输入稳定；它的内容质量可以未通过。
+每种方式用不同的新目录。定稿必须指定 `--delivery-skill`，其完整正文由宿主在首个请求中注入；
+`delivery_method_in_first_request` 从实际请求核对完整方法是否送达，不能用最终read次数冒充先加载。
+源运行须完整、身份匹配且输入稳定；它的内容质量可以未通过。
 证据包只包含实际送达的公开工具结果，保留诊断与缺口；旧稿、私有审计和审查意见不进入模型。
 源原件、证据包和提示资产均做哈希校验，模型保持与源运行相同。
 此模式不克隆DB、不初始化数据工具注册表、不访问RAG；Pi只开skill读取，桥接端也拒绝取数和重新授权。

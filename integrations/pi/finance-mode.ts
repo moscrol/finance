@@ -48,6 +48,7 @@ const SUBAGENTS = process.env.FINANCE_PI_SUBAGENTS === "1";
 const MENU_FILE = process.env.FINANCE_PI_MENU_FILE;
 const DELIVERY = process.env.FINANCE_PI_MODE === "delivery";
 const DELIVERY_STYLE = process.env.FINANCE_PI_DELIVERY_STYLE ?? "direct";
+const DELIVERY_SKILL = process.env.FINANCE_PI_DELIVERY_SKILL;
 const ALIGNED_DELIVERY = DELIVERY && DELIVERY_STYLE === "aligned";
 const THINKING = process.env.FINANCE_PI_THINKING ?? "low";
 const PI_BIN = process.env.FINANCE_PI_BIN ?? "pi";
@@ -226,7 +227,8 @@ export default function financeMode(pi: ExtensionAPI) {
 	const toolNames = toolMenu().authorized_tools.map((tool: { name: string }) => tool.name);
 	const deliveryPrompts = DELIVERY
 		? JSON.parse(readFileSync(path.join(path.dirname(SELF), "delivery-prompts.json"), "utf8")) : null;
-	if (DELIVERY && (!['direct', 'aligned'].includes(DELIVERY_STYLE)
+	if (DELIVERY && (!DELIVERY_SKILL || !APP_SKILLS.includes(DELIVERY_SKILL)
+		|| !['direct', 'aligned'].includes(DELIVERY_STYLE)
 		|| ['stage_boundary', 'direct_task', 'audit_task', 'render_task'].some((key) => typeof deliveryPrompts[key] !== 'string'))) {
 		throw new Error("invalid frozen delivery mode or prompt contract");
 	}
@@ -250,11 +252,15 @@ export default function financeMode(pi: ExtensionAPI) {
 			event.systemPromptOptions.sections["finance-mode"] = skillBody(OS_SKILL);
 		}
 		event.systemPromptOptions.promptGuidelines.push(
-			"finance-mode 一节是常驻基础协议，每一轮都生效；skills 里列出的专项是应用层，命中时先 read 其 SKILL.md 再按骨架执行，未命中专项时仍按 finance-mode 完整执行。",
+			DELIVERY ? "finance-mode 是基础协议，本轮指定专项已完整放在 finance-delivery-method 中，先按它核对并定稿，无需重复 read。"
+				: "finance-mode 一节是常驻基础协议，每一轮都生效；skills 里列出的专项是应用层，命中时先 read 其 SKILL.md 再按骨架执行，未命中专项时仍按 finance-mode 完整执行。",
 			DELIVERY ? "当前只定稿，数据已在冻结证据包中；read 只用于读取专项 skill 文件。"
 				: "所有数据只能通过 finance_call 取得；read 只用于读取专项 skill 文件。",
 		);
-		if (DELIVERY) event.systemPromptOptions.sections["finance-delivery"] = deliveryPrompts.stage_boundary;
+		if (DELIVERY && DELIVERY_SKILL) {
+			event.systemPromptOptions.sections["finance-delivery-method"] = skillBody(DELIVERY_SKILL);
+			event.systemPromptOptions.sections["finance-delivery"] = deliveryPrompts.stage_boundary;
+		}
 		if (!DELIVERY && SUBAGENTS && DEPTH === 0 && APP_SKILLS.length > 0) {
 			event.systemPromptOptions.promptGuidelines.push(
 				`需要派单时用 spawn_sub_agent，可派专项：${APP_SKILLS.join("、")}；并行不超过 ${MAX_PARALLEL} 个，子任务只读。`,

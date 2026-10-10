@@ -118,6 +118,24 @@ def delivered_packet(source: Path) -> tuple[dict, dict, dict[str, str]]:
              "observations": observations}, plan, hashes)
 
 
+def delivery_method_received(plan: dict, requests: list[dict]) -> bool:
+    if not requests:
+        return False
+    text = (Path(plan["code_root"]) / "skills" / plan["delivery_skill"] / "SKILL.md").read_text()
+    _, separator, body = text.partition("\n---\n")
+    body = body.strip() if separator else text.strip()
+    system = []
+    for message in requests[0]["payload"].get("messages", []):
+        if message.get("role") != "system":
+            continue
+        content = message.get("content", "")
+        if isinstance(content, str):
+            system.append(content)
+        elif isinstance(content, list):
+            system.extend(part["text"] for part in content if part.get("type") == "text")
+    return bool(body) and body in "\n".join(system)
+
+
 def arm_completed(arm: dict) -> bool:
     return (arm.get("exit") == 0 and arm.get("stop_reason") == "stop"
             and arm.get("model_admission") is True and arm.get("answer_chars", 0) > 0)
@@ -203,6 +221,7 @@ def environment(plan: dict, root: Path) -> dict[str, str]:
         "FINANCE_PI_ROOT": str(root), "FINANCE_PI_RAG_BINDINGS": plan["rag_bindings"],
         "FINANCE_PI_MODE": plan.get("mode", "research"),
         "FINANCE_PI_DELIVERY_STYLE": plan.get("delivery_style", "direct"),
+        "FINANCE_PI_DELIVERY_SKILL": plan.get("delivery_skill") or "",
         "FINANCE_PI_BRIDGE_PORT": str(plan["bridge_port"]),
         "FINANCE_PI_BRIDGE_URL": f"http://127.0.0.1:{plan['bridge_port']}",
         "FINANCE_PI_CASE": plan["case"], "FINANCE_PI_MODEL": plan["model"],
@@ -262,6 +281,8 @@ def prepare(args: argparse.Namespace) -> None:
     assert port_free(args.bridge_port), f"port occupied: {args.bridge_port}"
     packet = source_plan = source_hashes = None
     if args.source_run:
+        if not args.delivery_skill or args.delivery_skill not in args.app_skills:
+            raise ValueError("delivery requires an explicit --delivery-skill from the mounted application skills")
         if args.question_file or args.as_of or args.second_look or args.subagents or args.rag_bindings not in (None, "off"):
             raise ValueError("delivery keeps the source question/cutoff and disables retrieval, second-look and subagents")
         packet, source_plan, source_hashes = delivered_packet(Path(args.source_run))
@@ -274,8 +295,8 @@ def prepare(args: argparse.Namespace) -> None:
         args.tool_cap = 0
     elif not args.question_file or not args.as_of or not args.rag_bindings:
         raise ValueError("research requires --db, --question-file, --as-of and --rag-bindings")
-    elif args.delivery_style != "direct":
-        raise ValueError("--delivery-style requires --source-run")
+    elif args.delivery_style != "direct" or args.delivery_skill:
+        raise ValueError("delivery settings require --source-run")
     root.mkdir(parents=True, exist_ok=True)
     kit = root / "kit"
     kit.mkdir()
@@ -312,6 +333,7 @@ def prepare(args: argparse.Namespace) -> None:
         "skill_hashes": {name: digest(code / "skills" / name / "SKILL.md") for name in (args.os_skill, *args.app_skills)},
         "second_look": bool(args.second_look), "subagents": bool(args.subagents),
         "mode": "delivery" if packet is not None else "research", "delivery_style": args.delivery_style,
+        "delivery_skill": args.delivery_skill,
         "source_run": str(Path(args.source_run).resolve()) if packet is not None else None,
         "source_revision": source_plan["revision"] if source_plan is not None else None,
         "source_hashes": source_hashes,
@@ -342,7 +364,8 @@ def verify_plan(plan: dict, root: Path) -> None:
     if plan.get("mode", "research") == "delivery":
         expected[root / "evidence-packet.json"] = plan["packet_sha256"]
         expected.update({Path(plan["source_run"]) / name: sha for name, sha in plan["source_hashes"].items()})
-        if plan["subagents"] or plan["second_look"] or plan["tool_calls"] != 0 or plan["rag_bindings"] != "off":
+        if (plan["subagents"] or plan["second_look"] or plan["tool_calls"] != 0 or plan["rag_bindings"] != "off"
+                or plan.get("delivery_skill") not in plan["app_skills"]):
             raise RuntimeError("delivery mode cannot enable new research")
         try:
             packet, original_plan, hashes = delivered_packet(Path(plan["source_run"]))
@@ -483,9 +506,10 @@ def run(args: argparse.Namespace) -> int:
         }
         if plan.get("mode") == "delivery":
             result["arm"]["data_tools_disabled"] = transport.get("data_tools_enabled") is False
+            result["arm"]["delivery_method_in_first_request"] = delivery_method_received(plan, requests)
             expected_drafts = 2 if plan["delivery_style"] == "aligned" else 1
             if (not result["arm"]["data_tools_disabled"] or transport["tool_calls"] or tool_calls
-                    or len(drafts) != expected_drafts):
+                    or not result["arm"]["delivery_method_in_first_request"] or len(drafts) != expected_drafts):
                 result["failure"] = {"type": "DeliveryContractFailure", "message": "new retrieval or unexpected delivery stages"}
         if not arm_completed(result["arm"]):
             result["failure"] = {"type": "IncompleteRun", "message": "Pi did not deliver a complete model-admitted answer"}
@@ -524,6 +548,7 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument("--db", help="source market_feature_store.duckdb (cloned read-only)")
     source.add_argument("--source-run", help="completed run whose exact public deliveries are replayed without retrieval")
     prep.add_argument("--delivery-style", choices=("direct", "aligned"), default="direct")
+    prep.add_argument("--delivery-skill", help="application skill injected in full before the first delivery request")
     prep.add_argument("--question-file")
     prep.add_argument("--as-of", help="information cutoff YYYY-MM-DD")
     prep.add_argument("--today", default=datetime.now().date().isoformat())
