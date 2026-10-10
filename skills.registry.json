@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-10-09T19:05:00Z",
+  "generated_at": "2026-10-10T16:50:30Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 44
+      "skills": 47
     },
     {
       "name": "knowledge-base-private",
@@ -239,11 +239,24 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/finance-analyze-stock/SKILL.md",
-      "description": "单只 A 股的深度画像与财报复盘专项——业务与竞争格局、财务质量、估值与隐含预期、催化与风险、持仓者视角的验证点。用于「深度分析 / 这只股怎么看 / 财报怎么看 / 贵不贵」类问题；需要 finance-mode 常驻。只要价格或一个数字的纯事实查询不走本专项，主线程直接调工具。",
+      "description": "单只 A 股的深度画像与财报复盘专项——业务与竞争格局、财务质量、估值与隐含预期、催化与风险、持仓者视角的验证点。用于「深度分析 / 这只股怎么看 / 财报怎么看 / 贵不贵 / 预期差」类问题；需要 finance-mode 常驻。只要价格或一个数字的纯事实查询不走本专项，主线程直接调工具。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:88c654bf39f664ae833d4a9efdb75cbf65d3a82fd8c6b2edc022e71d8408b5b4",
+      "computedHash": "sha256:1a106312f79b12f9cd8d60ce4ff61684db60aa9f79719a1869b649829a8fe6eb",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-associate": {
+      "name": "finance-associate",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-associate/SKILL.md",
+      "description": "金融横向联想专项——从当前研究对象出发沿六个维度发散（产业链传导 / 竞对映射 / 宏观微观联动 / 事件涟漪 / 多方观点交叉 / 历史模式匹配），输出带来源标签的线索清单，不是投资结论。用于「还有什么相关 / 可比公司 / 历史上像什么 / 有没有漏掉的变量 / 反方怎么看」类问题；需要 finance-mode 常驻。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:a0fe0f1ae847d21209c7b987ccffc7984327e57afead5a467b1a1f9228fc1df6",
       "agentOnly": false,
       "views": []
     },
@@ -265,11 +278,11 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/finance-forecast-event/SKILL.md",
-      "description": "事件与消息的推演专项——突发消息六步（判级 / 溯源 / 拆传导链 / 量级 / 定价进度 / 裁决）与未来事件情景树（互斥情景 × 触发条件 × 观察窗口）。核心不是「会不会」，而是沿哪条路径传导、各路径的定性可能性与领先信号。用于「这个消息怎么看 / 如果 X 发生 / 会不会 / 影响多大」类问题；需要 finance-mode 常驻。",
+      "description": "事件与消息的推演专项——突发消息六步（判级 / 溯源 / 拆传导链 / 量级 / 定价进度 / 裁决）与未来事件情景树（互斥情景 × 触发条件 × 观察窗口），显式做关键决策者行为模拟。核心不是「会不会」，而是沿哪条路径传导、各路径的定性可能性与领先信号。用于「这个消息怎么看 / 如果 X 发生 / 会不会 / 影响多大 / 推演一下」类问题；需要 finance-mode 常驻。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:8bb0aac0e2ed27fe88446605a0baf355173548dcadaea4c7687909562d3ab0f1",
+      "computedHash": "sha256:5bc7f465e04cddefb76514169896474741b2d1d0de848bfc49cac693307cd8bf",
       "agentOnly": false,
       "views": []
     },
@@ -278,11 +291,24 @@
       "repo": "finance-workspace-private",
       "sourceType": "local",
       "skillPath": "skills/finance-industry-track/SKILL.md",
-      "description": "行业 / 题材的全景报告与持续跟踪专项——首次覆盖画产业链全景（report），后续按基线只报变化（track，delta-only + 观点四态 + 下期关注）。用于「行业分析 / 题材逻辑 / 最近有什么变化 / 本周更新」类问题；需要 finance-mode 常驻。单个标的走 finance-analyze-stock。",
+      "description": "行业 / 题材的全景报告与持续跟踪专项——首次覆盖画产业链全景（report），后续按上期基线只报变化（track：delta-only + 观点四态 + 下期关注）。用于「行业分析 / 题材逻辑 / 最近有什么变化 / 本周更新」类问题；需要 finance-mode 常驻。单个标的走 finance-analyze-stock。",
       "triggers": [],
       "note": "",
       "entrypoint": null,
-      "computedHash": "sha256:d2b8ec2636f76a56a2c69f1ac7ab1e81f6c66e95b01f70cbdc4f0f52e69dc2a1",
+      "computedHash": "sha256:278b208566a8974b2ed3f1e3d2a73c3fc949ee29ea7ba8cc988e004e16c19fac",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-kol-analyze": {
+      "name": "finance-kol-analyze",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-kol-analyze/SKILL.md",
+      "description": "观点与作者分析专项——(A) 画像与行为模拟：基于某作者 / 分析师 / 机构的真实历史记录构建思维画像并模拟其对新事件的立场；(B) 观点质量分析：拆解一段研报 / 访谈 / 社媒观点的证据链、隐含假设、偏见与可验证信号。用于「这个观点靠谱吗 / 他会怎么看 / 这篇研报的逻辑站得住吗 / 反方线索」类问题；需要 finance-mode 常驻。不是追随观点或放大情绪。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:d2672c03e8692e0ab04968eed0252191d19d96274c9afbd3deba009acb9f8eef",
       "agentOnly": false,
       "views": []
     },
@@ -322,6 +348,19 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:5bfee90fe2d080a89f9ef0d93161d57c826998ff4b1eeea8339cd7a8e390d84e",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-review-check": {
+      "name": "finance-review-check",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-review-check/SKILL.md",
+      "description": "投研事实审查专项——对一份金融报告、观点或结论做六维审查（数值事实 / 实体准确性 / 来源可追溯 / 逻辑自洽 / 时效性 / 完整性），审查后自动修订，交付「修订版报告为主体 + 折叠式审查详情」，不是一份待办清单。用于「审一下 / 核对 / 事实核查 / 这份报告对不对 / 估值假设站得住吗」类问题，以及其它专项交付后用户要求的复核；需要 finance-mode 常驻。它是模型执行的交付前检查的加强版，不是程序门禁。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:101db16a4fd1a1ba4fd0d8f2bfe1593977bd34cd496458f1f7bbf61fe37dacab",
       "agentOnly": false,
       "views": []
     },

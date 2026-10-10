@@ -127,6 +127,9 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 | finance-industry-track | 无触发词：运行时专项（knevo 炼化，行业 report↔track 接力、delta-only）；Pi 臂经 `--skill` 渐进加载、模型按需 read，8792 接线待做；不可路由，编码 agent 不要调用 |
 | finance-market-review | 无触发词：运行时专项（knevo 炼化，复盘骨架 + Pi 对照五类错句的防遗漏清单）；Pi 臂经 `--skill` 渐进加载、模型按需 read，8792 接线待做；不可路由，编码 agent 不要调用 |
 | finance-mode | 无触发词：运行时常驻基础协议（knevo finance-mode OS 层炼化）；Pi 臂由 `integrations/pi/finance-mode.ts` 整段注入 system，8792 接线待做；不可路由，编码 agent 不要调用。设计 `docs/superpowers/specs/2026-10-09-knevo-skill-layer-design.md` |
+| finance-associate | 无触发词：运行时专项（knevo 炼化，六维横向联想、图谱先行、来源标签）；Pi 臂经 `--skill` 渐进加载、模型按需 read；不可路由，编码 agent 不要调用 |
+| finance-kol-analyze | 无触发词：运行时专项（knevo 炼化，作者画像 / 观点质量两模式、偏见与反方）；Pi 臂经 `--skill` 渐进加载、模型按需 read；不可路由，编码 agent 不要调用 |
+| finance-review-check | 无触发词：运行时专项（knevo 炼化，六维事实审查 + 自动修订 + 修订版为主体、FAIL 阻塞写回——模型执行的审查，不是程序门禁）；Pi 臂经 `--skill` 渐进加载、模型按需 read；不可路由，编码 agent 不要调用 |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 
