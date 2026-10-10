@@ -1,5 +1,7 @@
 # 2026-10-07 上线与内容核验收尾
 
+> 2026-10-11 收口注：下述生产状态与未修缺口属于 10-07 历史时点；缺值零化、修订丢弃与反方标签截断已由 [PR #74](https://github.com/moscrol/finance/pull/74)（`82de3fb730a4175170b4e6ba472e130e5ef87ab7`）承接。后续代码修复不改签本页首次答卷的 `NOT_PASSED`，当前发布与保留事项见 [合集记录](2026-10-11-release-wave2-integration.md)。
+
 用户希望先优化上线，再以 8792 与 Pi 的同题原件检验知识、数据、工具消费，以及时间长河、个人记忆的实际价值；回答应更全面、有有效视角和反证，同时减少重复干预。本快照只收口已经发生的部署与只读诊断，不将工程绿转换为金融内容绿，不补抽更好的答卷。简版见[树外总报告](/Users/a77/.finance-runtime/knevo-coverage-release-1007/final-quality-report.md)。原始资料均留在 `/Users/a77/.finance-runtime/knevo-coverage-release-1007`，本分支只提交两份交接 Markdown，不复制用户台账、模型原始请求或大数据进 Git。
 
 ## 发现与处置顺序

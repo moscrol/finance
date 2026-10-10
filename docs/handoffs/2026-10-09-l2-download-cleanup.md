@@ -1,5 +1,7 @@
 # L2 Download Cleanup, 2026-10-09
 
+> Superseded: [L2 Success-Only Cleanup Correction](2026-10-09-l2-success-only-cleanup.md) records the user's clarified requirement and the corrected deployment. This document preserves the earlier implementation and deletion history only. Failed or interrupted runs retain retryable downloads; do not restore the unconditional-cleanup policy or its deployment configuration.
+
 ## Authorization and Initial State
 
 The user first requested disk cleanup, then explicitly requested: delete L2 download packages whenever a run finishes. The existing runner deleted packages only after success or an already-complete skip; its exception path deliberately retained them for retry. Six completed attempts had left 31,814,138,727 bytes (29.63 GiB) in the production data root's `state/l2-cache`.
