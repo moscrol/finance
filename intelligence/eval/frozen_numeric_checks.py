@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from hashlib import sha256
+from html import escape
 import json
 
 from intelligence.services.agent_research import AgentEvidence
@@ -120,7 +121,14 @@ def compile_numeric_checks(packet: dict) -> dict:
             for value, field in ((True, "double_red"), (False, "not_double_red"), (None, "double_red_unknown")):
                 if sum(row["strict_double_red"] is value for row in preview) > counts[field]:
                     raise ValueError("full qualification counts contradict delivered previews")
-        groups = [_group_summary(group) for group in basis["groups"]]
+        groups = []
+        for group in basis["groups"]:
+            preview = [row for row in rows if row["theme_name"] == group["theme_name"]]
+            counts = {f"{prefix}_{direction}": sum(row[f"{prefix}_direction"] == direction for row in preview)
+                      for prefix in ("price", "turnover") for direction in ("up", "down", "flat", "unknown")}
+            counts.update({field: sum(row["strict_double_red"] is value for row in preview)
+                           for value, field in ((True, "double_red"), (False, "not_double_red"), (None, "double_red_unknown"))})
+            groups.append({**_group_summary(group), "validated_preview_rows": len(preview), "preview_counts": counts})
         checks.append({
             "observation_ref": ref, "as_of": basis["snapshot_date"],
             "source_digest": catalogue.source_digest,
@@ -138,3 +146,53 @@ def compile_numeric_checks(packet: dict) -> dict:
         "not_checked": ["未提供结构化列的展示文字及其平均数/比较计算。",
                         "资金方向、参与者身份、因果、趋势持续性与整篇正文。"],
     }
+
+
+def render_numeric_checks(receipt: dict) -> str:
+    """Render checked fields without asking a model to retype or classify them."""
+    if receipt.get("schema") != "frozen_numeric_checks_v1" or receipt.get("authority") != "calculation_only_no_prose_certification":
+        raise ValueError("not a frozen numeric calculation receipt")
+
+    def cell(value):
+        return escape(str(value), quote=False).replace("|", "&#124;").replace("\n", " ").replace("\r", " ")
+
+    def number(value):
+        return "未知" if value is None else cell(value)
+
+    def directions(counts, prefix):
+        return " / ".join(str(counts[f"{prefix}_{suffix}"]) for suffix in ("up", "down", "flat", "unknown"))
+
+    lines = ["# 数字与规则核算", "", "仅核对下列结构化输入；不是对研究解释或整篇答案的认证。", ""]
+    for check in receipt["checks"]:
+        lines.extend([f"## {cell(check['observation_ref'])}：{cell(check['as_of'])} 主线来源", "",
+                      "### 全量统计", "按本表每组登记行计；跨组不保证成员互斥，不加总成唯一板块或股票数。", "",
+                      "| 主题 | 全组行数 | 已核明细/原预览 | 全组涨/跌/平/未知 | 全组成交增/减/平/未知 | 全组双红/不满足/未知 |",
+                      "|---|---:|---:|---|---|---|"])
+        for group in check["groups"]:
+            prefix = f"| {cell(group['theme_name'])} | {group['total_rows']} | {group['validated_preview_rows']}/{group['preview_rows']} |"
+            if group["full_counts_available"]:
+                counts = group["counts"]
+                qualifier = " / ".join(str(counts[key]) for key in ("double_red", "not_double_red", "double_red_unknown"))
+                lines.append(f"{prefix} {directions(counts, 'price')} | {directions(counts, 'turnover')} | {qualifier} |")
+            else:
+                lines.append(prefix + " 未提供 | 未提供 | 未提供 |")
+        lines.extend(["", "### 已核明细的数量", "仅统计下面实际列出的明细，不外推未送达成员。", "",
+                      "| 主题 | 已核行数 | 涨/跌/平/未知 | 成交增/减/平/未知 | 双红/不满足/未知 |",
+                      "|---|---:|---|---|---|"])
+        for group in check["groups"]:
+            counts = group["preview_counts"]
+            qualifier = " / ".join(str(counts[key]) for key in ("double_red", "not_double_red", "double_red_unknown"))
+            lines.append(f"| {cell(group['theme_name'])} | {group['validated_preview_rows']} | {directions(counts, 'price')} | {directions(counts, 'turnover')} | {qualifier} |")
+        lines.extend(["", "### 已核明细", "",
+                      "| 主题/板块 | 板块代码 | 涨跌幅% | 成交额环比% | 成交额亿元 | 严格双红 |",
+                      "|---|---|---:|---:|---:|---|"])
+        for row in check["preview_qualifications"]:
+            qualifier = "未知" if row["strict_double_red"] is None else "满足" if row["strict_double_red"] else "不满足"
+            lines.append(f"| {cell(row['title'])} | {cell(row['key'][2])} | {number(row['price_change_pct'])} | {number(row['turnover_change_pct'])} | {number(row['turnover_yi'])} | {qualifier} |")
+        lines.extend(["", "规则：" + cell(check["rule"]["strict_double_red"]),
+                      "成交额环比增加与严格双红是不同判断。明细未达双红，不代表成交额没有增加。", ""])
+    if not receipt["checks"]:
+        lines.extend(["没有可按本核算合同处理的结构化观察。", ""])
+    lines.extend(["## 未覆盖", "", *["- " + cell(value) for value in receipt["not_checked"]],
+                  "- 未支持的观察：" + ", ".join(cell(row["observation_ref"]) for row in receipt["unsupported_observations"]), ""])
+    return "\n".join(lines)

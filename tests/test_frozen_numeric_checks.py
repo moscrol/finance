@@ -143,3 +143,31 @@ def test_existing_compiler_is_the_qualification_authority(monkeypatch):
     result = checks.compile_numeric_checks(packet_fixture())
     assert result["checks"] == []
     assert result["unsupported_observations"][0]["reason"] == "no_validated_source_cards"
+
+
+def test_numeric_document_is_generated_without_a_model_and_keeps_preview_limits():
+    receipt = checks.compile_numeric_checks(packet_fixture())
+    document = checks.render_numeric_checks(receipt)
+    assert checks.render_numeric_checks(deepcopy(receipt)) == document
+    assert "349.327 | 不满足 |" in document
+    assert "44.2976" in document
+    assert "未提供 | 未提供 | 未提供" in document
+    assert "明细" in document and "不外推" in document
+    assert "不是对研究解释或整篇答案的认证" in document
+    group = receipt["checks"][0]["groups"][0]
+    assert group["validated_preview_rows"] == 6
+    assert group["preview_counts"]["price_up"] == 6
+    assert group["preview_counts"]["double_red"] == 1
+
+
+def test_table_labels_are_escaped_not_executable_markdown():
+    receipt = checks.compile_numeric_checks(packet_fixture())
+    receipt["checks"][0]["preview_qualifications"][0]["title"] = "<script>|evil\nnew row"
+    document = checks.render_numeric_checks(receipt)
+    assert "<script>" not in document
+    assert "&lt;script&gt;&#124;evil new row" in document
+
+
+def test_numeric_renderer_refuses_a_prose_approval_receipt():
+    with pytest.raises(ValueError):
+        checks.render_numeric_checks({"schema": "frozen_numeric_checks_v1", "authority": "whole_answer_passed"})

@@ -331,9 +331,11 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
     assert "offline-fixture-key" not in transport
 
 
-@pytest.mark.parametrize("style", ["direct", "aligned"])
-@pytest.mark.parametrize("numeric", [False, True])
-def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric):
+@pytest.mark.parametrize("style,numeric,analysis_only", [
+    ("direct", False, False), ("aligned", False, False),
+    ("direct", True, False), ("aligned", True, False), ("direct", True, True),
+])
+def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric, analysis_only):
     source = make_source(tmp_path / "source")
     root = tmp_path / "delivery"
     launcher = tmp_path / "launcher.sh"
@@ -370,7 +372,8 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
             assert turns == 3 and "WORKING_TABLE" in encoded
         else:
             assert turns == 2
-        return complete("FINAL_DELIVERY: five of the supplied ten records match.")
+        return complete("FINAL_DELIVERY: FICTIONAL_NUMERIC_SENTINEL" if analysis_only else
+                        "FINAL_DELIVERY: five of the supplied ten records match.")
 
     with endpoint(respond) as (url, requests, errors):
         monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "offline-fixture-key")
@@ -379,7 +382,8 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
                             "--delivery-style", style, "--delivery-skill", "finance-market-review",
                             "--launcher", str(launcher),
                             "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40",
-                            *(["--numeric-checks"] if numeric else [])]) == 0
+                            *(["--numeric-checks"] if numeric else []),
+                            *(["--analysis-only"] if analysis_only else [])]) == 0
         assert not (root / "market_feature_store.duckdb").exists()
         assert runner.main(["run", "--root", str(root)]) == 0
     assert not errors
@@ -396,3 +400,10 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
     assert result["arm"]["physical_requests"] == len(requests) == (3 if style == "aligned" else 2)
     assert result["inputs_unchanged"] and result["processes_stopped"]
     assert (root / "pi/answer.md").read_text().startswith("FINAL_DELIVERY")
+    if analysis_only:
+        facts = (root / "checked-facts.md").read_text()
+        assert "FICTIONAL_NUMERIC_SENTINEL" not in facts
+        assert "FICTIONAL_NUMERIC_SENTINEL" in (root / "pi/analysis.md").read_text()
+        assert result["checked_facts_sha256"] == runner.digest(root / "checked-facts.md")
+        assert result["quality"] == "UNREVIEWED"
+        assert result["delivery_scope"] == "fixed_numeric_document_and_unreviewed_model_analysis"

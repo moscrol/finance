@@ -244,3 +244,27 @@ def test_numeric_receipt_is_reproduced_even_if_its_hash_is_updated(frozen, tmp_p
     plan["numeric_checks_sha256"] = runner.digest(root / "numeric-checks.json")
     with pytest.raises(RuntimeError, match="reproduce"):
         runner.verify_plan(plan, root)
+
+
+def test_fixed_document_cannot_be_changed_by_updating_its_hash(frozen, tmp_path, monkeypatch):
+    _, root, plan = frozen
+    source = make_source(tmp_path / "source")
+    packet, source_plan, hashes = runner.delivered_packet(source)
+    runner.save(root / "evidence-packet.json", packet)
+    receipt = {"schema": "test-receipt", "checks": []}
+    monkeypatch.setattr(runner, "numeric_check_receipt", lambda _packet, _code: receipt)
+    monkeypatch.setattr(runner, "numeric_check_document", lambda _receipt, _code: "fixed facts")
+    runner.save(root / "numeric-checks.json", receipt)
+    (root / "checked-facts.md").write_text("fixed facts")
+    plan.update(mode="delivery", source_run=str(source), source_hashes=hashes,
+                packet_sha256=runner.digest(root / "evidence-packet.json"),
+                question=packet["question"], information_cutoff=packet["information_cutoff"], model=source_plan["model"],
+                subagents=False, second_look=False, tool_calls=0, rag_bindings="off", delivery_style="direct",
+                delivery_skill="finance-mode", app_skills=["finance-mode"], numeric_checks=True, analysis_only=True,
+                numeric_checks_sha256=runner.digest(root / "numeric-checks.json"),
+                checked_facts_sha256=runner.digest(root / "checked-facts.md"))
+    runner.verify_plan(plan, root)
+    (root / "checked-facts.md").write_text("invented final number")
+    plan["checked_facts_sha256"] = runner.digest(root / "checked-facts.md")
+    with pytest.raises(RuntimeError, match="fixed numeric document"):
+        runner.verify_plan(plan, root)

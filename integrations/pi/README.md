@@ -57,6 +57,10 @@ python integrations/pi/run_native.py run --root <新定稿目录>
 它复用既有严格双红校验器，分开价格/成交方向、规则资格和完整组计数；没有全量字段时不从预览补造。
 原始证据包不删改，旧市场总览的展示文字没有结构化列，不在核算覆盖内。
 `numeric-checks.json` 带来源摘要且执行前后复算；计算正确不代表正文的资金因果、解释或假设通过。
+在direct定稿中同时指定 `--numeric-checks --analysis-only`，程序会独立生成 `checked-facts.md`，
+模型只生成 `pi/analysis.md`（`pi/answer.md`保留相同原文便于既有审计）；数字表不经过模型重写。
+全量统计与已核预览分表，缺失保留未知。数字表、核算记录和原证据均在执行前后复算校验。
+两份产物分别审查；`delivery_scope=fixed_numeric_document_and_unreviewed_model_analysis` 不代表解释已通过。
 两阶段aligned未证明质量收益，仍只作显式诊断。设计：`docs/verification/2026-10-10-frozen-numeric-support.md`。
 
 ## 验证与产物

@@ -118,12 +118,20 @@ def delivered_packet(source: Path) -> tuple[dict, dict, dict[str, str]]:
              "observations": observations}, plan, hashes)
 
 
-def numeric_check_receipt(packet: dict, code: Path) -> dict:
+def _numeric_checker(code: Path):
     sys.path.insert(0, str(code))
     from intelligence.eval import frozen_numeric_checks  # noqa: PLC0415
     if Path(frozen_numeric_checks.__file__).resolve() != (code / "intelligence/eval/frozen_numeric_checks.py").resolve():
         raise RuntimeError("numeric checker was loaded from a different source tree")
-    return frozen_numeric_checks.compile_numeric_checks(packet)
+    return frozen_numeric_checks
+
+
+def numeric_check_receipt(packet: dict, code: Path) -> dict:
+    return _numeric_checker(code).compile_numeric_checks(packet)
+
+
+def numeric_check_document(receipt: dict, code: Path) -> str:
+    return _numeric_checker(code).render_numeric_checks(receipt)
 
 
 def delivery_method_received(plan: dict, requests: list[dict]) -> bool:
@@ -289,6 +297,8 @@ def prepare(args: argparse.Namespace) -> None:
     assert port_free(args.bridge_port), f"port occupied: {args.bridge_port}"
     packet = source_plan = source_hashes = None
     if args.source_run:
+        if args.analysis_only and (not args.numeric_checks or args.delivery_style != "direct"):
+            raise ValueError("--analysis-only requires direct delivery with --numeric-checks")
         if not args.delivery_skill or args.delivery_skill not in args.app_skills:
             raise ValueError("delivery requires an explicit --delivery-skill from the mounted application skills")
         if args.question_file or args.as_of or args.second_look or args.subagents or args.rag_bindings not in (None, "off"):
@@ -303,7 +313,7 @@ def prepare(args: argparse.Namespace) -> None:
         args.tool_cap = 0
     elif not args.question_file or not args.as_of or not args.rag_bindings:
         raise ValueError("research requires --db, --question-file, --as-of and --rag-bindings")
-    elif args.delivery_style != "direct" or args.delivery_skill or args.numeric_checks:
+    elif args.delivery_style != "direct" or args.delivery_skill or args.numeric_checks or args.analysis_only:
         raise ValueError("delivery settings require --source-run")
     root.mkdir(parents=True, exist_ok=True)
     kit = root / "kit"
@@ -314,7 +324,10 @@ def prepare(args: argparse.Namespace) -> None:
     if packet is not None:
         save(root / "evidence-packet.json", packet)
         if args.numeric_checks:
-            save(root / "numeric-checks.json", numeric_check_receipt(packet, code))
+            receipt = numeric_check_receipt(packet, code)
+            save(root / "numeric-checks.json", receipt)
+            if args.analysis_only:
+                (root / "checked-facts.md").write_text(numeric_check_document(receipt, code))
         question = packet["question"]
     else:
         source_db = Path(args.db).resolve()
@@ -346,6 +359,8 @@ def prepare(args: argparse.Namespace) -> None:
         "delivery_skill": args.delivery_skill,
         "numeric_checks": bool(args.numeric_checks),
         "numeric_checks_sha256": digest(root / "numeric-checks.json") if args.numeric_checks else None,
+        "analysis_only": bool(args.analysis_only),
+        "checked_facts_sha256": digest(root / "checked-facts.md") if args.analysis_only else None,
         "source_run": str(Path(args.source_run).resolve()) if packet is not None else None,
         "source_revision": source_plan["revision"] if source_plan is not None else None,
         "source_hashes": source_hashes,
@@ -391,6 +406,13 @@ def verify_plan(plan: dict, root: Path) -> None:
             expected[root / "numeric-checks.json"] = plan["numeric_checks_sha256"]
             if json.loads((root / "numeric-checks.json").read_text()) != numeric_check_receipt(packet, code):
                 raise RuntimeError("numeric checks do not reproduce from the frozen typed input")
+        if plan.get("analysis_only"):
+            if not plan.get("numeric_checks") or plan["delivery_style"] != "direct":
+                raise RuntimeError("analysis-only mode requires checked facts and direct authoring")
+            expected[root / "checked-facts.md"] = plan["checked_facts_sha256"]
+            receipt = json.loads((root / "numeric-checks.json").read_text())
+            if (root / "checked-facts.md").read_text() != numeric_check_document(receipt, code):
+                raise RuntimeError("fixed numeric document no longer matches its checked fields")
     else:
         expected[root / "market_feature_store.duckdb"] = plan["database_sha256"]
     expected.update({root / "kit" / name: sha for name, sha in plan["kit_hashes"].items()})
@@ -423,11 +445,14 @@ def build_prompt(plan: dict, menu: dict, root: Path | None = None) -> str:
             raise ValueError("delivery prompt requires its frozen artifact directory")
         prompts = json.loads((root / "kit" / "delivery-prompts.json").read_text())
         packet = json.loads((root / "evidence-packet.json").read_text())
-        task = prompts["audit_task"] if plan["delivery_style"] == "aligned" else prompts["direct_task"]
+        task = prompts["analysis_task"] if plan.get("analysis_only") else (
+            prompts["audit_task"] if plan["delivery_style"] == "aligned" else prompts["direct_task"])
         text = task + "\n\n原问题：\n" + plan["question"]
         if plan.get("numeric_checks"):
             receipt = json.loads((root / "numeric-checks.json").read_text())
             text += "\n\n已有结构化输入的确定性核算（不认证解释或整篇正文）：\n" + json.dumps(receipt, ensure_ascii=False)
+        if plan.get("analysis_only"):
+            text += "\n\n已独立生成、无需重写的数字事实段：\n" + (root / "checked-facts.md").read_text()
         return text + "\n\n冻结的公开证据包：\n" + json.dumps(packet, ensure_ascii=False)
     return ("请用中文直接回答下面的A股研究问题。finance-mode 是常驻基础协议；命中的专项 skill 先用 read 读取再按其骨架执行。"
             "只能用 finance_call 获取可核验资料，遵守工具参数 schema 与数据截止，明确关键数据、来源和证据缺口；"
@@ -500,6 +525,10 @@ def run(args: argparse.Namespace) -> int:
         final = assistants[-1] if assistants else {}
         text = "\n".join(c["text"] for c in final.get("content", []) if c.get("type") == "text")
         (root / "pi" / "answer.md").write_text(text)
+        if plan.get("analysis_only"):
+            (root / "pi" / "analysis.md").write_text(text)
+            result["delivery_scope"] = "fixed_numeric_document_and_unreviewed_model_analysis"
+            result["checked_facts_sha256"] = digest(root / "checked-facts.md")
         tool_calls = read_jsonl(root / "pi-tools.jsonl")
         responses = read_jsonl(root / "pi-model-responses.jsonl")
         requests = read_jsonl(root / "pi-model-requests.jsonl")
@@ -579,6 +608,7 @@ def main(argv: list[str] | None = None) -> int:
     prep.add_argument("--delivery-style", choices=("direct", "aligned"), default="direct")
     prep.add_argument("--delivery-skill", help="application skill injected in full before the first delivery request")
     prep.add_argument("--numeric-checks", action="store_true", help="append deterministic checks of supported typed frozen inputs")
+    prep.add_argument("--analysis-only", action="store_true", help="render numeric facts separately; the model writes only interpretation and hypotheses")
     prep.add_argument("--question-file")
     prep.add_argument("--as-of", help="information cutoff YYYY-MM-DD")
     prep.add_argument("--today", default=datetime.now().date().isoformat())
