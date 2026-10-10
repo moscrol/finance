@@ -122,7 +122,7 @@ class MemberResult:
 
 @dataclass(frozen=True, slots=True)
 class CompletionAudit:
-    """一个交易日的精确完成度。夜间编排唯一的停止条件。
+    """声明表范围内的精确完成度；发布方须声明全部待发布表。
 
     存在的理由: 各处自造"完成"公式会各自漂移——旧的编排循环拿
     ``count(distinct sector_ts_code)`` 当分子、``count(*) from dim_sector``
@@ -148,6 +148,7 @@ class CompletionAudit:
     # provider 声明数减去明细实际给到的数，按成功回执逐板块累加。
     # 精确性的定义是「实际 + 本字段 == 声明」，即没有**未记录**的缺口。
     declared_shortfall: int = 0
+    declared_tables: frozenset[str] = frozenset({"fact_sector_stock_daily"})
 
     @property
     def success_count(self) -> int:
@@ -175,13 +176,16 @@ class CompletionAudit:
                 ("daily_identities", self.daily_identities_match),
                 ("member_identities", self.member_identities_contained),
             )
-            if not ok
+            if not ok and (
+                name != "daily_identities" or "fact_sector_daily" in self.declared_tables
+            )
         ]
         continuity = (
             "-" if self.name_continuity is None else f"{self.name_continuity:.0%}"
         )
         return (
             f"{self.trade_date} snapshot={self.snapshot_id[:12]} "
+            f"tables={','.join(sorted(self.declared_tables))} "
             f"success={self.success_count}/{self.declared_sector_count} "
             f"rel={self.actual_relationship_count}+{self.declared_shortfall}"
             f"/{self.declared_relationship_count} "
@@ -1005,6 +1009,7 @@ class SectorUniverseStore:
         fail-closed: 没有唯一已发布表头就 ``complete=False`` 且
         ``snapshot_id=None``——绝不把"没有宇宙"当成"没有缺口"。
         """
+        declared_tables = frozenset(declared_tables)
         if not declared_tables:
             # 收窄声明范围不得成为拿绿灯的手段：不声明任何表就等于不检查。
             raise SectorUniverseValidationError(
@@ -1034,6 +1039,7 @@ class SectorUniverseStore:
                 status_counts={},
                 missing_tables=tuple(sorted(declared_tables)),
                 complete=False,
+                declared_tables=declared_tables,
             )
         snapshot_id, sector_count, relationship_count, provider_source = headers[0]
 
@@ -1152,7 +1158,7 @@ class SectorUniverseStore:
             int(counts.get("success", 0)) == int(sector_count)
             and not missing
             and relationships_match
-            and daily_identities_match
+            and ("fact_sector_daily" not in declared_tables or daily_identities_match)
             and member_identities_contained
             and critical_nulls == 0
         )
@@ -1171,6 +1177,7 @@ class SectorUniverseStore:
             critical_null_count=critical_nulls,
             name_continuity=name_continuity,
             declared_shortfall=shortfall,
+            declared_tables=declared_tables,
         )
 
     def has_published_universe(self, trade_date: str | date) -> bool:

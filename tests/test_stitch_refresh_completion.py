@@ -197,6 +197,51 @@ def test_complete_writes_still_require_audit(completed, monkeypatch):
     assert summary["refresh_complete"] is False and rc == 2
 
 
+@pytest.mark.parametrize("daily_state", ["absent", "partial", "foreign"])
+def test_member_refresh_does_not_certify_unclaimed_daily_table(
+    completed, monkeypatch, daily_state,
+):
+    if daily_state == "absent":
+        completed.execute("DELETE FROM fact_sector_daily_generation WHERE trade_date=?",
+                          [fixture.D2])
+    elif daily_state == "partial":
+        completed.execute(
+            "DELETE FROM fact_sector_daily_generation WHERE trade_date=? AND sector_ts_code=?",
+            [fixture.D2, "990003.FP"],
+        )
+    else:
+        completed.execute(
+            "UPDATE fact_sector_daily_generation SET sector_ts_code=? "
+            "WHERE trade_date=? AND sector_ts_code=?",
+            ["990099.FP", fixture.D2, "990003.FP"],
+        )
+
+    rc, summary = call_cli(completed, monkeypatch, age=365)
+    assert rc == 0
+    assert summary["refresh_complete"] is True
+    assert summary["stitched"] == summary["candidates"] == 3
+    assert member_price(completed) == 12.0
+
+    store = SectorUniverseStore(completed)
+    members = store.completion_audit(fixture.D2)
+    assert members.complete is True
+    assert members.declared_tables == frozenset({"fact_sector_stock_daily"})
+    assert members.daily_identities_match is False
+    assert "tables=fact_sector_stock_daily " in members.brief()
+    assert "daily_identities" not in members.brief()
+
+    publication = store.completion_audit(
+        fixture.D2, declared_tables=frozenset({"fact_sector_daily", "fact_sector_stock_daily"}),
+    )
+    assert publication.complete is False
+    assert publication.daily_identities_match is False
+    assert "daily_identities" in publication.brief()
+    if daily_state == "foreign":
+        assert publication.missing_tables == ()  # Equal counts do not prove equal identities.
+    else:
+        assert publication.missing_tables == ("fact_sector_daily",)
+
+
 def test_recovery_bound_remains_180_days():
     from scripts import recover_local_review as recovery
 
