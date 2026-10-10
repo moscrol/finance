@@ -268,3 +268,23 @@ def test_fixed_document_cannot_be_changed_by_updating_its_hash(frozen, tmp_path,
     plan["checked_facts_sha256"] = runner.digest(root / "checked-facts.md")
     with pytest.raises(RuntimeError, match="fixed numeric document"):
         runner.verify_plan(plan, root)
+
+
+def test_model_axis_change_must_be_explicit_and_keeps_source_identity(frozen, tmp_path):
+    _, root, plan = frozen
+    source = make_source(tmp_path / "source")
+    packet, source_plan, hashes = runner.delivered_packet(source)
+    runner.save(root / "evidence-packet.json", packet)
+    plan.update(mode="delivery", source_run=str(source), source_hashes=hashes,
+                packet_sha256=runner.digest(root / "evidence-packet.json"),
+                question=packet["question"], information_cutoff=packet["information_cutoff"],
+                model="explicit-author", source_model=source_plan["model"],
+                subagents=False, second_look=False, tool_calls=0, rag_bindings="off",
+                delivery_skill="finance-mode", app_skills=["finance-mode"])
+    with pytest.raises(RuntimeError):
+        runner.verify_plan(plan, root)
+    plan["author_model"] = "explicit-author"
+    runner.verify_plan(plan, root)
+    plan["source_model"] = "forged-source-model"
+    with pytest.raises(RuntimeError):
+        runner.verify_plan(plan, root)

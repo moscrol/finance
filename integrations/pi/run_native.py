@@ -305,7 +305,11 @@ def prepare(args: argparse.Namespace) -> None:
             raise ValueError("delivery keeps the source question/cutoff and disables retrieval, second-look and subagents")
         packet, source_plan, source_hashes = delivered_packet(Path(args.source_run))
         if args.model != source_plan["model"]:
-            raise ValueError("delivery comparison must keep the source model")
+            raise ValueError("--model must identify the source model; use --author-model for an explicit model-axis experiment")
+        if args.author_model:
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", args.author_model):
+                raise ValueError("invalid explicit author model id")
+            args.model = args.author_model
         args.as_of = source_plan["information_cutoff"]
         args.today = source_plan["today"]
         args.latest_data_date = source_plan["latest_data_date"]
@@ -313,7 +317,7 @@ def prepare(args: argparse.Namespace) -> None:
         args.tool_cap = 0
     elif not args.question_file or not args.as_of or not args.rag_bindings:
         raise ValueError("research requires --db, --question-file, --as-of and --rag-bindings")
-    elif args.delivery_style != "direct" or args.delivery_skill or args.numeric_checks or args.analysis_only:
+    elif args.delivery_style != "direct" or args.delivery_skill or args.numeric_checks or args.analysis_only or args.author_model:
         raise ValueError("delivery settings require --source-run")
     root.mkdir(parents=True, exist_ok=True)
     kit = root / "kit"
@@ -363,6 +367,8 @@ def prepare(args: argparse.Namespace) -> None:
         "checked_facts_sha256": digest(root / "checked-facts.md") if args.analysis_only else None,
         "source_run": str(Path(args.source_run).resolve()) if packet is not None else None,
         "source_revision": source_plan["revision"] if source_plan is not None else None,
+        "source_model": source_plan["model"] if source_plan is not None else None,
+        "author_model": args.author_model,
         "source_hashes": source_hashes,
         "packet_sha256": digest(root / "evidence-packet.json") if packet is not None else None,
         "database_source": str(source_db) if source_db is not None else None,
@@ -399,7 +405,9 @@ def verify_plan(plan: dict, root: Path) -> None:
         except (ValueError, OSError) as error:
             raise RuntimeError("frozen evidence origin changed") from error
         if (packet != json.loads((root / "evidence-packet.json").read_text()) or hashes != plan["source_hashes"]
-                or any(plan[key] != original_plan[key] for key in ("question", "information_cutoff", "model"))
+                or any(plan[key] != original_plan[key] for key in ("question", "information_cutoff"))
+                or plan.get("source_model", original_plan["model"]) != original_plan["model"]
+                or plan["model"] != (plan.get("author_model") or original_plan["model"])
                 or plan.get("delivery_style", "direct") not in ("direct", "aligned")):
             raise RuntimeError("delivery question, cutoff, model or packet differs from its origin")
         if plan.get("numeric_checks"):
@@ -469,7 +477,9 @@ def run(args: argparse.Namespace) -> int:
     env = environment(plan, root)
     if hashlib.sha256(env["LLM_BASE_URL"].encode()).hexdigest() != plan["endpoint_sha256"]:
         raise RuntimeError("model endpoint changed since prepare")
-    result: dict = {"quality": "UNREVIEWED", "resampling": False}
+    result: dict = {"quality": "UNREVIEWED", "resampling": False,
+                    "source_model": plan.get("source_model"), "author_model": plan["model"],
+                    "model_axis_changed": bool(plan.get("source_model") and plan["source_model"] != plan["model"])}
     if args.dry_run:
         print(json.dumps({"dry_run": True, "pi_command": pi_command(plan, root, "<prompt>"),
                           "bridge": [sys.executable, str(root / "kit" / "bridge.py")]}, ensure_ascii=False, indent=2))
@@ -615,6 +625,7 @@ def main(argv: list[str] | None = None) -> int:
     prep.add_argument("--latest-data-date", default=None)
     prep.add_argument("--code-root", default=str(HERE.parents[1]))
     prep.add_argument("--model", default="glm-5.3-flash")
+    prep.add_argument("--author-model", help="explicit delivery-only model-axis experiment; source model remains recorded")
     prep.add_argument("--thinking", default="low")
     prep.add_argument("--tier", default="max")
     prep.add_argument("--user", default="probe-pi-native-knevo")

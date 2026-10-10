@@ -48,7 +48,9 @@ python integrations/pi/run_native.py run --root <新定稿目录>
 `delivery_method_in_first_request` 从实际请求核对完整方法是否送达，不能用最终read次数冒充先加载。
 源运行须完整、身份匹配且输入稳定；它的内容质量可以未通过。
 证据包只包含实际送达的公开工具结果，保留诊断与缺口；旧稿、私有审计和审查意见不进入模型。
-源原件、证据包和提示资产均做哈希校验，模型保持与源运行相同。
+源原件、证据包和提示资产均做哈希校验，模型默认保持与源运行相同。
+只有显式 `--author-model <id>` 才能做作者模型轴实验；`--model` 仍标识源运行模型，plan/RESULT分别记录源与作者身份，
+实际响应必须匹配所选作者。没有自动模型回退，不能把换模型的结果当成同模型对照。
 此模式不克隆DB、不初始化数据工具注册表、不访问RAG；Pi只开skill读取，桥接端也拒绝取数和重新授权。
 `completed-drafts.json` 中 aligned 第一稿是工作表，第二稿才是最终正文；阶段正确不等于语义通过。
 设计：`docs/verification/2026-10-10-frozen-evidence-delivery-design.md`。

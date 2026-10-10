@@ -39,7 +39,7 @@ def tools(*calls, text=None):
 
 
 @contextmanager
-def endpoint(respond):
+def endpoint(respond, *, model=MODEL):
     requests, errors = [], []
 
     class Handler(BaseHTTPRequestHandler):
@@ -74,7 +74,7 @@ def endpoint(respond):
                 self.send_header("Content-Type", "text/event-stream")
                 self.send_header("Connection", "close")
                 self.end_headers()
-                chunk = {"id": "stub", "object": "chat.completion.chunk", "created": 1, "model": MODEL,
+                chunk = {"id": "stub", "object": "chat.completion.chunk", "created": 1, "model": model,
                          "choices": [{"index": 0, "delta": result, "finish_reason": None}]}
                 self.wfile.write(("data: " + json.dumps(chunk) + "\n\n").encode())
                 reason = "tool_calls" if result.get("tool_calls") else "stop"
@@ -331,11 +331,12 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
     assert "offline-fixture-key" not in transport
 
 
-@pytest.mark.parametrize("style,numeric,analysis_only", [
-    ("direct", False, False), ("aligned", False, False),
-    ("direct", True, False), ("aligned", True, False), ("direct", True, True),
+@pytest.mark.parametrize("style,numeric,analysis_only,author_model", [
+    ("direct", False, False, None), ("aligned", False, False, None),
+    ("direct", True, False, None), ("aligned", True, False, None), ("direct", True, True, None),
+    ("direct", True, True, "explicit-author"),
 ])
-def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric, analysis_only):
+def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric, analysis_only, author_model):
     source = make_source(tmp_path / "source")
     root = tmp_path / "delivery"
     launcher = tmp_path / "launcher.sh"
@@ -351,6 +352,7 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         nonlocal turns
         turns += 1
         assert {tool["function"]["name"] for tool in body["tools"]} == {"read"}
+        assert body["model"] == (author_model or MODEL)
         encoded = json.dumps(body, ensure_ascii=False)
         method = (REPO / "skills/finance-market-review/SKILL.md").read_text().partition("\n---\n")[2].strip()
         system = "\n".join(m["content"] for m in body["messages"] if m["role"] == "system")
@@ -375,7 +377,7 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         return complete("FINAL_DELIVERY: FICTIONAL_NUMERIC_SENTINEL" if analysis_only else
                         "FINAL_DELIVERY: five of the supplied ten records match.")
 
-    with endpoint(respond) as (url, requests, errors):
+    with endpoint(respond, model=author_model or MODEL) as (url, requests, errors):
         monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "offline-fixture-key")
         monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_BASE_URL", url + "/v1")
         assert runner.main(["prepare", "--root", str(root), "--source-run", str(source),
@@ -383,12 +385,16 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
                             "--launcher", str(launcher),
                             "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40",
                             *(["--numeric-checks"] if numeric else []),
-                            *(["--analysis-only"] if analysis_only else [])]) == 0
+                            *(["--analysis-only"] if analysis_only else []),
+                            *(["--author-model", author_model] if author_model else [])]) == 0
         assert not (root / "market_feature_store.duckdb").exists()
         assert runner.main(["run", "--root", str(root)]) == 0
     assert not errors
     result = json.loads((root / "RESULT.json").read_text())
     assert result["status"] == "completed"
+    assert result["source_model"] == MODEL
+    assert result["author_model"] == (author_model or MODEL)
+    assert result["model_axis_changed"] is (author_model is not None)
     assert result["arm"]["data_tools_disabled"] is True
     assert result["arm"]["delivery_method_in_first_request"] is True
     if numeric:
