@@ -254,6 +254,42 @@ def test_no_followup_does_not_claim_continuation_ownership(run_pi, tmp_path, ord
     assert events[-1]["type"] == "agent_settled"
 
 
+@pytest.fixture
+def real_history_extension(tmp_path):
+    configured = os.environ.get("FINANCE_PI_HISTORY_TEST_ROOT")
+    source = Path(configured) if configured else REPO
+    files = [source / "integrations/pi" / name for name in ("reviewed-history.ts", "market-history.ts")]
+    if not all(path.is_file() for path in files):
+        if configured:
+            pytest.fail("FINANCE_PI_HISTORY_TEST_ROOT must contain both real history adapter files")
+        pytest.skip("requires the history adapter in this checkout or FINANCE_PI_HISTORY_TEST_ROOT")
+    target = tmp_path / "real-history"
+    target.mkdir()
+    for path in files:
+        shutil.copyfile(path, target / path.name)
+    return target / "reviewed-history.ts"
+
+
+@pytest.mark.parametrize("order", ["preload", "postload"])
+@pytest.mark.parametrize("mode", ["second-look", "aligned"])
+def test_real_history_and_finance_continuations_conflict_before_model_call(run_pi, real_history_extension, order, mode):
+    run, _ = run_pi
+    settings = {"second_look": True} if mode == "second-look" else {"delivery_style": "aligned"}
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        with pytest.raises(AssertionError, match="continuation already owned"):
+            run(url, **{order: real_history_extension}, **settings)
+    assert requests == [] and not errors
+
+
+@pytest.mark.parametrize("order", ["preload", "postload"])
+def test_real_history_can_coexist_with_finance_without_followup(run_pi, real_history_extension, order):
+    run, _ = run_pi
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        events = run(url, **{order: real_history_extension})
+    assert not errors and len(_model_requests(requests)) == 1
+    assert events[-1]["type"] == "agent_settled"
+
+
 def test_duplicate_same_named_continuation_cannot_stack(run_pi, tmp_path):
     run, _ = run_pi
     duplicate = tmp_path / "finance-mode-copy.ts"

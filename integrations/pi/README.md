@@ -87,6 +87,15 @@ python -m pytest -q tests/test_pi_native_runner.py tests/test_pi_finance_extensi
 Pi 子进程测试只连本机模拟接口，不调用付费模型。没有 Pi CLI 的环境会明确跳过子进程测试，不能把跳过算作已验证。
 测试覆盖工具真实可见性与调用、skill 读取、自检停止、子任务参数传递和错误传播、读路径限制、冻结校验及完整 runner/bridge 往返。
 
+真实 history 适配器的跨线测试也已入仓。两适配器尚在不同分支时，显式指定已审核的 #83 检出根；合流后默认从本树读取：
+
+```bash
+FINANCE_PI_HISTORY_TEST_ROOT=/absolute/path/to/history-checkout \
+  python -m pytest -q tests/test_pi_finance_extension.py -k real_history
+```
+
+该测试覆盖二看/aligned两模式的双向启动冲突，以及无续写模式共存；不调用真实模型。未提供该环境变量且本树没有history适配器时明确skip；显式提供的根缺文件则失败，不借用机器上恰好存在的邻树。历史脏树临时改测试的4P仅是开发观察，不能替代这份已提交测试的净树收据。
+
 产物包括 `plan.json`、`pi/answer.md`、`pi/events.jsonl`、工具与脱敏模型请求/响应、`RESULT.json` 和哈希清单。
 `RESULT.status=completed` 只说明完整终稿、模型身份和执行完整性成立，`quality=UNREVIEWED` 仍需全文核验。
 `skill_reads` 只计成功读取；`tool_calls` 计桥接层预占的全部尝试，`tool_observations` 单列返回的观察，父线程尝试/错误另外记录。
@@ -94,6 +103,10 @@ Pi 子进程测试只连本机模拟接口，不调用付费模型。没有 Pi C
 
 内容验收检查：全集边界、量价与资金的区别、指数贡献依据、反证可观测性、缺口声明。
 字数和调用数不代替质量。同题对照还要固定代码、模型参数、数据库、截止日和工具上限；n=1 不签总体胜率，失败不重抽补绿。
+
+## 成文层归属
+
+用户已选择本A线统一命题/证据合同：工具 `qualifications` 与逐句命题类型是主要核对依据，词面标注只作补充；问题回灌一次修订，保留原稿，不拒收或伪装为已核验。清点线只补专项方法与反例，B线reviewed-history保持实验且不再扩写。该属主决定不是功能已实现或金融质量已通过；当前direct/aligned的行为不变，实施与验收待独立切片。
 
 ## 边界
 
