@@ -366,7 +366,8 @@ DecisionBrief、composer 确定性校验/修复和公开投影只看实际送达
 
 ### 原生 Pi 历史陈述复核（显式启用）
 
-外部入口 `integrations/pi/reviewed-history.ts` 替代原 `market-history.ts` 加载，不改变全局Pi或Workbench默认。
+外部实验入口 `integrations/pi/reviewed-history.ts` 替代原 `market-history.ts` 加载，不改变全局Pi或Workbench默认。
+**真实正反对照未过，不作为金融放行门**；实现及失败见[复核验收](handoffs/2026-10-10-native-history-review-implementation.md)。
 历史读取可在同一次计算中保留typed readout，放工具details给复核使用；作者工具正文仍按原v1逐字节送达，
 48KB原子上限与INFERRED等级不变。复核不重新读库，不把原生Pi冒充material_only Episode。
 

@@ -121,7 +121,9 @@ pi --offline --mode json --no-session \
 
 ## 显式启用历史陈述复核
 
-`reviewed-history.ts` 是同一原生工具的可选复核适配器，替代本页启动命令中的 `market-history.ts`，不要同时加载两者。它不修改全局Pi配置或Workbench运行层。
+`reviewed-history.ts` 是同一原生工具的**实验性、显式启用**复核适配器，替代本页启动命令中的 `market-history.ts`，不要同时加载两者。它不修改全局Pi配置或Workbench运行层。
+
+**真实正反对照尚未通过，不建议用作金融结论放行门。** 已有机械协议/失败保护回归，但GLM复核仍可能漏掉类型错误、误报或不返回合法回执；具体失败见[本轮实现验收](../../docs/handoffs/2026-10-10-native-history-review-implementation.md)。
 
 - 作者收到的工具正文与旧入口逐字节相同。额外类型读数来自同一次计算，只放tool details；复核不重新读库，也不把INFERRED升为事实。
 - 共享 `history_answer_review` 为每个陈述和具名读数建立本次请求内的身份，核对完整回执、锚点索引及回答完整性；纯格式/非事实豁免还要在隔离上下文里复核。未送进实际作者请求的工具结果不获得复核许可。
