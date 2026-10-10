@@ -1,0 +1,37 @@
+{
+  "exit_code": 0,
+  "episode_store": null,
+  "episode_store_roots": [],
+  "results": [
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-pre-e33021db0-1006/runs/run_20261006_141511_002688/continuous-episode.json",
+      "verdict": "admitted",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {
+        "glm-5.3-flash": 4
+      },
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "带回的生效模型全部符合：glm-5.3-flash×4"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-pre-e33021db0-1006/runs/run_20261006_141511_002688/trace.jsonl",
+      "verdict": "admitted",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {
+        "glm-5.3-flash": 5
+      },
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "带回的生效模型全部符合：glm-5.3-flash×5"
+    }
+  ]
+}
