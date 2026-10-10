@@ -437,6 +437,9 @@ export interface BoardCalendarHighBoardBreak {
   /** 断板前一日的连板数（即这只高标断于几板）。 */
   height_at_break: number;
   theme: string | null;
+  /** traded = 当日有成交且未封涨停（已核行情）；unverified = 无个股行情表可核。 */
+  verification?: "traded" | "unverified";
+  close_pct_chg?: number | null;
 }
 
 export type BoardCalendarStatus =
@@ -444,7 +447,20 @@ export type BoardCalendarStatus =
   | "closed"
   | "future"
   | "market_data_missing"
-  | "calendar_unknown";
+  | "calendar_unknown"
+  | "pending";
+
+export type BoardCalendarUnresolvedReason =
+  | "source_mismatch"
+  | "quote_day_missing"
+  | "quote_invalid"
+  | "no_trade"
+  | "st_scope"
+  | "closed_at_limit";
+
+export interface BoardCalendarUnresolvedBreak extends BoardCalendarHighBoardBreak {
+  reason: BoardCalendarUnresolvedReason;
+}
 
 export interface BoardCalendarDay {
   date: string;
@@ -456,10 +472,13 @@ export interface BoardCalendarDay {
     | "board_data_missing"
     | "not_applicable"
     | "market_data_missing"
-    | "calendar_unknown";
+    | "calendar_unknown"
+    | "pending";
   board_groups: BoardCalendarGroup[];
   stock_count: number;
+  high_board_comparison_status?: "available" | "data_missing" | "calendar_unknown" | "not_applicable" | "source_mismatch" | "pending";
   high_board_breaks?: BoardCalendarHighBoardBreak[];
+  high_board_unresolved?: BoardCalendarUnresolvedBreak[];
 }
 
 export interface BoardCalendar {
@@ -474,6 +493,8 @@ export interface BoardCalendar {
   calendar_days: BoardCalendarDay[];
   trading_days: BoardCalendarDay[];
   high_board_breaks?: BoardCalendarHighBoardBreak[];
+  high_board_unresolved?: BoardCalendarUnresolvedBreak[];
+  unresolved_reasons?: Partial<Record<BoardCalendarUnresolvedReason, string>>;
   high_board_min?: number;
 }
 
@@ -776,9 +797,22 @@ export interface CreateMessageRequest {
   continuation?: FollowupContinuation;
   /** 06 QC V2：首轮也能携带的请求实例坐标；普通提问不带。 */
   maintenance_launch?: MaintenanceLaunchRef;
+  /** 复盘页「带着证据去问答」：只带坐标与页面所见指纹，服务端重读核对。 */
+  review_evidence?: ReviewEvidenceRef;
+}
+
+export interface ReviewEvidenceRef {
+  schema: "review-evidence-ref/v1";
+  end: string;
+  days: number;
+  industry: string;
+  fingerprint: string;
+  selected_date: string | null;
 }
 
 export interface CreateMessageResponse {
+  /** Present only when review_evidence was sent and verified by the server. */
+  review_evidence?: "verified";
   conversation_id: string;
   user_message_id: string;
   assistant_message_id: string;

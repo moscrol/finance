@@ -16,8 +16,9 @@ roadmap G-01 (b)「复盘 run 新增 teaching 模式，可关，关掉后输出�
 - ``teaching_capital`` / ``teaching_narrative`` / ``teaching_briefing`` 资金面与消息面（卖方观点事件、晨汇 Tier 投影）的
                           市场级当日读数，各一个对象；某个源没有读数的日子，原因（未接知识库 / 断更 / 当日无晨汇）挂在阶段对象上。
 
-``recorded_at`` 一律取旁路库行的 ``computed_at``（构建时刻）：标签是事后重算的，回放 / 校准用 ``require_strict``
-时这些对象会被无前视门滤掉，这是对的——它们在历史那天并不存在。当日带读（cutoff = as_of）能看到。
+标签对象的 ``recorded_at`` 取成分行最晚的 ``first_known_at``；任一成分缺戳则整体未知。
+王朝与区间高标等尚无逐行可知性证据的对象继续用 ``computed_at``。河的 PIT 闸仍过滤晚于
+cutoff 的对象，不能仅凭 trade_date 声称历史那天就可见。
 """
 
 from __future__ import annotations
@@ -54,6 +55,16 @@ BRIEFING_LABELS = tuple(f"tf.{name}" for name in (
     "briefing_tier1_items", "briefing_tier2_items", "briefing_tier3_items", "briefing_market_confirmed",
     "briefing_dimensions", "briefing_hit_rps5_pct", "briefing_lag_days",
 ))
+# 周期位置：转点、周均线穿越、量能日型、主线容量趋势。
+# 从旁路库搬运已有标签，不在判定路径重新计算。
+# （转点缺口、站上周均确认、缩量、双量日、量板块、主线成交占比趋势、连板高度、偏离度收敛）。
+# 不并进 STAGE_LABELS 的原因与 CAPITAL/BREADTH 相同：阶段对象已接近 payload ≤ 20 键的索引层约束。
+# 这里只负责**搬**，不新增任何计算、阈值或口径。
+CYCLE_LABELS = tuple(f"tf.{name}" for name in (
+    "gap_down_open", "cross_above_week_ma", "deviation_narrowing",
+    "shrink_day", "volume_shrink_streak", "double_volume_day",
+    "mainline_volume_top3", "mainline_share_trend_up", "max_boards",
+))
 # 广度（第二十五段）：全市场个股层的市场级读数，单独一个对象——阶段对象已接近 payload ≤ 20 键的上限。
 BREADTH_LABELS = tuple(f"tf.{name}" for name in (
     "stock_above_ma5_share_pct", "new_high_20d_count", "new_low_20d_count", "new_low_1y_count",
@@ -82,14 +93,57 @@ def _has_table(con: Any, table: str) -> bool:
     return bool(con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?", [table]).fetchone()[0])
 
 
-def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> list[RiverObject]:
-    """Read the teaching sidecar for ``as_of`` and return the ``teaching_*`` river objects (possibly empty)."""
+class StaleTeachingSidecarError(RuntimeError):
+    """教学旁路库的表比当前 DDL 旧，读不出 PIT 身份。"""
+
+
+def _require_pit_column(con: Any) -> None:
+    """``history_teaching_labels`` 必须有 ``first_known_at``，否则给出可操作的中止。
+
+    为什么需要这个：加 ``first_known_at`` 那一刀只改了 DDL，而 ``ensure_schema`` 全是
+    ``CREATE TABLE IF NOT EXISTS``——**已存在的旧表不会被加列**。写路径有
+    ``_open_sidecar_for_write`` → ``check_teaching_schema`` 挡着，读路径只有
+    ``_has_table``（查表在不在），没查列。于是旧库上这里会抛一个裸的
+    ``Binder Error: Referenced column "first_known_at" not found``——
+    对着那条信息没人猜得到该做什么。
+
+    不选「列不在就当 NULL 继续」：那会静默产出一批没有 PIT 身份的对象，
+    正是「有库无河」那一类病（管子通着、水是假的）。教学表**可丢弃**
+    （内容全部能由 ``build-*`` 从主库重算），所以这里直接要求重建。
+    """
+    if not _has_table(con, "history_teaching_labels"):
+        return
+    cols = {
+        str(r[0])
+        for r in con.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'history_teaching_labels'"
+        ).fetchall()
+    }
+    if "first_known_at" not in cols:
+        raise StaleTeachingSidecarError(
+            "history_teaching_labels 缺列 first_known_at：这张表建于加 PIT 身份之前。"
+            "ensure_schema 的 CREATE TABLE IF NOT EXISTS 不会给已存在的表加列。"
+            "跑 `teaching_framework.py reset-teaching` 重建 10 张教学表后再 build-*"
+            "（教学表可重算；legacy 的 history_calendar / history_labels 不会被动）。"
+        )
+
+
+def teaching_objects(
+    labels_db: str | Path, as_of: str, *, top: int = 10,
+    entity_type: str | None = None, entity_id: str | None = None,
+) -> list[RiverObject]:
+    """Read the teaching sidecar for ``as_of`` and return the ``teaching_*`` river objects (possibly empty).
+
+    ``entity_type`` / ``entity_id`` 给定时额外带出该实体的结构事件对象（``teaching_structure``）。
+    不给 = 只要市场级那批，与改动前逐字节一致。
+    """
     path = Path(labels_db).expanduser()
     if not path.is_file():
         raise FileNotFoundError(f"教学框架旁路库不存在: {path}（先跑 scripts/teaching_framework.py build-labels）")
     day = _date(as_of)
     con = open_labels_db(path, read_only=True)
     try:
+        _require_pit_column(con)
         out: list[RiverObject] = []
         narrative = _labels_object(con, day, as_of, labels=NARRATIVE_LABELS, object_type="teaching_narrative", suffix="narrative")
         briefing = _labels_object(con, day, as_of, labels=BRIEFING_LABELS, object_type="teaching_briefing", suffix="briefing")
@@ -108,6 +162,9 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
         breadth = _labels_object(con, day, as_of, labels=BREADTH_LABELS, object_type="teaching_breadth", suffix="breadth")
         if breadth is not None:
             out.append(breadth)
+        cycle = _labels_object(con, day, as_of, labels=CYCLE_LABELS, object_type="teaching_cycle", suffix="cycle")
+        if cycle is not None:
+            out.append(cycle)
         if narrative is not None:
             out.append(narrative)
         if briefing is not None:
@@ -118,9 +175,39 @@ def teaching_objects(labels_db: str | Path, as_of: str, *, top: int = 10) -> lis
         leaders = _range_leaders_object(con, day, as_of, top=top)
         if leaders is not None:
             out.append(leaders)
+        if entity_type is not None and entity_id is not None:
+            structure = _structure_object(con, day, as_of, entity_type=entity_type, entity_id=entity_id)
+            if structure is not None:
+                out.append(structure)
+            if entity_type == "sector":
+                role = _sector_role_object(con, day, as_of, entity_id=entity_id)
+                if role is not None:
+                    out.append(role)
         return out
     finally:
         con.close()
+
+
+
+def _earliest_known_values(stamps: list[Any]) -> Any:
+    """一组 ``first_known_at`` → 这个对象最早可知的时刻。
+
+    **取 max 而不是 min**:对象是多条标签打包成的一个整体,要到**最晚的那条**也可知之后,
+    整个对象才算可知。取 min 会让对象声称自己比其中某条成分更早可知。
+
+    任何一条是 NULL ⇒ 整个对象返回 ``None`` ⇒ 河的 PIT 闸 fail-closed 把它滤掉。
+    「这条读数没有可知时间证据」和「它那天已知」是两回事,不能混。
+    """
+
+    if not stamps:
+        return None
+    if any(x is None for x in stamps):
+        return None
+    return max(stamps)
+
+
+def _earliest_known(rows: list[Mapping[str, Any]]) -> Any:
+    return _earliest_known_values([r["first_known_at"] for r in rows])
 
 
 def _stage_object(con: Any, day: date, as_of: str, extra: Mapping[str, Any] | None = None) -> RiverObject | None:
@@ -128,7 +215,7 @@ def _stage_object(con: Any, day: date, as_of: str, extra: Mapping[str, Any] | No
         return None
     rows = _rows(
         con,
-        f"""SELECT label, value_num, value_text, framework_version, computed_at FROM history_teaching_labels
+        f"""SELECT label, value_num, value_text, framework_version, first_known_at FROM history_teaching_labels
             WHERE entity_type = 'market' AND entity_id = 'market' AND status = 'ok' AND trade_date = ?
               AND label IN ({", ".join("?" for _ in STAGE_LABELS)})
             ORDER BY label""",
@@ -152,14 +239,14 @@ def _stage_object(con: Any, day: date, as_of: str, extra: Mapping[str, Any] | No
         else:
             payload[label] = value
         versions.add(str(r["framework_version"]))
-        computed.append(r["computed_at"])
+        computed.append(r["first_known_at"])
     payload["framework_version"] = sorted(versions)[0] if len(versions) == 1 else sorted(versions)
     payload.update(dict(extra or {}))
     hashed = {k: v for k, v in payload.items()}
     return RiverObject(
         track="market", entity_id="__market__", object_type="teaching_stage",
         ref=f"history_teaching_labels:{as_of}:market", source_hash=_hash(hashed),
-        valid_from=as_of, recorded_at=_ts(max(computed)) if computed else None, payload=payload,
+        valid_from=as_of, recorded_at=_ts(_earliest_known_values(computed)), payload=payload,
     )
 
 
@@ -169,7 +256,7 @@ def _labels_object(con: Any, day: date, as_of: str, *, labels: tuple[str, ...], 
         return None
     rows = _rows(
         con,
-        f"""SELECT label, value_num, framework_version, computed_at FROM history_teaching_labels
+        f"""SELECT label, value_num, framework_version, first_known_at FROM history_teaching_labels
             WHERE entity_type = 'market' AND entity_id = 'market' AND status = 'ok' AND trade_date = ?
               AND label IN ({", ".join("?" for _ in labels)}) AND value_num IS NOT NULL
             ORDER BY label""",
@@ -182,7 +269,93 @@ def _labels_object(con: Any, day: date, as_of: str, *, labels: tuple[str, ...], 
     return RiverObject(
         track="market", entity_id="__market__", object_type=object_type,
         ref=f"history_teaching_labels:{as_of}:market:{suffix}", source_hash=_hash(payload),
-        valid_from=as_of, recorded_at=_ts(max(r["computed_at"] for r in rows)), payload=payload,
+        valid_from=as_of, recorded_at=_ts(_earliest_known(rows)), payload=payload,
+    )
+
+
+# 实体级结构事件：板块 / 个股层的 MACD 背离。
+# 与上面所有标签组不同——这组**不是市场级**，每行挂在一个具体 entity_id 上，
+# 所以它进的是切片自己那个实体的轨（板块 → theme），不是 ``__market__``。
+# scripts/teaching_framework.py:1309 STRUCTURE_ENTITY_LABELS 是同一份名单的 SSOT 对侧。
+_SECTOR_LABELS_SSOT: tuple[str, ...]
+from intelligence.services.teaching_framework.sector_roles import SECTOR_LABELS as _SECTOR_LABELS_SSOT  # noqa: E402
+
+STRUCTURE_LABELS = (
+    "tf.macd_bottom_div_observe", "tf.macd_bottom_div_confirm",
+    "tf.macd_bottom_div_failed", "tf.macd_top_div",
+)
+
+
+# 板块角色（C 类，sector_roles.SECTOR_LABELS）：量板块 / 价板块 / 锐度 / RPS / 双红 /
+# 赚钱效应五种口径并列保留。
+# 名单从 sector_roles 推导而不是手抄——手抄一份四元组导致「两处同名不同物」是本仓踩过的坑。
+#
+# 刻意剔除 ``mainline_volume_top3``：它在 sector_roles:265 就是 ``role_volume_top3`` 的别名，
+# 而这个名字在**市场级**已经被 CYCLE_LABELS 占了（含义不同）。同名不同物正是上面那个坑，
+# 搬别名零收益、却要付命名空间碰撞的代价，所以搬 role_volume_top3 就够了。
+SECTOR_ROLE_LABELS: tuple[str, ...] = tuple(
+    f"tf.{name}" for name in _SECTOR_LABELS_SSOT if name != "mainline_volume_top3"
+)
+
+
+def _entity_labels_object(
+    con: Any, day: date, as_of: str, *, entity_type: str, entity_id: str,
+    labels: tuple[str, ...], object_type: str, suffix: str, with_text: bool = False,
+) -> RiverObject | None:
+    """一组**实体级**标签 → 一个对象。与 ``_labels_object`` 的区别只在实体不是 ``market``。"""
+    if not _has_table(con, "history_teaching_labels"):
+        return None
+    rows = _rows(
+        con,
+        f"""SELECT label, value_num, value_text, framework_version, first_known_at FROM history_teaching_labels
+            WHERE entity_type = ? AND entity_id = ? AND status = 'ok' AND trade_date = ?
+              AND label IN ({", ".join("?" for _ in labels)}) AND value_num IS NOT NULL
+            ORDER BY label""",
+        [entity_type, entity_id, day, *labels],
+    )
+    if not rows:
+        return None
+    payload: dict[str, Any] = {str(r["label"]).removeprefix("tf."): r["value_num"] for r in rows}
+    if with_text:
+        anchors = {
+            str(r["label"]).removeprefix("tf."): str(r["value_text"]) for r in rows if r["value_text"] is not None
+        }
+        if anchors:
+            payload["anchor_days"] = anchors
+    payload["framework_version"] = sorted({str(r["framework_version"]) for r in rows})[0]
+    return RiverObject(
+        track="theme" if entity_type == "sector" else "stock", entity_id=entity_id,
+        object_type=object_type,
+        ref=f"history_teaching_labels:{as_of}:{entity_type}:{entity_id}:{suffix}",
+        source_hash=_hash(payload), valid_from=as_of,
+        recorded_at=_ts(_earliest_known(rows)), payload=payload,
+    )
+
+
+def _structure_object(con: Any, day: date, as_of: str, *, entity_type: str, entity_id: str) -> RiverObject | None:
+    """某个板块 / 个股当日的 MACD 背离事件 → 一个对象，只搬不解释。
+
+    **只落事件日**（``scripts/teaching_framework.py:1316``）：``value_num`` 恒为 1.0，
+    ``value_text`` 是锚点日（事件指向的极值日）。没事件的日子根本没有行，
+    所以这里返回 None —— 判定路径会当 unknown，不当「没背离」。
+    这两件事在读数上长得一样，混起来就是 ``rules.text_domain_error`` 那句
+    「『从未成立』与『今天没成立』在读数上长得一样」的同一个坑。
+    """
+    return _entity_labels_object(
+        con, day, as_of, entity_type=entity_type, entity_id=entity_id,
+        labels=STRUCTURE_LABELS, object_type="teaching_structure", suffix="structure", with_text=True,
+    )
+
+
+def _sector_role_object(con: Any, day: date, as_of: str, *, entity_id: str) -> RiverObject | None:
+    """某个板块当日的角色标签（量板块 / 价板块 / 锐度 / RPS / 双红 / 赚钱效应）。
+
+    与结构事件不同，角色标签是**逐日全量**的：板块在就有行，不在就是真的没算出来
+    （``sector_roles`` 全程 fail-closed，窗口不全或输入 NULL 一律给 NULL，不补零）。
+    """
+    return _entity_labels_object(
+        con, day, as_of, entity_type="sector", entity_id=entity_id,
+        labels=SECTOR_ROLE_LABELS, object_type="teaching_sector_role", suffix="sector_role",
     )
 
 
@@ -265,6 +438,10 @@ def _dynasty_object(con: Any, day: date, as_of: str, *, top: int) -> RiverObject
                 for m in new_members
             ],
         }
+    # 局限：history_dynasties 还没有 first_known_at 列，这里仍是 computed_at，
+    # 也就是「最后一次重算是什么时候」。王朝本来就是**事后对象**（要两波都走完才能回溯
+    # 衔接），它在历史切片上不可见是正确的，所以没有顺手给它加列。真要让它有 PIT 身份，
+    # 得先定义「王朝在哪一天才算可知」——那是口径问题，不是字段问题。
     computed = [m["computed_at"] for m in members if m.get("computed_at") is not None]
     return RiverObject(
         track="market", entity_id="__market__", object_type="teaching_dynasty",
@@ -294,5 +471,7 @@ def _range_leaders_object(con: Any, day: date, as_of: str, *, top: int) -> River
     return RiverObject(
         track="market", entity_id="__market__", object_type="teaching_range_leaders",
         ref=f"history_range_leaders:{as_of}", source_hash=_hash(payload), valid_from=as_of,
+        # 局限：history_range_leaders 同样还没有 first_known_at 列。区间高标是当日横截面排名，
+        # 机制上应当前缀稳定，但补证包的前缀检查没覆盖它 —— 没有证据就不声称，保持 computed_at。
         recorded_at=_ts(max(r["computed_at"] for r in rows)), payload=payload,
     )

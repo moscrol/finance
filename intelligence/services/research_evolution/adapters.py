@@ -23,6 +23,7 @@ from typing import Any, Mapping, Protocol, Sequence
 from intelligence.services import checkpoints as checkpoints_svc
 from intelligence.services import judgments as judgments_svc
 from intelligence.services import research_queue as research_queue_svc
+from intelligence.services import river_derive
 from intelligence.services import scenario_trees as scenario_trees_svc
 from intelligence.services.research_evolution.contracts import (
     ERR_REF_UNRESOLVABLE,
@@ -30,8 +31,13 @@ from intelligence.services.research_evolution.contracts import (
     gap,
 )
 
-# 01 只能编译这四个标签（``conditions.compile_binding_condition``）；UI 不该让用户选到别的。
-SLICE_EVALUABLE_LABELS: tuple[str, ...] = ("dual_red_strict", "volume_surge", "market_stage", "limit_heat_rank")
+# 01 能编译的标签集（``conditions.compile_binding_condition``）；UI 不该让用户选到别的。
+#
+# 原先是一份手抄的四元组。手抄的那刻两边是一致的，但白名单在 river_derive 那边扩了之后
+# 这里不会跟着动，结果是：河已经能判的标签，01 的目录里看不到，而且没有任何测试会红——
+# 一个只会在「新功能悄悄不生效」这个方向出错的副本。改为从唯一来源派生，顺序按
+# river_derive 的声明顺序（dict 保序），下游拿到的名单永远等于河真正能判的名单。
+SLICE_EVALUABLE_LABELS: tuple[str, ...] = tuple(river_derive.SLICE_EVALUABLE_LABELS)
 
 
 # --------------------------------------------------------------------------- #

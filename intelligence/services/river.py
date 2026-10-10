@@ -1139,12 +1139,18 @@ def slice_river(
     if teaching_labels_db is not None:
         from intelligence.services.teaching_framework.river_objects import teaching_objects
 
-        teaching = teaching_objects(teaching_labels_db, as_of)
+        # 结构事件（背离）是**实体级**的，按这一天库里真实的代码取（旁路库 entity_id
+        # 取「事件日当天的代码」，见 scripts/teaching_framework.py:1316），不是 canonical_id。
+        # 下面 alias_applied 那段会把它改写成 canonical，顺序不能反。
+        teaching = teaching_objects(
+            teaching_labels_db, as_of, entity_type="sector", entity_id=ref.code_on_date,
+        )
         if teaching:
-            market = tracks["market"]
-            # 教学对象本来就是盘面轨的对象（指数阶段），不是拿别的轨补编；盘面轨若是缺口而
-            # 教学标签有值（实测不会——标签的输入就是盘面行），也如实放出对象而不是留缺口。
-            tracks["market"] = [*market, *teaching] if isinstance(market, list) else teaching
+            # 市场级那批照旧进盘面轨；实体级的结构对象自己带 track，按它自己的轨放。
+            for obj in teaching:
+                t = obj.track if obj.entity_id != "__market__" else "market"
+                cur = tracks[t]
+                tracks[t] = [*cur, obj] if isinstance(cur, list) else [obj]
     if ref.alias_applied:
         tracks = {
             track: result

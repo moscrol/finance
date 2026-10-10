@@ -731,6 +731,10 @@ class AnswerSpec:
     research_artifacts: tuple[StageArtifact, ...] = ()
     research_evidence_atoms: tuple[EvidenceAtom, ...] = ()
     quality: AnswerQualityReport = field(default_factory=AnswerQualityReport)
+    # Immutable, model-only public execution semantics, not additional fact
+    # claims or an AskResult ledger field. Serialized at the typed producer
+    # boundary so grounded composition and fulfillment repair share one scope.
+    model_query_basis_json: str = field(default="", repr=False)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -2904,13 +2908,72 @@ def _registry_atom_view(atom: EvidenceAtom) -> dict[str, object]:
     }
 
 
+def _grounded_registry_row(claim: Claim, atoms: tuple[EvidenceAtom, ...]) -> dict[str, object]:
+    return {
+        "claim_id": claim.claim_id,
+        "claim_type": _grounded_claim_type(claim),
+        "text": claim.text,
+        "theme": claim.theme,
+        "company": claim.company,
+        "evidence_atoms": [
+            _registry_atom_view(atom) for atom in atoms
+            if atom.provenance.get("claim_id") == claim.claim_id
+        ],
+    }
+
+
+class QueryBasisContractError(ValueError):
+    """Typed source scope is missing or differs from its producer contract."""
+
+
+def _registry_query_basis_row(answer_spec: AnswerSpec) -> dict[str, object] | None:
+    """Public source scope is metadata, never a new claim or evidence license."""
+    needs_d4_scope = any(
+        claim.claim_id.startswith("data:D4:row:")
+        for claim in _all_answer_claims(answer_spec)
+    )
+    if not answer_spec.model_query_basis_json:
+        if needs_d4_scope:
+            raise QueryBasisContractError("required D4 query basis is unavailable")
+        return None
+    try:
+        basis = json.loads(answer_spec.model_query_basis_json)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise QueryBasisContractError("invalid model query basis") from exc
+    if not isinstance(basis, dict) or any(
+        not isinstance(source, str) or not source or not isinstance(scope, dict)
+        for source, scope in basis.items()
+    ):
+        raise QueryBasisContractError("invalid model query basis")
+    if needs_d4_scope and not basis.get("D4"):
+        raise QueryBasisContractError("required D4 query basis is unavailable")
+    return {"query_basis": basis} if basis else None
+
+
 def grounded_claim_registry_block(
     answer_spec: AnswerSpec,
     *,
     query: str = "",
     max_chars: int | None = None,
+    required_claim_ids: tuple[str, ...] = (),
+    require_support: bool = False,
 ) -> str:
+    """Atomic rows under one budget, with an optional synthesis admission floor.
+
+    A synthesis caller reserves one complete verified support per source (or a
+    sourced summary when no verified support exists), plus any omission notice.
+    If these cannot fit, refuse before invoking the model. Generic registry readers
+    can still request only the atomic rows, including an exact one-row budget.
+    Counter/gap reservations then precede the ordinary ranked pool. Typed
+    source query basis is one atomic metadata row under this SAME budget; it
+    cannot be dropped while admitting its facts or bypass the window as a suffix.
+    """
     atoms = evidence_atoms_from_answer_spec(answer_spec)
+    scope_row = _registry_query_basis_row(answer_spec)
+    scope_line = (
+        json.dumps(scope_row, ensure_ascii=False, separators=(",", ":"))
+        if scope_row is not None else ""
+    )
     # 反证与缺口是「不许过度宣称」的材料：它们被预算挤掉，模型就只剩支持性事实，
     # 越界解读没有对手方。实测 2026-08-26 披露扫描：68 条 claim / 12k 预算只装下
     # 18 条，disc:counter 与 disc:excl 一条没进，模型于是把反证行绑到 disc:summary
@@ -2920,24 +2983,23 @@ def grounded_claim_registry_block(
         for claim in (*answer_spec.counter_evidence, *answer_spec.gaps)
     }
     rows: list[tuple[bool, float, int, str]] = []
+    required_ids = set(required_claim_ids)
+    required_indexes: set[int] = set()
+    fact_sources: dict[int, tuple[str, ...]] = {}
+    support_indexes: set[int] = set()
+    found_ids: set[str] = set()
     for index, claim in enumerate(_all_answer_claims(answer_spec)):
-        claim_atoms = tuple(
-            atom
-            for atom in atoms
-            if atom.provenance.get("claim_id") == claim.claim_id
-        )
+        if claim.claim_id in required_ids:
+            required_indexes.add(index)
+            found_ids.add(claim.claim_id)
+        if claim.evidence_ids and claim.status != ClaimStatus.MISSING:
+            if claim in answer_spec.verified_facts and claim.status == ClaimStatus.VERIFIED:
+                fact_sources[index] = claim.evidence_ids
+            if claim in (*answer_spec.summary, *answer_spec.verified_facts):
+                support_indexes.add(index)
         line = json.dumps(
-            {
-                "claim_id": claim.claim_id,
-                "claim_type": _grounded_claim_type(claim),
-                "text": claim.text,
-                "theme": claim.theme,
-                "company": claim.company,
-                "evidence_atoms": [
-                    _registry_atom_view(atom) for atom in claim_atoms
-                ],
-            },
-            ensure_ascii=False,
+            _grounded_registry_row(claim, atoms),
+            ensure_ascii=False, separators=(",", ": "),
         )
         rows.append(
             (
@@ -2947,22 +3009,62 @@ def grounded_claim_registry_block(
                 line,
             )
         )
+    if found_ids != required_ids:
+        raise ValueError("required registry claims are unavailable")
     if max_chars is None or max_chars <= 0:
-        return "\n".join(line for _keep, _score, _index, line in rows)
+        return "\n".join(
+            ([scope_line] if scope_line else [])
+            + [line for _keep, _score, _index, line in rows]
+        )
     # P4/P6: rank first, then enforce one global prompt budget.  Skipped rows
     # remain in AnswerSpec/EvidenceAtom audit storage and provider traces.
     rows.sort(key=lambda row: (-row[1], row[2]))
-    selected: list[str] = []
+    selected: list[str] = [scope_line] if scope_line else []
     taken: set[int] = set()
-    used_chars = 0
+    used_chars = len(scope_line)
+    if used_chars > max_chars:
+        raise ValueError("required query basis exceeds budget")
+    # 调用者显式指定的不可拆上下文先占位；不够就拒绝，不能只留下脱离边界的读数。
+    for position, (_keep, _score, index, line) in enumerate(rows):
+        if index not in required_indexes:
+            continue
+        cost = len(line) + (1 if selected else 0)
+        if used_chars + cost > max_chars:
+            raise ValueError("required registry claims exceed budget")
+        selected.append(line)
+        taken.add(position)
+        used_chars += cost
+    if require_support:
+        if not support_indexes:
+            raise ValueError("registry has no eligible support claims")
+        # A D1 fact cannot stand in for all of D4. Reserve source families, not
+        # the first lucky fact. Shortest complete rows leave room for boundaries;
+        # remaining rows still compete by the existing relevance/hardness rank.
+        families = tuple(dict.fromkeys(source for sources in fact_sources.values() for source in sources))
+        floors = [{index for index, sources in fact_sources.items() if source in sources}
+                  for source in families] or [support_indexes]
+        for floor in floors:
+            if any(rows[position][2] in floor for position in taken):
+                continue
+            candidates = [(len(line), position, line) for position, (_keep, _score, index, line) in enumerate(rows)
+                          if index in floor and position not in taken]
+            _length, position, line = min(candidates)
+            cost = len(line) + (1 if selected else 0)
+            if used_chars + cost > max_chars:
+                raise ValueError("required context and support claims exceed budget")
+            selected.append(line)
+            taken.add(position)
+            used_chars += cost
+    # Protect the admitted support as well as atomic context from notice eviction.
+    required_count = len(selected)
     # 保留席位：反证与缺口先在 max_chars//4 里挑，挑不下的回到公共池按分数竞争。
     # 为什么是「有上限的席位」而不是绝对优先——绝对优先在预算紧到只够一行时会让
     # registry 里只剩一条 gap、一条硬事实都没有（test_grounded_registry_window_
     # is_hard_bounded_and_hardness_ranked 抓的就是这个）。四分之一的依据：生产
     # 披露包里反证 + 缺口合计约 950 字符，12k 的四分之一是 3000，够放且吃不掉主体。
-    reserve = max_chars // 4
+    reserve = min(max_chars, used_chars + max_chars // 4)
     for position, (keep, _score, _index, line) in enumerate(rows):
-        if not keep:
+        if not keep or position in taken:
             continue
         cost = len(line) + (1 if selected else 0)
         if used_chars + cost > reserve:
@@ -2986,7 +3088,10 @@ def grounded_claim_registry_block(
     # 实测 10 个 0731 run 里 2 个超窗（最大 71 条入窗 54、丢 17 条），两个 run
     # 都仍判 complete，所以这是潜在不对称而不是已发生的故障——补一行告知是零
     # 成本的那一半，上 LLM 选择不划算。
-    dropped = len(rows) - len(selected)
+    if scope_line and rows and not taken:
+        raise ValueError("required query basis and claim exceed budget")
+    # Metadata is not a claim; do not subtract it from the omission count.
+    dropped = len(rows) - len(taken)
     if dropped > 0:
         note = (
             f'{{"note":"另有 {dropped} 条 claim 因窗口预算未纳入；'
@@ -2995,7 +3100,9 @@ def grounded_claim_registry_block(
         # 告知行本身也要进预算，否则一边写预算一边超预算。挤不下就再让出
         # 一条最低分的 claim——但**绝不动最后一条**：证据才是目的，告知是元数据，
         # 预算紧到二选一时留证据。放不下就整条不写，退回今天的静默截断。
-        while len(selected) > 1 and used_chars + len(note) + 1 > max_chars:
+        # Scope occupies a row but cannot replace the last actual claim.
+        minimum_rows = max(required_count, 2 if scope_line else 1)
+        while len(selected) > minimum_rows and used_chars + len(note) + 1 > max_chars:
             used_chars -= len(selected.pop()) + 1
             dropped += 1
             note = (
@@ -3004,7 +3111,54 @@ def grounded_claim_registry_block(
             )
         if used_chars + len(note) + (1 if selected else 0) <= max_chars:
             selected.append(note)
+        elif require_support:
+            raise ValueError("registry omission notice exceeds budget")
     return "\n".join(selected)
+
+
+def answer_spec_for_registry(answer_spec: AnswerSpec, registry_block: str) -> AnswerSpec:
+    """Model-facing subset; keep the full AnswerSpec untouched for audit/fallback.
+
+    The brief and deterministic validation must share the exact admission set.
+    A reference in a brief must not smuggle an omitted claim back into the prompt.
+    """
+    atoms = evidence_atoms_from_answer_spec(answer_spec)
+    expected = {claim.claim_id: _grounded_registry_row(claim, atoms) for claim in _all_answer_claims(answer_spec)}
+    expected_scope = _registry_query_basis_row(answer_spec)
+    scope_seen = False
+    admitted: set[str] = set()
+    for line in registry_block.splitlines():
+        row = json.loads(line)
+        if not isinstance(row, dict):
+            raise ValueError("registry row is not an object")
+        if "query_basis" in row:
+            # Python considers False == 0 and True == 1. Scope qualification
+            # must retain JSON types as well as values (including null).
+            if scope_seen or json.dumps(row, sort_keys=True) != json.dumps(expected_scope, sort_keys=True):
+                raise QueryBasisContractError("registry differs from the source query basis contract")
+            scope_seen = True
+            continue
+        if set(row) == {"note"} and isinstance(row["note"], str):
+            continue
+        claim_id = row.get("claim_id")
+        if not isinstance(claim_id, str) or claim_id in admitted or row != expected.get(claim_id):
+            raise ValueError("registry differs from the answer claim contract")
+        admitted.add(claim_id)
+    if expected_scope is not None and not scope_seen:
+        raise QueryBasisContractError("registry omitted required source query basis")
+
+    def keep(group: tuple[Claim, ...]) -> tuple[Claim, ...]:
+        return tuple(claim for claim in group if claim.claim_id in admitted)
+
+    return replace(
+        answer_spec, summary=keep(answer_spec.summary), verified_facts=keep(answer_spec.verified_facts),
+        candidate_facts=keep(answer_spec.candidate_facts), counter_evidence=keep(answer_spec.counter_evidence),
+        gaps=keep(answer_spec.gaps), triggers=keep(answer_spec.triggers),
+        company_table=tuple(replace(company, claims=keep(company.claims))
+                            for company in answer_spec.company_table if keep(company.claims)),
+        research_evidence_atoms=tuple(atom for atom in answer_spec.research_evidence_atoms
+                                     if atom.provenance.get("claim_id") in admitted),
+    )
 
 
 def parse_decision_brief(

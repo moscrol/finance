@@ -11,16 +11,45 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import date, timedelta
+import math
 from pathlib import Path
 from typing import Any
 
 import duckdb
 
-from market_feature_store.trading_days import trading_day_verdict
+from market_feature_store.trading_days import (
+    previous_scheduled_trading_day,
+    trading_day_verdict,
+)
 
 
 BOARD_TABLE = "fact_limit_advance_daily"
 MARKET_TABLE = "fact_market_daily"
+QUOTE_TABLE = "fact_stock_daily"
+
+# Same exchange limit rule as the local limit-list builder
+# (``market_feature_store.sync.compute_local_stats``).  Duplicated as SQL text
+# rather than imported so this read-only projection does not pull the sync
+# module's write-side dependencies.
+_LIMIT_RATIO_SQL = """
+    CASE WHEN stock_ts_code LIKE '%.BJ' THEN 0.30
+         WHEN stock_ts_code LIKE '30%' OR stock_ts_code LIKE '68%' THEN 0.20
+         ELSE 0.10 END
+"""
+_UP_PRICE_SQL = (
+    f"CASE WHEN stock_ts_code LIKE '%.BJ' THEN FLOOR(pre_close*(1+({_LIMIT_RATIO_SQL}))*100 + 1e-6)/100 "
+    f"ELSE ROUND(pre_close*(1+({_LIMIT_RATIO_SQL})) + 1e-9, 2) END"
+)
+
+#: Why a list-level break candidate could not be confirmed as a real 断板.
+UNRESOLVED_REASONS = {
+    "source_mismatch": "前后两日名单来源不同，口径不可比较",
+    "quote_day_missing": "当日个股行情未入库，无法核对",
+    "quote_invalid": "收盘价、涨停参考价或成交额缺失/无效，无法确认断板",
+    "no_trade": "当日无成交行情（停牌或行情缺失），停牌不等于断板",
+    "st_scope": "ST 个股；部分名单来源不纳入 ST，缺席不代表断板",
+    "closed_at_limit": "行情显示收盘仍在涨停价，名单疑似缺漏",
+}
 
 
 def _date_text(value: object) -> str | None:
@@ -129,15 +158,121 @@ def _group_boards(rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
 HIGH_BOARD_BREAK_DEFAULT = 5
 
 
-def _previous_market_trading_day(
-    con: duckdb.DuckDBPyConnection, start: date, today: date
-) -> date | None:
-    """The market trading day immediately before ``start`` (≤ today), if any."""
+def _break_comparison_status(
+    day: date,
+    board_dates: set[date],
+    sources_by_day: dict[date, frozenset[str | None]] | None = None,
+) -> str:
+    """Availability of the two scheduled-day lists, not proof of feed completeness.
+
+    ``source_mismatch`` means both lists exist but were written by different
+    sources (e.g. vendor list vs. the local limit rule, which excludes ST), so a
+    stock missing from one of them is not evidence of a break.
+    """
+    if day == date.min or not trading_day_verdict(day).is_trading:
+        return "calendar_unknown"
+    previous = previous_scheduled_trading_day(day)
+    if previous is None:
+        return "calendar_unknown"
+    if day not in board_dates or previous not in board_dates:
+        return "data_missing"
+    if _sources_differ(day, previous, sources_by_day):
+        return "source_mismatch"
+    return "available"
+
+
+def _sources_differ(
+    day: date,
+    previous: date | None,
+    sources_by_day: dict[date, frozenset[str | None]] | None,
+) -> bool:
+    if sources_by_day is None or previous is None:
+        return False
+    return sources_by_day.get(day, frozenset()) != sources_by_day.get(previous, frozenset())
+
+
+def _column_exists(con: duckdb.DuckDBPyConnection, table: str, column: str) -> bool:
     row = con.execute(
-        f"SELECT MAX(trade_date) FROM {MARKET_TABLE} WHERE trade_date < ? AND trade_date <= ?",
-        [start, today],
+        "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?",
+        [table, column],
     ).fetchone()
-    return row[0] if row and row[0] is not None else None
+    return bool(row and row[0])
+
+
+def _classify_break_candidates(
+    con: duckdb.DuckDBPyConnection,
+    candidates_by_day: dict[date, list[dict[str, Any]]],
+    sources_by_day: dict[date, frozenset[str | None]] | None,
+) -> tuple[dict[date, list[dict[str, Any]]], dict[date, list[dict[str, Any]]]]:
+    """Split list-level break candidates into confirmed breaks and unresolved ones.
+
+    A stock leaving the limit list is only a *candidate*: it may be suspended,
+    excluded by the list's scope (ST), or missing from an incomplete vendor
+    list.  When the per-stock quote table exists, each candidate is checked
+    against that day's bar.  Without the table candidates stay as breaks but are
+    marked ``verification="unverified"`` so the UI can say so.
+    """
+    breaks: dict[date, list[dict[str, Any]]] = {day: [] for day in candidates_by_day}
+    unresolved: dict[date, list[dict[str, Any]]] = {day: [] for day in candidates_by_day}
+    pending: list[tuple[date, dict[str, Any]]] = []
+    for day, items in candidates_by_day.items():
+        previous = previous_scheduled_trading_day(day) if items else None
+        mismatch = _sources_differ(day, previous, sources_by_day)
+        for item in items:
+            if mismatch:
+                unresolved[day].append({**item, "reason": "source_mismatch"})
+            else:
+                pending.append((day, item))
+    if not pending:
+        return breaks, unresolved
+    if not _table_exists(con, QUOTE_TABLE):
+        for day, item in pending:
+            breaks[day].append({**item, "verification": "unverified", "close_pct_chg": None})
+        return breaks, unresolved
+
+    days = sorted({day for day, _ in pending})
+    codes = sorted({item["stock_ts_code"] for _, item in pending})
+    quote_days = {
+        row[0]
+        for row in con.execute(
+            f"SELECT DISTINCT trade_date FROM {QUOTE_TABLE} WHERE list_contains(?, trade_date)",
+            [days],
+        ).fetchall()
+    }
+    quotes = {
+        (row[0], str(row[1])): row[2:]
+        for row in con.execute(
+            f"""
+            SELECT trade_date, stock_ts_code, stock_name, close, pct_chg, amount, {_UP_PRICE_SQL} AS up_px
+            FROM {QUOTE_TABLE}
+            WHERE list_contains(?, trade_date) AND list_contains(?, stock_ts_code)
+            """,
+            [days, codes],
+        ).fetchall()
+    }
+    for day, item in pending:
+        quote = quotes.get((day, item["stock_ts_code"]))
+        reason: str | None = None
+        if day not in quote_days:
+            reason = "quote_day_missing"
+        elif quote is None or quote[3] is None or quote[3] <= 0:
+            reason = "no_trade"
+        else:
+            name, close, pct_chg, _amount, up_px = quote
+            names = f"{name or ''}{item.get('stock_name') or ''}".upper()
+            if "ST" in names:
+                reason = "st_scope"
+            elif any(value is None or not math.isfinite(value) or value <= 0 for value in (close, up_px, _amount)):
+                reason = "quote_invalid"
+            elif close >= up_px - 1e-6:
+                reason = "closed_at_limit"
+            else:
+                breaks[day].append(
+                    {**item, "verification": "traded", "close_pct_chg": pct_chg}
+                )
+                continue
+        unresolved[day].append({**item, "reason": reason})
+    return breaks, unresolved
 
 
 def _high_board_breaks(
@@ -146,7 +281,6 @@ def _high_board_breaks(
     present_by_day: dict[date, set[str]],
     board_data_dates: set[date],
     high_board_min: int,
-    leading_day: date | None = None,
 ) -> tuple[dict[date, list[dict[str, Any]]], list[dict[str, Any]]]:
     """Detect high-board (≥ ``high_board_min``) break events across consecutive days.
 
@@ -160,15 +294,13 @@ def _high_board_breaks(
     stance as the succession coverage rules, where "no row" is never equated
     with "not sealed".
 
-    The pairing sequence is the union of the market trading days, the days the
-    board table actually has rows for, and ``leading_day`` (the market trading
-    day just before the first range day).  A day present only in the board table
-    (missing from the market table) still acts as the ``previous`` for the
-    following day, so a break's height is read from the latest available data
-    rather than an earlier gap.  Only in-range market trading days are ever
-    reported.  Returns per-day break lists (keyed by the break day, height-
-    ordered) and a flattened list in the same day-then-height order for the
-    month view.
+    Each report day is paired with its previous scheduled trading day, using
+    the shared exchange calendar rather than adjacency of database rows.  A
+    missing trading day must not be skipped.  Unknown calendar years cannot
+    establish a pair and yield no event.  Weekends and registered holidays
+    may be crossed.  A predecessor present only in the board table is valid,
+    including before the requested month, but only in-range market days are
+    reported.  Results are ordered by day and then descending break height.
 
     A break whose *break day* is missing from the market table (but present in
     the board table) is not reported: that day is not a reportable trading day,
@@ -182,15 +314,12 @@ def _high_board_breaks(
     leader_succession.py``).  The two share the word 断板 but are different
     quantities; see ``UBIQUITOUS_LANGUAGE.md`` (Flagged ambiguities).
     """
-    report_days = set(trading_dates)
     per_day: dict[date, list[dict[str, Any]]] = {day: [] for day in trading_dates}
-    sequence = sorted(
-        report_days | board_data_dates | ({leading_day} if leading_day is not None else set())
-    )
-    for previous, day in zip(sequence, sequence[1:]):
-        if day not in report_days:
+    for day in trading_dates:
+        if day == date.min or not trading_day_verdict(day).is_trading:
             continue
-        if previous not in board_data_dates or day not in board_data_dates:
+        previous = previous_scheduled_trading_day(day)
+        if previous is None or previous not in board_data_dates or day not in board_data_dates:
             continue
         previous_sealed = sealed_by_day.get(previous, {})
         day_present = present_by_day.get(day, set())
@@ -365,12 +494,20 @@ def build_board_calendar(
             day: [] for day in trading_dates
         }
         high_board_breaks_flat: list[dict[str, Any]] = []
+        unresolved_by_day: dict[date, list[dict[str, Any]]] = {day: [] for day in trading_dates}
+        unresolved_flat: list[dict[str, Any]] = []
+        sources_by_day: dict[date, frozenset[str | None]] | None = None
+        break_data_dates: set[date] = set()
         if has_board_table and trading_dates:
-            # Include the market day just before ``start`` so a break landing on the
-            # first day of the range is still detectable.  Unfiltered by board count:
-            # a ≥5-board break must be found even though the view threshold is lower.
-            leading_day = _previous_market_trading_day(con, start, today)
-            window_start = leading_day or start
+            # Read the actual scheduled predecessor of the first report day,
+            # even if the market table has no row for it.  Do not scan back to
+            # an older observed market day or let the view boundary drop it.
+            first_day = trading_dates[0]
+            leading_day = (
+                previous_scheduled_trading_day(first_day)
+                if first_day > date.min else None
+            )
+            window_start = leading_day or first_day
             sealed_by_day: dict[date, dict[str, tuple[str, int, str | None]]] = {}
             present_by_day: dict[date, set[str]] = {}
             for (
@@ -398,23 +535,37 @@ def build_board_calendar(
                     int(b_boards),
                     str(b_theme) if b_theme else None,
                 )
-            # The leading day sits before ``start`` so it is not in ``board_data_dates``;
-            # add it so the first range day can be checked against it.  Its sealed set
-            # is empty unless it truly has rows, so a missing leading day still yields
-            # no break (fail closed).
-            break_data_dates = (
-                board_data_dates | {leading_day}
-                if leading_day is not None
-                else board_data_dates
-            )
-            high_board_breaks_by_day, high_board_breaks_flat = _high_board_breaks(
+            # Includes ALL rows in the pre-read window, including NULL board
+            # counts, not just the dates inside the requested display range.
+            break_data_dates = set(present_by_day)
+            if _column_exists(con, BOARD_TABLE, "source"):
+                grouped_sources: dict[date, set[str | None]] = {}
+                for s_day, s_source in con.execute(
+                    f"""
+                    SELECT DISTINCT trade_date, source
+                    FROM {BOARD_TABLE}
+                    WHERE trade_date BETWEEN ? AND ? AND trade_date <= ?
+                    """,
+                    [window_start, end, today],
+                ).fetchall():
+                    grouped_sources.setdefault(s_day, set()).add(s_source)
+                sources_by_day = {k: frozenset(v) for k, v in grouped_sources.items()}
+            candidates_by_day, _ = _high_board_breaks(
                 trading_dates,
                 sealed_by_day,
                 present_by_day,
                 break_data_dates,
                 hb_min,
-                leading_day,
             )
+            high_board_breaks_by_day, unresolved_by_day = _classify_break_candidates(
+                con, candidates_by_day, sources_by_day
+            )
+            high_board_breaks_flat = [
+                event for day in trading_dates for event in high_board_breaks_by_day[day]
+            ]
+            unresolved_flat = [
+                event for day in trading_dates for event in unresolved_by_day[day]
+            ]
 
         trading_days = [
             {
@@ -430,6 +581,10 @@ def build_board_calendar(
                     len(group["stocks"]) for group in board_by_date.get(day, [])
                 ),
                 "high_board_breaks": high_board_breaks_by_day.get(day, []),
+                "high_board_unresolved": unresolved_by_day.get(day, []),
+                "high_board_comparison_status": _break_comparison_status(
+                    day, break_data_dates, sources_by_day
+                ),
             }
             for day in trading_dates
         ]
@@ -451,6 +606,11 @@ def build_board_calendar(
                 if current > today:
                     calendar_status = "future"
                     data_status = "not_applicable"
+                elif current == today and verdict.is_trading:
+                    # Today's close may not be ingested yet; that is expected
+                    # latency, not a historical gap.
+                    calendar_status = "pending"
+                    data_status = "pending"
                 elif verdict.is_closed:
                     calendar_status = "closed"
                     data_status = "not_applicable"
@@ -470,6 +630,13 @@ def build_board_calendar(
                         "board_groups": [],
                         "stock_count": 0,
                         "high_board_breaks": [],
+                        "high_board_unresolved": [],
+                        "high_board_comparison_status": (
+                            "not_applicable" if calendar_status in {"closed", "future"}
+                            else "pending" if calendar_status == "pending"
+                            else "calendar_unknown" if calendar_status == "calendar_unknown"
+                            else "data_missing"
+                        ),
                     }
                 )
             if current == end:
@@ -485,9 +652,13 @@ def build_board_calendar(
             gaps.append("部分交易日缺少市场日数据")
         if any(day["calendar_status"] == "calendar_unknown" for day in calendar_days):
             gaps.append("部分日期无法确认交易日历")
+        if any(day["high_board_comparison_status"] == "source_mismatch" for day in trading_days):
+            gaps.append("部分交易日前后名单来源不同，断板未判定")
         if gaps:
             status = "partial"
             message = "；".join([*gaps, "缺失与未知日期保持显式标记"])
+        if any(day["calendar_status"] == "pending" for day in calendar_days):
+            message = f"{message}；今日收盘数据尚未入库"
         return {
             "status": status,
             "message": message,
@@ -500,6 +671,8 @@ def build_board_calendar(
             "calendar_days": calendar_days,
             "trading_days": trading_days,
             "high_board_breaks": high_board_breaks_flat,
+            "high_board_unresolved": unresolved_flat,
+            "unresolved_reasons": UNRESOLVED_REASONS,
             "high_board_min": hb_min,
         }
     finally:

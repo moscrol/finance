@@ -15,8 +15,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from market_feature_store.signals import DOUBLE_RED_SQL
 
@@ -34,8 +35,8 @@ FEATURES: tuple[str, ...] = (
     "new_high_count",          # 新高家数
 )
 
-# 辅表查询：基表 fact_market_daily 缺失 → 整体降级；辅表缺失 → 对应维度整体缺失
-# （进 missing 列表，D10 匹配时按覆盖率降权，regime 规则则 fail closed）。
+# 辅表查询：基表查询失败 → 整体降级；辅表查询失败 → 对应维度不可用。
+# 全历史不可用维退出标准化；窗口内缺维才按共同维覆盖惩罚。查询无行不等于表不存在。
 _AUX_QUERIES: dict[str, str] = {
     "max_boards": (
         "select trade_date, max(boards) from fact_limit_advance_daily group by trade_date"
@@ -56,20 +57,39 @@ _AUX_QUERIES: dict[str, str] = {
 }
 
 
+@dataclass(frozen=True)
+class MarketRegimeVectorResult:
+    """只读加载诊断；query_failed 不代表表无行，empty 只说明基表查询范围无行。"""
+
+    vectors: list[dict[str, Any]]
+    status: Literal["available", "empty", "query_failed"]
+    query_failed_features: tuple[str, ...] = ()
+
+
 def load_market_regime_vectors(
     con: Any,
     as_of: date | str | None = None,
     *,
     knowledge_cutoff: date | str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """从只读连接拼每日情绪向量。返回 (升序向量列表, 缺失特征名列表)。
+    """兼容旧二元返回；第二项是旧不可用列表，不作空表或常量的原因证明。"""
+    result = load_market_regime_vector_result(con, as_of, knowledge_cutoff=knowledge_cutoff)
+    missing = list(result.query_failed_features) if result.status == "available" else list(FEATURES)
+    return result.vectors, missing
 
-    ``as_of`` 非空时只取 ``trade_date <= as_of``——这是**有效时间**的截断：杜绝未来的行。
-    但它挡不住「过去的行被今天重写」（#27 量出 413 天里只有 1 天可 strict 的原因）。
-    ``knowledge_cutoff``（#35）补上**记录时间**这一轴：每行按 ``fact_market_daily.updated_at <= C``
-    给 ``pit_grade``（``updated_at`` 是刷新时间，``<= C`` 是「那时已存在」的充分证据，> C 不是
-    「不存在」的证据——所以这是上界、保守方向）。不传 cutoff 时行上 ``pit_grade=None``：不猜。
-    辅表不必再加 as_of 条件——辅表值按日期键回查 base 行，as_of 之后的辅表行不可达。
+
+def load_market_regime_vector_result(
+    con: Any,
+    as_of: date | str | None = None,
+    *,
+    knowledge_cutoff: date | str | None = None,
+) -> MarketRegimeVectorResult:
+    """同一取数实现，保查询失败诊断；不返回 SQL、路径或原始异常。
+
+    ``as_of`` 只截断 trade_date；辅表按基表日期回查，晚于 as_of 的值不可达。
+    ``pit_grade`` 沿用 fact_market_daily.updated_at 对单个 cutoff 的标记，未核验辅表
+    记录时间或逐日历史版本。晚时间戳可能是迟入库或覆盖修订；缺失/非法时间也降为
+    trade_date_only。不传 cutoff 则不赋档位，不猜历史可知性。
     """
     # 老库 / 夹具可能没有 updated_at 列：没有就取 NULL——判不了记录时间，PIT 走 trade_date_only，不猜。
     has_updated_at = False
@@ -96,9 +116,9 @@ def load_market_regime_vectors(
     try:
         base = con.execute(base_sql, params).fetchall()
     except Exception:
-        return [], list(FEATURES)
+        return MarketRegimeVectorResult([], "query_failed")
     if not base:
-        return [], list(FEATURES)
+        return MarketRegimeVectorResult([], "empty")
     missing: list[str] = []
     aux_maps: dict[str, dict[str, float]] = {}
     for feat, sql in _AUX_QUERIES.items():
@@ -140,5 +160,5 @@ def load_market_regime_vectors(
         for feat in _AUX_QUERIES:
             vec[feat] = aux_maps.get(feat, {}).get(day) if feat in aux_maps else None
         vectors.append(vec)
-    return vectors, missing
+    return MarketRegimeVectorResult(vectors, "available", tuple(missing))
 

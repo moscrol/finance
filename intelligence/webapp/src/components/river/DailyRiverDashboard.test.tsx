@@ -24,6 +24,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("daily river", () => {
+  it("does not fall back to the first or latest day when the focused day has no row", async () => {
+    // 2026-09-21 is neither in the window nor in the calendar (e.g. a market-data gap).
+    render(<DailyRiverDashboard focusDate="2026-09-21"/>);
+    expect(await screen.findByText(/所选日 2026-09-21 不在当前窗口的数据中/)).toBeVisible();
+    expect(screen.queryByText("这一天的市场")).not.toBeInTheDocument();
+  });
   it("does not turn missing cells into zero or compound through a gap", () => {
     expect(heatColor(null)).toBe("");
     expect(heatColor(0)).not.toBe("");

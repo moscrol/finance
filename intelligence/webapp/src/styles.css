@@ -4423,6 +4423,7 @@ p {
 .board-calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(120px, 1fr));
+  min-width: 980px;
   gap: 1px;
   width: min(100%, 1220px);
   margin: 0 auto;
@@ -4456,7 +4457,8 @@ p {
 }
 
 .board-calendar-day.closed,
-.board-calendar-day.future {
+.board-calendar-day.future,
+.board-calendar-day.pending {
   color: var(--faint);
   background: rgba(245, 243, 239, 0.84);
 }
@@ -4582,6 +4584,18 @@ p {
 
 .board-calendar-group-title--break {
   color: #6f6a61;
+}
+
+/* 待核：离开名单但不能判为断板（停牌 / ST 口径 / 来源切换 / 名单疑缺）。
+   虚线边框与断板实线区分；#6b5d3f on #fbf7ee ≈ 6.4:1。 */
+.board-calendar-stock--unresolved {
+  background: #fbf7ee;
+  border: 1px dashed #c9b88f;
+  color: #6b5d3f;
+}
+
+.board-calendar-group-title--unresolved {
+  color: #6b5d3f;
 }
 
 .board-calendar-legend-swatch {
@@ -5995,4 +6009,44 @@ button.model-choice {
   .skill-chips {
     display: none;
   }
+}
+
+/* Calendar controls and coverage must remain usable inside the Workbench sidebar. */
+.board-calendar-coverage {
+  width: min(100%, 1220px);
+  margin: 12px auto;
+  color: #715144;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.board-calendar-day .board-calendar-coverage { font-size: 11px; }
+.board-calendar-month-nav { flex-wrap: wrap; }
+.board-calendar-month-nav input {
+  min-width: 0;
+  max-width: 155px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface, #fff);
+  color: var(--ink);
+  font: inherit;
+}
+.board-calendar-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fff9f6;
+  cursor: pointer;
+}
+.board-calendar-workbench button:disabled { opacity: .5; cursor: not-allowed; }
+.board-calendar-workbench :focus-visible { outline: 2px solid #6d28d9; outline-offset: 3px; }
+
+@media (max-width: 760px) {
+  .board-calendar-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .board-calendar-summary div { min-width: 0; }
 }

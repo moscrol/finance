@@ -110,6 +110,19 @@ jobs:
         working-directory: intelligence/webapp
         run: pnpm build
 
+      # The FastAPI app serves intelligence/api/static as committed.  A stale
+      # build ships a backend whose UI entry points are missing, so the
+      # committed assets must equal a fresh build of the same source.
+      - name: Verify committed static assets match the source build
+        if: ${{ !cancelled() }}
+        run: |
+          drift="$(git status --porcelain -- intelligence/api/static)"
+          if [ -n "$drift" ]; then
+            echo "::error::intelligence/api/static is stale; run 'pnpm build' in intelligence/webapp and commit the result."
+            echo "$drift"
+            exit 1
+          fi
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -144,7 +157,16 @@ jobs:
         working-directory: intelligence/webapp
         env:
           WORKBENCH_PYTHON: python
-        run: pnpm test:e2e
+        run: |
+          pnpm test:e2e
+          pnpm test:e2e:calendar
+
+      - name: Test review evidence handoff end to end
+        if: ${{ !cancelled() }}
+        working-directory: intelligence/webapp
+        env:
+          WORKBENCH_PYTHON: python
+        run: pnpm test:e2e:review-evidence
 
       - name: Upload Playwright traces on failure
         if: failure()

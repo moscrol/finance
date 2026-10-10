@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from intelligence.services import ask_synthesis, llm_refine, task_fulfillment
+from intelligence.services import answer_model, ask_synthesis, llm_refine, task_fulfillment
 from intelligence.services.task_fulfillment import (
     FulfillmentItem,
     FulfillmentVerdict,
@@ -50,10 +50,12 @@ def _verdict(*missing_ids: str) -> FulfillmentVerdict:
 
 @pytest.fixture
 def stub_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    # This seam skips budgeting, not the registry/AnswerSpec identity contract.
+    builder = answer_model.grounded_claim_registry_block
     monkeypatch.setattr(
         ask_synthesis.answer_model,
         "grounded_claim_registry_block",
-        lambda *a, **k: '{"claim_id":"c1","text":"指数 -0.62%"}',
+        lambda spec, **_kwargs: builder(spec),
     )
 
 
@@ -61,7 +63,15 @@ def _repair(**overrides):
     kwargs = {
         "question": "明天怎么走",
         "answer_text": "上一版正文。",
-        "answer_spec": object(),
+        # 合法的最小输入；registry 可以替身化，AnswerSpec 的数据合同不能省略。
+        "answer_spec": answer_model.AnswerSpec(
+            research_spec=answer_model.resolve_answer_profile("明天怎么走", profile="general"),
+            summary=(), verified_facts=(answer_model.Claim(
+                claim_id="c1", text="指数 -0.62%", claim_type="market_data", theme="市场",
+                status=answer_model.ClaimStatus.VERIFIED, evidence_ids=("D1",),
+            ),), company_table=(), counter_evidence=(),
+            gaps=(), triggers=(), next_actions=(), sources=(), system_notices=(),
+        ),
         "verdict": _verdict("invalidation"),
         "required_outputs": (_Output("invalidation"),),
         "timeout": 30,
