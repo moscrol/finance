@@ -4512,3 +4512,87 @@ def test_invalid_turn_timeout_falls_back_instead_of_crashing_startup(monkeypatch
     for bad in ("abc", "", "0", "-5"):
         monkeypatch.setenv("WORKBENCH_CONTINUOUS_TURN_TIMEOUT_SECONDS", bad)
         assert app_module._continuous_turn_timeout_seconds() == 120.0, bad
+
+
+# ---------- 复盘页「带着证据去问答」：只带坐标，服务端重读核对，失败拒收 ----------
+
+from datetime import date  # noqa: E402
+
+from intelligence.services import llm_refine  # noqa: E402
+from intelligence.services.river_review_history import review_history as _review_history  # noqa: E402
+from tests.test_review_evidence_handoff import _day as _review_day  # noqa: E402
+from tests.test_river_daily_review import write as _write_review  # noqa: E402
+
+
+@pytest.fixture()
+def review_archive(tmp_path, monkeypatch):
+    exports = tmp_path / "review_exports"
+    exports.mkdir()
+    for day, amount in [("2026-09-21", 100), ("2026-09-22", 120), ("2026-09-24", 180)]:
+        _write_review(exports, _review_day(day, amount))
+    monkeypatch.setattr(app_module, "_review_exports_root", lambda: exports)
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "on")
+    monkeypatch.setattr(
+        llm_refine, "detect_providers",
+        lambda: (LLMProvider(name="fake", base_url="http://127.0.0.1:9", api_key="k", model="m"),),
+    )
+    return exports
+
+
+def _review_ref(exports, **overrides):
+    history = _review_history(exports, end=date(2026, 9, 24), days=5, industry="电子")
+    body = {"schema": "review-evidence-ref/v1", "end": history["end"], "days": 5, "industry": "电子",
+            "fingerprint": history["window_fingerprint"], "selected_date": "2026-09-24"}
+    body.update(overrides)
+    return body
+
+
+def _send_with_review(client: TestClient, ref):
+    conversation_id = client.post("/api/conversations", json={"title": "复盘", "user": "alice"}).json()["conversation_id"]
+    return client.post(
+        f"/api/conversations/{conversation_id}/messages",
+        json={"content": "按我的方法核对电子 2026-09-18 至 2026-09-24", "skill_mode": "auto", "selected_skill_ids": [],
+              "user": "alice", "review_evidence": ref},
+    )
+
+
+def test_verified_coordinates_are_persisted_with_the_run(client: TestClient, review_archive) -> None:
+    sent = _send_with_review(client, _review_ref(review_archive))
+    assert sent.status_code == 202, sent.text
+    assert sent.json()["review_evidence"] == "verified"
+    run_id = sent.json()["run_id"]
+    _wait_terminal(client, run_id, user="alice")
+    store = app_module.RunStore("alice")
+    assert store.load_review_evidence_ref(run_id)["fingerprint"] == _review_ref(review_archive)["fingerprint"]
+    # The page's numbers never enter the request; only coordinates were stored.
+    stored = json.loads((store.run_dir(run_id) / "review_evidence_ref.json").read_text(encoding="utf-8"))
+    assert set(stored) == {"schema", "end", "days", "industry", "fingerprint", "selected_date"}
+
+
+def test_archive_rewritten_after_viewing_is_rejected_without_a_run(client: TestClient, review_archive) -> None:
+    ref = _review_ref(review_archive)
+    _write_review(review_archive, _review_day("2026-09-22", 999))
+    sent = _send_with_review(client, ref)
+    assert sent.status_code == 409
+    assert "发生变化" in sent.json()["detail"]
+    assert app_module.RunStore("alice").list_runs() == []
+
+
+@pytest.mark.parametrize("override,status", [
+    ({"fingerprint": "0" * 64}, 409),
+    ({"schema": "review-evidence-ref/v0"}, 422),
+    ({"days": 3}, 422),
+    ({"metrics": {"total_amount": 1}}, 422),  # extra fields (smuggled facts) are refused
+    ({"end": "2099-01-01"}, 422),
+])
+def test_malformed_or_stale_coordinates_fail_closed(client: TestClient, review_archive, override, status) -> None:
+    assert _send_with_review(client, _review_ref(review_archive, **override)).status_code == status
+
+
+def test_disabled_continuous_runtime_refuses_instead_of_dropping(client: TestClient, review_archive, monkeypatch) -> None:
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "off")
+    sent = _send_with_review(client, _review_ref(review_archive))
+    assert sent.status_code == 409 and "连续研究引擎" in sent.json()["detail"]
+    monkeypatch.setenv("ASK_CONTINUOUS_RUNTIME", "canary")
+    monkeypatch.delenv("CONTINUOUS_RUNTIME_CANARY_ID", raising=False)
+    assert _send_with_review(client, _review_ref(review_archive)).status_code == 409

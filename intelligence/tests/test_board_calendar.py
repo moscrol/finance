@@ -300,6 +300,8 @@ def test_high_board_break_is_recorded_on_the_day_it_stops_sealing(tmp_path: Path
             "stock_name": "高标甲",
             "height_at_break": 6,
             "theme": "题材",
+            "verification": "unverified",
+            "close_pct_chg": None,
         }
     ]
     assert payload["high_board_breaks"] == _day(payload, "2026-09-24")["high_board_breaks"]
@@ -366,6 +368,9 @@ def test_break_on_first_day_of_range_uses_the_day_before_start(tmp_path: Path) -
             "stock_name": "高标F",
             "height_at_break": 5,
             "theme": None,
+            # No per-stock quote table in this fixture: kept, but labelled.
+            "verification": "unverified",
+            "close_pct_chg": None,
         }
     ]
     assert payload["high_board_breaks"][0]["date"] == "2026-09-22"
@@ -465,3 +470,222 @@ def test_flattened_breaks_follow_per_day_order(tmp_path: Path) -> None:
         (e["stock_ts_code"], e["height_at_break"]) for e in payload["high_board_breaks"]
     ]
     assert heights == [("B", 6), ("A", 5)]
+
+
+@pytest.mark.parametrize("single_day", [False, True])
+def test_missing_both_tables_does_not_bridge_a_trading_day(
+    tmp_path: Path, single_day: bool,
+) -> None:
+    db = tmp_path / "both-missing.duckdb"
+    _break_db(db, ["2026-09-22", "2026-09-24"], [
+        ("2026-09-22", "A", "甲", 5, None, None),
+        ("2026-09-24", "B", "乙", 3, None, None),
+    ])
+    query = (
+        {"start_date": "2026-09-24", "end_date": "2026-09-24"}
+        if single_day else {"month": "2026-09"}
+    )
+    payload = build_board_calendar(db, **query)
+    assert payload["high_board_breaks"] == []
+    if not single_day:
+        assert _day(payload, "2026-09-23")["calendar_status"] == "market_data_missing"
+
+
+@pytest.mark.parametrize("older_market_row", [False, True])
+def test_month_boundary_board_only_predecessor_is_window_invariant(
+    tmp_path: Path, older_market_row: bool,
+) -> None:
+    db = tmp_path / "month-boundary.duckdb"
+    market = ["2026-09-01"]
+    if older_market_row:
+        market.insert(0, "2026-08-28")
+    _break_db(db, market, [
+        ("2026-08-28", "A", "甲", 5, None, None),
+        ("2026-08-31", "A", "甲", 6, None, None),
+        ("2026-09-01", "B", "乙", 3, None, None),
+    ])
+    queries = [
+        {"month": "2026-09"},
+        {"start_date": "2026-09-01", "end_date": "2026-09-01"},
+        {"start_date": "2026-08-28", "end_date": "2026-09-01"},
+    ]
+    for query in queries:
+        events = build_board_calendar(db, **query)["high_board_breaks"]
+        assert [(e["date"], e["stock_ts_code"], e["height_at_break"]) for e in events] == [
+            ("2026-09-01", "A", 6),
+        ]
+
+
+@pytest.mark.parametrize(("previous", "day", "expected"), [
+    ("2026-09-18", "2026-09-21", True),  # weekend
+    ("2026-09-24", "2026-09-28", True),  # holiday plus weekend
+    ("2026-09-17", "2026-09-21", False),  # missing Friday
+    ("2025-09-18", "2025-09-19", False),  # calendar year unknown
+])
+def test_break_pairing_uses_scheduled_calendar(
+    tmp_path: Path, previous: str, day: str, expected: bool,
+) -> None:
+    db = tmp_path / "scheduled.duckdb"
+    _break_db(db, [previous, day], [
+        (previous, "A", "甲", 6, None, None),
+        (day, "B", "乙", 3, None, None),
+    ])
+    payload = build_board_calendar(db, start_date=day, end_date=day)
+    assert bool(payload["high_board_breaks"]) is expected
+    if expected:
+        assert payload["high_board_breaks"][0]["height_at_break"] == 6
+
+
+def test_break_comparison_availability_is_explicit_not_silent_zero(tmp_path: Path) -> None:
+    db = tmp_path / "coverage.duckdb"
+    _break_db(db, ["2026-09-22", "2026-09-24", "2026-09-28"], [
+        ("2026-09-22", "A", "甲", 5, None, None),
+        ("2026-09-24", "B", "乙", 3, None, None),
+        ("2026-09-28", "B", "乙", 4, None, None),
+    ])
+    payload = build_board_calendar(db, month="2026-09")
+    for day in ("2026-09-22", "2026-09-23", "2026-09-24"):
+        assert _day(payload, day)["high_board_comparison_status"] == "data_missing"
+    assert _day(payload, "2026-09-28")["high_board_comparison_status"] == "available"
+    assert _day(payload, "2026-09-28")["high_board_breaks"] == []
+    assert _day(payload, "2026-09-25")["high_board_comparison_status"] == "not_applicable"
+    assert _day(payload, "2026-09-29")["high_board_comparison_status"] == "not_applicable"
+
+
+def test_break_comparison_unknown_calendar_is_explicit(tmp_path: Path) -> None:
+    db = tmp_path / "unknown.duckdb"
+    _break_db(db, ["2025-09-18", "2025-09-19"], [
+        ("2025-09-18", "A", "甲", 6, None, None),
+        ("2025-09-19", "B", "乙", 3, None, None),
+    ])
+    payload = build_board_calendar(db, month="2025-09")
+    assert _day(payload, "2025-09-19")["high_board_comparison_status"] == "calendar_unknown"
+    assert payload["high_board_breaks"] == []
+
+
+# ---------------------------------------------------------------------------
+# 断板候选核验：停牌 / ST 口径 / 名单疑缺 / 来源切换 / 今日未入库
+
+
+def _quote_table(path: Path, rows: list[tuple]) -> None:
+    con = duckdb.connect(str(path))
+    con.execute(
+        """
+        CREATE TABLE fact_stock_daily (
+            trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR,
+            close DOUBLE, pre_close DOUBLE, pct_chg DOUBLE, amount DOUBLE
+        )
+        """
+    )
+    con.executemany("INSERT INTO fact_stock_daily VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
+    con.close()
+
+
+def _candidate_db(path: Path) -> None:
+    """Five ≥5-board stocks on 09-22; only a filler is listed on 09-23."""
+    _break_db(
+        path,
+        ["2026-09-22", "2026-09-23"],
+        [
+            ("2026-09-22", "600001.SH", "真断", 6, None, None),
+            ("2026-09-22", "600002.SH", "停牌股", 6, None, None),
+            ("2026-09-22", "600003.SH", "*ST戴帽", 6, None, None),
+            ("2026-09-22", "600004.SH", "漏名单", 7, None, None),
+            ("2026-09-23", "600009.SH", "填充", 2, None, None),
+        ],
+    )
+
+
+def test_break_candidates_are_checked_against_the_days_quotes(tmp_path: Path) -> None:
+    db = tmp_path / "quotes.duckdb"
+    _candidate_db(db)
+    _quote_table(
+        db,
+        [
+            # 打开涨停：收在涨停价下方 → 真断板
+            ("2026-09-23", "600001.SH", "真断", 10.50, 10.00, 5.0, 3.2e8),
+            # 600002 当日无行情行 → 停牌或缺行情，不判断板
+            ("2026-09-23", "600003.SH", "*ST戴帽", 10.30, 10.00, 3.0, 1.0e8),
+            # 收在涨停价 11.00，却不在名单 → 名单疑缺
+            ("2026-09-23", "600004.SH", "漏名单", 11.00, 10.00, 10.0, 5.0e8),
+        ],
+    )
+
+    payload = build_board_calendar(db, month="2026-09", min_boards=2)
+    day = _day(payload, "2026-09-23")
+
+    assert [(b["stock_name"], b["verification"], b["close_pct_chg"]) for b in day["high_board_breaks"]] == [
+        ("真断", "traded", 5.0)
+    ]
+    assert {u["stock_name"]: u["reason"] for u in day["high_board_unresolved"]} == {
+        "停牌股": "no_trade",
+        "*ST戴帽": "st_scope",
+        "漏名单": "closed_at_limit",
+    }
+    assert payload["high_board_breaks"] == day["high_board_breaks"]
+    assert len(payload["high_board_unresolved"]) == 3
+    assert set(payload["unresolved_reasons"]) >= {"no_trade", "st_scope", "closed_at_limit"}
+
+
+def test_quotes_not_yet_ingested_leave_candidates_unresolved(tmp_path: Path) -> None:
+    db = tmp_path / "quotes-missing.duckdb"
+    _candidate_db(db)
+    _quote_table(db, [("2026-09-22", "600001.SH", "真断", 10.0, 9.09, 10.0, 1e8)])
+
+    day = _day(build_board_calendar(db, month="2026-09", min_boards=2), "2026-09-23")
+
+    assert day["high_board_breaks"] == []
+    assert {u["reason"] for u in day["high_board_unresolved"]} == {"quote_day_missing"}
+
+
+def test_source_switch_between_days_is_not_compared(tmp_path: Path) -> None:
+    db = tmp_path / "sources.duckdb"
+    con = duckdb.connect(str(db))
+    con.execute("CREATE TABLE fact_market_daily (trade_date DATE)")
+    con.executemany("INSERT INTO fact_market_daily VALUES (?)", [("2026-09-22",), ("2026-09-23",), ("2026-09-24",)])
+    con.execute(
+        """
+        CREATE TABLE fact_limit_advance_daily (
+            trade_date DATE, stock_ts_code VARCHAR, stock_name VARCHAR,
+            boards INTEGER, theme VARCHAR, pct_chg DOUBLE, source VARCHAR
+        )
+        """
+    )
+    con.executemany(
+        "INSERT INTO fact_limit_advance_daily VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [
+            ("2026-09-22", "A", "供应商含ST", 6, None, None, "fupanhui"),
+            ("2026-09-23", "B", "本地规则", 2, None, None, "local:limit-rule"),
+            ("2026-09-23", "C", "本地高标", 6, None, None, "local:limit-rule"),
+            ("2026-09-24", "B", "本地规则", 3, None, None, "local:limit-rule"),
+        ],
+    )
+    con.close()
+
+    payload = build_board_calendar(db, month="2026-09", min_boards=2)
+
+    switched = _day(payload, "2026-09-23")
+    assert switched["high_board_comparison_status"] == "source_mismatch"
+    assert switched["high_board_breaks"] == []
+    assert [(u["stock_name"], u["reason"]) for u in switched["high_board_unresolved"]] == [
+        ("供应商含ST", "source_mismatch")
+    ]
+    same_source = _day(payload, "2026-09-24")
+    assert same_source["high_board_comparison_status"] == "available"
+    assert [b["stock_name"] for b in same_source["high_board_breaks"]] == ["本地高标"]
+    assert payload["status"] == "partial"
+    assert "来源不同" in payload["message"]
+
+
+def test_today_without_ingested_close_is_pending_not_a_gap(tmp_path: Path) -> None:
+    db = tmp_path / "today.duckdb"
+    _break_db(db, ["2026-09-24"], [("2026-09-24", "A", "甲", 2, None, None)])
+
+    payload = build_board_calendar(db, start_date="2026-09-24", end_date="2026-09-28")
+
+    today = _day(payload, "2026-09-28")  # fixed clock: Monday 2026-09-28
+    assert today["calendar_status"] == "pending"
+    assert today["data_status"] == "pending"
+    assert today["high_board_comparison_status"] == "pending"
+    assert payload["status"] == "ok"
+    assert "尚未入库" in payload["message"]

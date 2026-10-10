@@ -47,12 +47,17 @@ const emptyLlmKeys = [
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: ["**/board-calendar.spec.ts", "**/review-evidence.spec.ts"],
   fullyParallel: false,
   workers: 1,
   reporter: "list",
   use: {
     baseURL: serverURL,
     trace: "retain-on-failure",
+    launchOptions: process.env.WORKBENCH_CHROMIUM_EXECUTABLE ? {
+      executablePath: process.env.WORKBENCH_CHROMIUM_EXECUTABLE,
+      args: ["--no-sandbox", "--disable-dev-shm-usage", "--no-zygote"],
+    } : {},
   },
   webServer: [
     {

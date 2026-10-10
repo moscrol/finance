@@ -8,21 +8,28 @@ interface EntityPickerProps {
   value: EntityHit | null;
   asOf: string | null;
   hot: EntityHit[];
+  /** The trading day ``hot`` was ranked on (river meta's latest day). */
+  hotAsOf?: string | null;
   onChange: (entity: EntityHit) => void;
 }
 
 /** 板块 / 题材实体选择：精确 + 前缀 + 包含，服务端按成交额排序。 */
-export function EntityPicker({ value, asOf, hot, onChange }: EntityPickerProps) {
+export function EntityPicker({ value, asOf, hot, hotAsOf = null, onChange }: EntityPickerProps) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<EntityHit[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  // The preloaded hot list is ranked on the latest day.  For a historical day
+  // the default candidates must be re-ranked on that day, not borrowed.
+  const useLatestHot = !asOf || !hotAsOf || asOf === hotAsOf;
 
   useEffect(() => {
     if (!open) return;
     const q = query.trim();
-    if (!q) {
+    setError(false);
+    if (!q && useLatestHot) {
       setItems(hot);
       return;
     }
@@ -34,17 +41,17 @@ export function EntityPicker({ value, asOf, hot, onChange }: EntityPickerProps) 
           if (!cancelled) setItems(res.items);
         })
         .catch(() => {
-          if (!cancelled) setItems([]);
+          if (!cancelled) { setItems([]); setError(true); }
         })
         .finally(() => {
           if (!cancelled) setLoading(false);
         });
-    }, 160);
+    }, q ? 160 : 0);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query, open, asOf, hot]);
+  }, [query, open, asOf, hot, useLatestHot]);
 
   useEffect(() => {
     if (!open) return;
@@ -84,9 +91,10 @@ export function EntityPicker({ value, asOf, hot, onChange }: EntityPickerProps) 
       {open && (
         <div className="river-entity-menu" role="listbox">
           <div className="river-entity-menu-head">
-            {query.trim() ? (loading ? "检索中…" : `匹配 ${items.length} 个（精确匹配优先）`) : "当日成交额靠前的板块"}
+            {query.trim() ? (loading ? "检索中…" : `匹配 ${items.length} 个（精确匹配优先）`) : loading ? `读取 ${asOf} 的候选…` : `${asOf ?? hotAsOf ?? "当日"} 成交额靠前的板块`}
           </div>
-          {items.length === 0 && !loading && (
+          {error && !loading && <div className="river-entity-empty" role="alert">候选读取失败；未用其他日期的名单代替。</div>}
+          {items.length === 0 && !loading && !error && (
             <div className="river-entity-empty">没有精确或包含匹配的板块。长河只做精确解析，不做同义词猜测。</div>
           )}
           {items.map((item) => (

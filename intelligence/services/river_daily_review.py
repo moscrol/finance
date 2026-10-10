@@ -126,11 +126,16 @@ def project_review(payload: dict, day: date) -> dict:
                 for key, section_id in (("double_red", "double_red_matrix"), ("stock_highs", "stock_highs"), ("limit_up", "limit_up"))}
     engines = []
     heading = ""
+    # Industries the report listed under the engine section without a table:
+    # the report says "暂无可排序个股", which is not the same as "not listed".
+    engine_headings: list[str] = []
     for block in sections.get("industry_engines", {}).get("blocks", []):
         if block["kind"] == "heading":
             heading = str(block.get("text", ""))
+            engine_headings.append(heading)
         elif block["kind"] == "table":
             engines.append({"industry": str(block.get("title") or heading), "columns": block["columns"], "rows": block["rows"]})
+    engine_empty = [name for name in dict.fromkeys(engine_headings) if name and not any(e["industry"] == name for e in engines)]
     diagnostics = []
     if facts.get("double_red_count") == 0:
         diagnostics.append("当日双红为 0；历史矩阵中的双红不代表当日信号。原日报若写“均未映射”，不能据此判断映射失败。")
@@ -139,14 +144,15 @@ def project_review(payload: dict, day: date) -> dict:
     if any(str(cell).startswith("-/") for matrix in matrices["double_red"] for row in matrix["rows"][:1] for cell in row[1:]):
         diagnostics.append("部分母行业单元格缺少成交占比；与成交前三行业摘要的来源字段不同，保留原值，不相互填补。")
     return {"facts": facts, "industries": industries, "matrices": matrices, "engines": engines,
+            "engine_empty_industries": engine_empty,
             "sections": payload["sections"], "diagnostics": diagnostics,
             "warnings": [str(w) for w in payload.get("warnings", [])],
             "core_board": payload.get("core_board", [])}
 
 
-def daily_review_snapshot(exports: Path, *, as_of: date) -> dict:
+def daily_review_snapshot(exports: Path, *, as_of: date, include_available_dates: bool = True) -> dict:
     day = as_of.isoformat()
-    base = {"schema_version": 1, "trade_date": day, "available_dates": available_dates(exports),
+    base = {"schema_version": 1, "trade_date": day, "available_dates": available_dates(exports) if include_available_dates else [],
             "knowledge_mode": "archived_report_not_as_known", "status": "missing", "report": None}
     path = exports / f"{day}{SUFFIX}"
     if not path.exists():
