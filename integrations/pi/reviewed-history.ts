@@ -72,14 +72,14 @@ function deliveredToolTexts(payload: unknown): Set<string> {
   return texts;
 }
 
-// One settle continuation per Pi process. finance-mode.ts shares this key, so enabling both
-// fails extension load at startup instead of stacking two follow-up turns.
+// One continuation owner per Pi process, including duplicate loads of the same adapter.
+// finance-mode.ts shares this key; shutdown releases it before reload or session replacement.
 const CONTINUATION_OWNER = Symbol.for("finance.pi.continuation-owner");
 
 function claimContinuation(pi: ExtensionAPI, name: string): void {
   const registry = globalThis as unknown as Record<symbol, string | undefined>;
   const owner = registry[CONTINUATION_OWNER];
-  if (owner !== undefined && owner !== name) {
+  if (owner !== undefined) {
     throw new Error(`Pi continuation already owned by ${owner}; ${name} would stack a second follow-up turn. Load only one of them.`);
   }
   registry[CONTINUATION_OWNER] = name;

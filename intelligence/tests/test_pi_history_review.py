@@ -93,7 +93,7 @@ OTHER_CONTINUATION_OWNER = """export default function () {
 """
 
 
-def _pi_with(tmp_path, *extensions):
+def _pi_with(tmp_path, *extensions, prompts=()):
     db = tmp_path / "market.duckdb"
     _make_db(db)
     agent = tmp_path / "agent"
@@ -108,7 +108,7 @@ def _pi_with(tmp_path, *extensions):
         PI, "--offline", "--mode", "json", "--no-session", "--no-extensions", "--no-skills", "--no-context-files",
         "--no-prompt-templates", "--no-themes", "--no-approve", *loads,
         "--tools", "finance_market_history", "--provider", "history-review-offline", "--model", "scripted",
-        "--system-prompt", "Offline state-machine test only.", "截至2025-04-10，比较历史窗口。",
+        "--system-prompt", "Offline state-machine test only.", *prompts, "截至2025-04-10，比较历史窗口。",
     ], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=90)
 
 
@@ -119,6 +119,56 @@ def test_revision_loop_refuses_to_stack_on_another_continuation_owner(tmp_path):
     assert result.returncode != 0
     assert "continuation already owned by finance-mode" in result.stderr
     assert "message_end" not in result.stdout
+
+
+def test_revision_loop_refuses_duplicate_adapter_load(tmp_path):
+    duplicate = tmp_path / "duplicate-review.ts"
+    # Bypass path deduplication and duplicate-tool checks to exercise the continuation lock itself.
+    duplicate.write_text(
+        f'import {{ installHistoryReview }} from "{ROOT / "integrations/pi/reviewed-history.ts"}";\n'
+        'export default function (pi) { installHistoryReview(pi); }\n')
+    result = _pi_with(tmp_path, ROOT / "integrations/pi/reviewed-history.ts", duplicate)
+    assert result.returncode != 0
+    assert "continuation already owned by reviewed-history" in result.stderr
+    assert "message_end" not in result.stdout
+
+
+@pytest.mark.parametrize("action", ["reload", "new", "resume"])
+def test_revision_loop_reclaims_continuation_after_session_replacement(tmp_path, action):
+    resumed = tmp_path / "resume.jsonl"
+    resumed.write_text(json.dumps({
+        "type": "session", "version": 3, "id": "history-review-resume",
+        "timestamp": "2025-04-10T00:00:00.000Z", "cwd": str(tmp_path),
+    }) + "\n")
+    lifecycle = tmp_path / "lifecycle.ts"
+    lifecycle.write_text(
+        'export default function (pi) {\n'
+        '  pi.on("session_shutdown", event => {\n'
+        '    pi.appendEntry("history_review_test_shutdown", { reason: event.reason,\n'
+        '      owner: globalThis[Symbol.for("finance.pi.continuation-owner")] ?? null });\n'
+        '  });\n'
+        '  pi.registerCommand("history-review-lifecycle", {\n'
+        '    description: "Offline lifecycle test",\n'
+        '    handler: async (action, ctx) => {\n'
+        '      if (action === "reload") await ctx.reload();\n'
+        '      else if (action === "new") await ctx.newSession();\n'
+        f'      else if (action === "resume") await ctx.switchSession({json.dumps(str(resumed))});\n'
+        '      else throw new Error("Unexpected lifecycle action");\n'
+        '    },\n'
+        '  });\n'
+        '}\n')
+    result = _pi_with(tmp_path, ROOT / "integrations/pi/reviewed-history.ts", lifecycle,
+                      prompts=(f"/history-review-lifecycle {action}",))
+    assert result.returncode == 0, result.stderr
+    assert "continuation already owned" not in result.stderr
+    events = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    entries = [event["entry"] for event in events if event["type"] == "entry_appended"]
+    shutdowns = [entry["data"] for entry in entries if entry.get("customType") == "history_review_test_shutdown"]
+    assert {"reason": action, "owner": None} in shutdowns
+    receipts = [entry["data"] for entry in entries if entry.get("customType") == "finance_history_review"]
+    assert [receipt["status"] for receipt in receipts] == ["revision_required", "reviewed"]
+    assert sum(entry.get("customType") == "finance_history_revision" for entry in entries) == 1
+    assert any(event["type"] == "agent_settled" for event in events)
 
 
 def test_review_without_revisions_leaves_the_continuation_unclaimed(tmp_path):
