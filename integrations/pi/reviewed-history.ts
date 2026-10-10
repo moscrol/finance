@@ -8,7 +8,7 @@ import { childEnvironment, createHistoryTool, validatePayload } from "./market-h
 
 type RecordValue = Record<string, unknown>;
 type Message = { role: "system" | "user"; content: string };
-type Prepared = { request: RecordValue; messages: Message[] };
+type Prepared = { request: RecordValue; messages: Message[]; batch_count?: number };
 type Verdict = RecordValue & { status: "reviewed" | "revision_required" | "unavailable"; issues: string[] };
 type ReviewUsage = { stage: string; provider: string; model: string; usage: Usage };
 
@@ -33,7 +33,7 @@ function verdict(value: unknown): Verdict {
   return value as Verdict;
 }
 
-export function runReviewCommand(action: "prepare" | "accept" | "audit", value: unknown, signal?: AbortSignal): Promise<unknown> {
+export function runReviewCommand(action: "prepare" | "accept" | "audit" | "batch" | "accept_batches" | "complete", value: unknown, signal?: AbortSignal): Promise<unknown> {
   const root = process.env.FINANCE_HISTORY_CODE_ROOT;
   const python = process.env.FINANCE_HISTORY_PYTHON;
   if (!root || !python || !isAbsolute(root) || !isAbsolute(python) || signal?.aborted) {
@@ -81,7 +81,7 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
   let epoch = 0;
   let question = "";
   let repairs = 0;
-  let pending: { draft: string; issues: string[]; statements: RecordValue[] } | undefined;
+  let pending: { draft: string; issues: string[]; statements: RecordValue[]; readouts: unknown[] } | undefined;
   let sources = new Map<string, RecordValue>();
   let delivered: RecordValue[] = [];
   let reviews = new Map<string, Verdict>();
@@ -110,7 +110,7 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
           ? { role: "system" as const, content: message.content, timestamp: Date.now() }
           : { role: "user" as const, content: message.content, timestamp: Date.now() }),
       }, {
-        signal, timeoutMs, maxRetries: 0, maxTokens: 16384, temperature: 0, reasoning: "low",
+        signal, timeoutMs, maxRetries: 0, maxTokens: 16384, temperature: 0, reasoning: "high",
         onPayload: (payload, actualModel) => {
           attempt.payload_seen = true;
           pi.events.emit("finance_history_review", { phase: "provider_request", stage,
@@ -171,9 +171,22 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
         decision = structuredClone(cached);
         reused = true;
       } else {
-        const answer = await reviewCall(prepared, "claims", ctx, usage, attempts);
-        const accepted = await runReviewCommand("accept", { request: prepared.request, response: answer }, ctx.signal);
+        if (!Number.isInteger(prepared.batch_count) || !prepared.batch_count || prepared.batch_count > 16) {
+          throw new Error("History review batch plan unavailable.");
+        }
+        const responses: string[] = [];
+        for (let index = 0; index < prepared.batch_count; index++) {
+          const batch = preparation(await runReviewCommand("batch", { request: prepared.request, index }, ctx.signal));
+          responses.push(await reviewCall(batch, `claims:${index + 1}`, ctx, usage, attempts));
+        }
+        let accepted = await runReviewCommand("accept_batches", { request: prepared.request, responses }, ctx.signal);
         if (!record(accepted)) throw new Error("History review response unavailable.");
+        if (accepted.completion) {
+          const completion = preparation(accepted.completion);
+          const response = await reviewCall(completion, "completeness", ctx, usage, attempts);
+          accepted = await runReviewCommand("complete", { request: prepared.request, first: accepted.verdict, response }, ctx.signal);
+          if (!record(accepted)) throw new Error("History completeness review unavailable.");
+        }
         decision = verdict(accepted.verdict);
         if (accepted.audit) {
           const audit = preparation(accepted.audit);
@@ -209,7 +222,10 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
         (row.supported === false || rejected.has(row.sentence_index))).map(row => ({
           sentence_index: row.sentence_index, text: row.text, reason: row.reason, readouts: row.material_anchors,
         })) : [];
-      pending = { draft, issues: decision.issues, statements };
+      const references = new Set(statements.flatMap(row => Array.isArray(row.readouts)
+        ? row.readouts.filter(record).map(anchor => anchor.anchor_index) : []));
+      const readouts = Array.isArray(decision.readouts) ? decision.readouts.filter(row => record(row) && references.has(row.anchor_index)) : [];
+      pending = { draft, issues: decision.issues, statements, readouts };
     }
     // Preserve the work, not an empty fallback. The receipt and visible status
     // never present a rejected/unavailable review as a financial certificate.
@@ -230,7 +246,7 @@ export function installHistoryReview(pi: ExtensionAPI, options: { maxRepairs?: n
       content: "根据本次历史材料复核，修订完整回答。保留已支持内容，修改无支持或矛盾的命题及遗漏的必要限定；"
         + "复核意见是待核指引，不是新市场事实；引用读数来自原材料，须核对其窗口、类型和单位。"
         + "不能改原数据、补零、把差值当水平或把描述统计升级。仍不足就明确说明。\n"
-        + JSON.stringify({ original_draft: rejected.draft, review_issues: rejected.issues, rejected_statements: rejected.statements }),
+        + JSON.stringify({ original_draft: rejected.draft, review_issues: rejected.issues, rejected_statements: rejected.statements, readouts: rejected.readouts }),
       details: { revision_attempt: repairs, maximum_revision_attempts: maxRepairs } }] };
   });
 }

@@ -56,8 +56,8 @@ export default function (pi: ExtensionAPI) {
               ? "市场成交额均值9875亿元。\n研报有0条。" : "市场成交额均值9875亿元。\n研报指标未知，0个非空观测不等于0条研报。";
             else body = authors < 3 || ["always_reject", "judge_flip"].includes(scenario) ? "涨家数动能相反。" : "涨家数方向为一方近零。";
           } else {
-            assert.ok(++reviewers <= 4, "unbounded nested review");
-            assert.equal(options?.reasoning, "low");
+            assert.ok(++reviewers <= 6, "unbounded nested review");
+            assert.equal(options?.reasoning, "high");
             assert.equal(options?.maxRetries, 0);
             const user = context.messages.findLast(message => message.role === "user");
             assert.ok(user?.role === "user");
@@ -75,8 +75,8 @@ export default function (pi: ExtensionAPI) {
             });
             const rejected = request.claims.filter((_claim: unknown, i: number) => !checks[i].supported).map((claim: { sentence_index: number }) => claim.sentence_index);
             const report = { request_id: request.request_id, passed: rejected.length === 0, rejected_sentence_indexes: rejected, issues: [],
-              material_claim_checks: scenario === "missing_receipt" ? [] : checks,
-              ...(request.nonfactual_audit ? {} : { material_output_checks: [{ output_id: "history_answer", answered: true,
+              ...(request.review_phase === "completion" ? {} : { material_claim_checks: scenario === "missing_receipt" ? [] : checks }),
+              ...(request.nonfactual_audit || request.review_phase === "claims" ? {} : { material_output_checks: [{ output_id: "history_answer", answered: true,
                 answer_sentence_indexes: [1], reason: "合成完整性证人，不代表真实金融质量。" }] }) };
             body = scenario === "malformed" ? "not JSON" : scenario === "fenced" ? `\`\`\`json\n${JSON.stringify(report)}\n\`\`\`` : JSON.stringify(report);
           }

@@ -26,6 +26,7 @@ from intelligence.services.river_lens import HIGH_CONTRIBUTION, LOW_CONTRIBUTION
 MAX_DRAFT_CHARS = 18_000
 MAX_STATEMENTS = 160
 MAX_REQUEST_BYTES = 128_000
+REVIEW_BATCH_SIZE = 12
 SCHEMA = "history-answer-review/v1"
 
 # Meanings, not a second calculation engine or a list of forbidden phrases.
@@ -187,14 +188,16 @@ def _catalogue(sources: list[dict]) -> list[dict]:
     return anchors
 
 
-def _response_schema(*, audit: bool = False) -> dict:
+def _response_schema(*, audit: bool = False, phase: str = "full") -> dict:
     properties = {
         "request_id": {"type": "string"}, "passed": {"type": "boolean"},
         "rejected_sentence_indexes": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": True},
         "issues": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "material_claim_checks": deepcopy(CLAIM_CHECK_SCHEMA),
     }
-    if not audit:
+    if phase == "completion":
+        del properties["material_claim_checks"]
+    if not audit and phase != "claims":
         properties["material_output_checks"] = deepcopy(OUTPUT_CHECK_SCHEMA)
     return {"type": "object", "additionalProperties": False, "properties": properties, "required": list(properties)}
 
@@ -223,10 +226,35 @@ def build_history_review(question: str, draft: str, sources: list[dict]) -> dict
 
 
 def review_messages(request: dict) -> list[dict[str, str]]:
-    schema = _response_schema(audit=request["nonfactual_audit"])
+    phase = request.get("review_phase", "full")
+    schema = _response_schema(audit=request["nonfactual_audit"], phase=phase)
     rule = NONFACTUAL_REVIEW_RULE if request["nonfactual_audit"] else REVIEW_RULE
-    return [{"role": "system", "content": rule + " 必须逐字回传request_id，字段以response_schema为准。"},
+    if phase == "claims":
+        rule += " 本次只核对claims列出的固定小批陈述；draft_context仅用于理解省略指代和表头，不是另一本待审核清单。不要返回material_output_checks，完整性由另次请求核对。"
+    elif phase == "completion":
+        rule = ("只核查整篇草稿是否实质回答给定问题，数值/语义支持由另组逐句复核负责。"
+                "按material_output_checks返回history_answer是否已回答与实际回答句子的索引。"
+                "支持判断不等于完整性；不能把题面、空标题或机械复述输入算作回答。"
+                "未实质回答须answered=false、索引[]并给原因，passed=false；完整才passed=true。"
+                "只返回schema字段，不生成material_claim_checks，rejected_sentence_indexes必须为空。")
+    return [{"role": "system", "content": rule + " 必须逐字回传request_id，字段以response_schema为准；可通过submit_history_review工具提交。"},
             {"role": "user", "content": _json({**request, "response_schema": schema})}]
+
+
+def _report_payload(request: dict, response: str | dict) -> dict:
+    if request["request_id"] != _hash({key: value for key, value in request.items() if key != "request_id"}):
+        raise ValueError("changed history review request")
+    if isinstance(response, str):
+        if len(response.encode()) > MAX_REQUEST_BYTES:
+            raise ValueError("oversized review response")
+        response = response.strip()
+        if response.startswith("```json\n") and response.endswith("\n```"):
+            response = response[len("```json\n"):-len("\n```")]
+    payload = json.loads(response, object_pairs_hook=_unique_object) if isinstance(response, str) else deepcopy(response)
+    Draft202012Validator(_response_schema(audit=request["nonfactual_audit"], phase=request.get("review_phase", "full"))).validate(payload)
+    if payload["request_id"] != request["request_id"]:
+        raise ValueError("wrong history review identity")
+    return payload
 
 
 def validate_history_review(request: dict, response: str | dict) -> dict:
@@ -234,18 +262,7 @@ def validate_history_review(request: dict, response: str | dict) -> dict:
     result = {"schema_version": SCHEMA, "request_id": request["request_id"],
               "draft_sha256": request["draft_sha256"], "status": "unavailable", "issues": ["历史语义复核未取得完整有效回执。"]}
     try:
-        if request["request_id"] != _hash({key: value for key, value in request.items() if key != "request_id"}):
-            return result
-        if isinstance(response, str):
-            if len(response.encode()) > MAX_REQUEST_BYTES:
-                return result
-            response = response.strip()
-            if response.startswith("```json\n") and response.endswith("\n```"):
-                response = response[len("```json\n"):-len("\n```")]
-        payload = json.loads(response, object_pairs_hook=_unique_object) if isinstance(response, str) else deepcopy(response)
-        Draft202012Validator(_response_schema(audit=request["nonfactual_audit"])).validate(payload)
-        if payload["request_id"] != request["request_id"]:
-            return result
+        payload = _report_payload(request, response)
         claims = [{**row, "kind": "history_statement", "output_id": "history_answer",
                    "material_anchors": request["readouts"]} for row in request["claims"]]
         indexes = {row["sentence_index"] for row in claims}
@@ -255,7 +272,7 @@ def validate_history_review(request: dict, response: str | dict) -> dict:
         if reconciled is None:
             return result
         outputs = []
-        if not request["nonfactual_audit"]:
+        if not request["nonfactual_audit"] and request.get("review_phase") != "claims":
             output = {"output_id": "history_answer", "question": request["question"], "state": "fulfilled",
                       "candidate_sentences": [{"index": row["sentence_index"], "text": row["text"]} for row in claims]}
             outputs = reconcile_output_checks(payload, [output])
@@ -265,7 +282,8 @@ def validate_history_review(request: dict, response: str | dict) -> dict:
         checks = [{**check, "text": by_id[check["claim_id"]]["text"],
                    "sentence_index": by_id[check["claim_id"]]["sentence_index"],
                    "output_id": "history_answer", "kind": "history_statement",
-                   "material_anchors": [request["readouts"][index - 1] for index in check["anchor_indexes"]]}
+                   "material_anchors": [{key: request["readouts"][index - 1][key] for key in ("anchor_index", "source_sha256", "kind")}
+                                        for index in check["anchor_indexes"]]}
                   for check in payload["material_claim_checks"]]
         answered = all(output["answered"] for output in outputs)
         if outputs and answered and not reconciled["rejected_sentence_indexes"]:
@@ -278,9 +296,80 @@ def validate_history_review(request: dict, response: str | dict) -> dict:
         issues = reconciled["issues"] + [output["reason"] for output in outputs if not output["answered"]]
         return {**result, "status": "reviewed" if passed else "revision_required", "issues": issues,
                 "rejected_sentence_indexes": reconciled["rejected_sentence_indexes"], "claim_checks": checks,
-                "output_checks": list(outputs), "semantic_review_not_fact_promotion": True}
+                "output_checks": list(outputs), "readouts": request["readouts"],
+                "semantic_review_not_fact_promotion": True}
     except (ValueError, TypeError, KeyError, IndexError, ValidationError):
         return result
+
+
+def history_review_batches(request: dict) -> list[dict]:
+    """Partition statement ownership, never source evidence; retain full draft context."""
+    if request.get("review_phase") or request["nonfactual_audit"]:
+        raise ValueError("only a root review can be batched")
+    _report_identity = _hash({key: value for key, value in request.items() if key != "request_id"})
+    if request["request_id"] != _report_identity:
+        raise ValueError("changed root review")
+    batches = []
+    for start in range(0, len(request["claims"]), REVIEW_BATCH_SIZE):
+        batch = {**deepcopy(request), "review_phase": "claims", "parent_request_id": request["request_id"],
+                 "claims": deepcopy(request["claims"][start:start + REVIEW_BATCH_SIZE]),
+                 "draft_context": [row["text"] for row in request["claims"]]}
+        batch.pop("request_id")
+        batch["request_id"] = _hash(batch)
+        batches.append(batch)
+    return batches
+
+
+def accept_history_batches(request: dict, responses: list) -> dict:
+    unavailable = {"schema_version": SCHEMA, "request_id": request["request_id"],
+                   "draft_sha256": request["draft_sha256"], "status": "unavailable", "issues": ["逐句复核未完整覆盖所有批次。"]}
+    batches = history_review_batches(request)
+    if not isinstance(responses, list) or len(responses) != len(batches):
+        return unavailable
+    checked = [validate_history_review(batch, raw) for batch, raw in zip(batches, responses, strict=True)]
+    if any(item["status"] == "unavailable" for item in checked):
+        return {**unavailable, "batch_statuses": [item["status"] for item in checked]}
+    checks = [row for item in checked for row in item["claim_checks"]]
+    if [row["claim_id"] for row in sorted(checks, key=lambda row: row["sentence_index"])] != [row["claim_id"] for row in request["claims"]]:
+        return unavailable
+    rejected = sorted({index for item in checked for index in item["rejected_sentence_indexes"]})
+    return {**unavailable, "status": "revision_required" if any(item["status"] != "reviewed" for item in checked) else "pending_completeness",
+            "claim_checks": checks, "readouts": request["readouts"], "rejected_sentence_indexes": rejected,
+            "issues": [issue for item in checked for issue in item["issues"]],
+            "batch_request_ids": [batch["request_id"] for batch in batches], "semantic_review_not_fact_promotion": True}
+
+
+def build_completeness_review(request: dict) -> dict:
+    completion = {key: deepcopy(value) for key, value in request.items() if key != "request_id"}
+    completion.update(review_phase="completion", parent_request_id=request["request_id"])
+    completion["request_id"] = _hash(completion)
+    return completion
+
+
+def accept_completeness_review(request: dict, first: dict, response: str | dict) -> dict:
+    unavailable = {**first, "status": "unavailable", "issues": [*first["issues"], "完整性复核回执无效。"]}
+    completion = build_completeness_review(request)
+    if first["request_id"] != request["request_id"] or first["status"] != "pending_completeness":
+        return unavailable
+    try:
+        payload = _report_payload(completion, response)
+        if payload["rejected_sentence_indexes"]:
+            return unavailable
+        output = {"output_id": "history_answer", "question": request["question"], "state": "fulfilled",
+                  "candidate_sentences": [{"index": row["sentence_index"], "text": row["text"]} for row in request["claims"]]}
+        outputs = reconcile_output_checks(payload, [output])
+        if outputs is None:
+            return unavailable
+        supporting = {row["sentence_index"] for row in first["claim_checks"] if row["supported"] and row["support_kind"] == "bound_material"}
+        if outputs[0]["answered"] and not supporting.intersection(outputs[0]["answer_sentence_indexes"]):
+            return unavailable
+        if not payload["passed"] and outputs[0]["answered"]:
+            return unavailable
+        return {**first, "status": "reviewed" if payload["passed"] and outputs[0]["answered"] else "revision_required",
+                "output_checks": list(outputs), "issues": [*first["issues"], *payload["issues"],
+                    *[row["reason"] for row in outputs if not row["answered"]]]}
+    except (ValueError, TypeError, KeyError, IndexError, ValidationError):
+        return unavailable
 
 
 def build_nonfactual_audit(request: dict, verdict: dict) -> dict | None:

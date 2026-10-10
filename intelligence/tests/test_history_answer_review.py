@@ -25,8 +25,9 @@ def report_for(request):
                   "support_kind": "bound_material", "anchor_indexes": [1]} for row in request["claims"]]
     return {"request_id": request["request_id"], "passed": True, "rejected_sentence_indexes": [], "issues": [],
             "material_claim_checks": supported,
-            "material_output_checks": [{"output_id": "history_answer", "answered": True,
-                                        "answer_sentence_indexes": [1], "reason": "给出历史比较读数。"}]}
+            **({} if request.get("review_phase") == "claims" else {
+                "material_output_checks": [{"output_id": "history_answer", "answered": True,
+                                           "answer_sentence_indexes": [1], "reason": "给出历史比较读数。"}]})}
 
 
 def test_typed_readouts_keep_identity_kind_units_and_missingness(source):
@@ -71,7 +72,10 @@ def test_complete_receipt_is_explicitly_a_review_not_fact_promotion(source):
     assert result["status"] == "reviewed"
     assert result["semantic_review_not_fact_promotion"]
     assert len(result["claim_checks"]) == len(request["claims"])
-    assert result["claim_checks"][0]["material_anchors"][0] == request["readouts"][0]
+    assert result["readouts"] == request["readouts"]
+    assert result["claim_checks"][0]["material_anchors"][0] == {
+        key: request["readouts"][0][key] for key in ("anchor_index", "source_sha256", "kind")
+    }
 
 
 @pytest.mark.parametrize("mutation", ["stale", "missing", "duplicate", "wrong_id", "wrong_index", "bool_index", "bool_pass", "non_object", "unknown_field", "bad_kind", "blank_reason", "no_outputs", "empty_support"])
@@ -266,6 +270,50 @@ def test_available_source_cannot_lose_its_typed_readout(source):
     packet["readouts"][0]["payload"] = None
     with pytest.raises(ValueError, match="typed readout missing"):
         request_for(packet)
+
+
+def test_all_batches_are_required_and_completeness_is_separate(source):
+    request = request_for(source, "\n".join(f"观测{i}的值保持未知。" for i in range(30)))
+    batches = review.history_review_batches(request)
+    assert [len(batch["claims"]) for batch in batches] == [12, 12, 6]
+    assert [row for batch in batches for row in batch["claims"]] == request["claims"]
+    assert all(batch["readouts"] == request["readouts"] for batch in batches)
+    assert all(len(batch["draft_context"]) == 30 for batch in batches)
+    responses = [report_for(batch) for batch in batches]
+    accepted = review.accept_history_batches(request, responses)
+    assert accepted["status"] == "pending_completeness"
+    assert review.accept_history_batches(request, responses[:-1])["status"] == "unavailable"
+    assert review.accept_history_batches(request, [responses[0], responses[0], responses[2]])["status"] == "unavailable"
+    completion = review.build_completeness_review(request)
+    report = report_for(completion)
+    report.pop("material_claim_checks")
+    assert review.accept_completeness_review(request, accepted, report)["status"] == "reviewed"
+    report["material_output_checks"][0].update(answered=False, answer_sentence_indexes=[], reason="原题未答。")
+    report["passed"] = False
+    assert review.accept_completeness_review(request, accepted, report)["status"] == "revision_required"
+
+
+def test_one_rejected_batch_cannot_be_overruled_by_other_positive_batches(source):
+    request = request_for(source, "当前均值2492。\n" * 14)
+    batches = review.history_review_batches(request)
+    responses = [report_for(batch) for batch in batches]
+    responses[-1]["material_claim_checks"][0].update(supported=False, support_kind="contradicted", reason="本句矛盾。")
+    accepted = review.accept_history_batches(request, responses)
+    assert accepted["status"] == "revision_required"
+    assert accepted["rejected_sentence_indexes"] == [13]
+    assert review.accept_completeness_review(request, accepted, {})["status"] == "unavailable"
+
+
+def test_repeated_scope_refs_do_not_expand_the_bridge_response_per_sentence(source):
+    from intelligence.history_answer_review_cli import handle, MAX_BYTES
+
+    request = request_for(source, "当前均值2492。\n" * 120)
+    batches = review.history_review_batches(request)
+    responses = [report_for(batch) for batch in batches]
+    result = handle("accept_batches", {"request": request, "responses": responses})
+    assert len(json.dumps(result, ensure_ascii=False).encode()) < MAX_BYTES
+    assert result["completion"]
+    assert len(result["verdict"]["claim_checks"]) == 120
 
 
 def test_review_bridge_rejects_nonobject_and_over_budget_input():
