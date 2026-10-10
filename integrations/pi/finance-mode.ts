@@ -221,6 +221,21 @@ function childSucceeded(result: ChildResult): boolean {
 	return result.exitCode === 0 && result.stopReason === "stop" && !!result.text.trim();
 }
 
+// Shared with reviewed-history's continuation owner; inactive extensions do not claim it.
+const CONTINUATION_OWNER = Symbol.for("finance.pi.continuation-owner");
+
+function claimContinuation(pi: ExtensionAPI, name: string): void {
+	const registry = globalThis as unknown as Record<symbol, string | undefined>;
+	const owner = registry[CONTINUATION_OWNER];
+	if (owner !== undefined) {
+		throw new Error(`Pi continuation already owned by ${owner}; ${name} would stack a second follow-up turn. Load only one of them.`);
+	}
+	registry[CONTINUATION_OWNER] = name;
+	pi.on("session_shutdown", () => {
+		if (registry[CONTINUATION_OWNER] === name) delete registry[CONTINUATION_OWNER];
+	});
+}
+
 export default function financeMode(pi: ExtensionAPI) {
 	let secondLookDone = false;
 	let activeChildren = 0;
@@ -232,6 +247,7 @@ export default function financeMode(pi: ExtensionAPI) {
 		|| ['stage_boundary', 'direct_task', 'audit_task', 'render_task'].some((key) => typeof deliveryPrompts[key] !== 'string'))) {
 		throw new Error("invalid frozen delivery mode or prompt contract");
 	}
+	if (SECOND_LOOK || ALIGNED_DELIVERY) claimContinuation(pi, "finance-mode");
 	pi.registerProvider(PROVIDER, {
 		baseUrl: `${BRIDGE}/v1`,
 		api: "openai-completions",

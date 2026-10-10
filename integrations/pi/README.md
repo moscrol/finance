@@ -25,6 +25,9 @@ python integrations/pi/run_native.py run --root <产物目录>
 不执行启动器或任意 shell 表达式，不落盘密钥。未解析表达式在发请求前失败。
 
 默认只验证方法论层。`prepare --second-look` 另开一次自检续写，`--subagents` 另开研究派单；它们是独立实验变量，按需分批验证。
+二看或aligned会认领进程级 `finance.pi.continuation-owner`，与采用同键的reviewed-history修订互斥；
+第二个所有者（包括同名副本）在首模型调用前拒绝加载，session_shutdown释放。没有续写的模式不认领。
+这只协调遵守该约定的扩展，不是任意第三方扩展的隔离机制。
 `finance_call.tool` 从冻结菜单生成枚举，数据集名只能放进 `args.dataset`，不会作为工具名发送。
 工具桥对齐生产公开/审计边界：模型只拿公开证据、查询范围、缺口和领域状态；`telemetry` 与原始 trace 仅留本地审计。
 晚于截止日而被扣留的材料不能从诊断字段重新进入模型。`pi-tools.jsonl` 同时保存原始 observation 和实际 model_observation，便于逐字核对。
@@ -69,6 +72,8 @@ python integrations/pi/run_native.py run --root <新定稿目录>
 重复正文用明确索引引用，但每个原字段与字符串均可还原。原始证据包不变，另存 `model-evidence.json` 和还原收据。
 执行前后重新生成核对，实际请求必须带完整视图；这不是摘要、截断或语义过滤，也不继承内容质量认证。
 设计：`docs/verification/2026-10-10-reversible-evidence-view.md`。
+两份冻结题的实际总输入token减少约31%/33%，但内容仍未通过，默认仍为raw；不把可逆性当语义等价的效果证明。
+结果与跨线续写协调：`docs/handoffs/2026-10-10-evidence-view-and-continuation.md`。
 
 ## 验证与产物
 

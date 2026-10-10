@@ -98,6 +98,7 @@ def run_pi(tmp_path):
     root = tmp_path / "run"
     (root / "kit").mkdir(parents=True)
     shutil.copyfile(REPO / "integrations/pi/finance-mode.ts", root / "kit/finance-mode.ts")
+    shutil.copyfile(REPO / "integrations/pi/delivery-prompts.json", root / "kit/delivery-prompts.json")
     skills = tmp_path / "skills"
     for name in runner.DEFAULT_SKILLS:
         (skills / name).mkdir(parents=True)
@@ -112,17 +113,28 @@ def run_pi(tmp_path):
     menu_file = root / "menu.json"
     menu_file.write_text(json.dumps(menu))
 
-    def run(url, *, second_look=False, subagents=False):
+    def run(url, *, second_look=False, subagents=False, preload=None, postload=None, delivery_style=None):
+        mode = "delivery" if delivery_style else "research"
+        menu_file.write_text(json.dumps({**menu, "authorized_tools": []} if delivery_style else menu))
         plan = {"pi_bin": PI, "code_root": str(tmp_path), "os_skill": "finance-mode",
                 "app_skills": list(runner.DEFAULT_SKILLS[1:]), "model": MODEL, "thinking": "low",
-                "subagents": subagents}
+                "subagents": subagents, "mode": mode}
         env = {**os.environ, "PI_CODING_AGENT_DIR": str(agent_dir),
                "FINANCE_PI_BRIDGE_URL": url, "FINANCE_PI_CASE": "offline-test", "FINANCE_PI_MODEL": MODEL,
                "FINANCE_PI_SKILL_ROOT": str(skills), "FINANCE_PI_OS_SKILL": "finance-mode",
                "FINANCE_PI_APP_SKILLS": ",".join(plan["app_skills"]), "FINANCE_PI_SUBAGENT_DEPTH": "0",
                "FINANCE_PI_SUBAGENTS": "1" if subagents else "0", "FINANCE_PI_BIN": PI,
-               "FINANCE_PI_SECOND_LOOK": "1" if second_look else "0", "FINANCE_PI_MENU_FILE": str(menu_file)}
-        process = subprocess.Popen(runner.pi_command(plan, root, "Offline test only."), cwd=root / "kit",
+               "FINANCE_PI_SECOND_LOOK": "1" if second_look else "0", "FINANCE_PI_MENU_FILE": str(menu_file),
+               "FINANCE_PI_MODE": mode, "FINANCE_PI_DELIVERY_STYLE": delivery_style or "direct",
+               "FINANCE_PI_DELIVERY_SKILL": "finance-market-review" if delivery_style else ""}
+        command = runner.pi_command(plan, root, "Offline test only.")
+        if preload is not None:
+            index = command.index("-e")
+            command[index:index] = ["-e", str(preload)]
+        if postload is not None:
+            index = command.index("--")
+            command[index:index] = ["-e", str(postload)]
+        process = subprocess.Popen(command, cwd=root / "kit",
                                    env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True, start_new_session=True)
         try:
@@ -203,6 +215,68 @@ def test_second_look_settles_after_exactly_one_continuation(run_pi):
     assert not errors
     assert calls == 2
     assert events[-1]["type"] == "agent_settled"
+
+
+OTHER_CONTINUATION_OWNER = """export default function (pi) {
+    const key = Symbol.for("finance.pi.continuation-owner");
+    const owner = globalThis[key];
+    if (owner !== undefined) throw new Error(`Pi continuation already owned by ${owner}`);
+    globalThis[key] = "reviewed-history";
+    pi.on("session_shutdown", () => {
+        if (globalThis[key] === "reviewed-history") delete globalThis[key];
+    });
+}
+"""
+
+
+@pytest.mark.parametrize("order", ["preload", "postload"])
+@pytest.mark.parametrize("mode", ["second-look", "aligned"])
+def test_financial_continuations_refuse_another_owner_before_model_call(run_pi, tmp_path, order, mode):
+    run, _ = run_pi
+    other = tmp_path / "other-owner.ts"
+    other.write_text(OTHER_CONTINUATION_OWNER)
+    settings = {"second_look": True} if mode == "second-look" else {"delivery_style": "aligned"}
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        with pytest.raises(AssertionError, match="continuation already owned"):
+            run(url, **{order: other}, **settings)
+    assert requests == [] and not errors
+
+
+@pytest.mark.parametrize("delivery_style", [None, "direct"])
+@pytest.mark.parametrize("order", ["preload", "postload"])
+def test_no_followup_does_not_claim_continuation_ownership(run_pi, tmp_path, order, delivery_style):
+    run, _ = run_pi
+    other = tmp_path / "other-owner.ts"
+    other.write_text(OTHER_CONTINUATION_OWNER)
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        events = run(url, **{order: other}, delivery_style=delivery_style)
+    assert not errors and len(_model_requests(requests)) == 1
+    assert events[-1]["type"] == "agent_settled"
+
+
+def test_duplicate_same_named_continuation_cannot_stack(run_pi, tmp_path):
+    run, _ = run_pi
+    duplicate = tmp_path / "finance-mode-copy.ts"
+    shutil.copyfile(REPO / "integrations/pi/finance-mode.ts", duplicate)
+    shutil.copyfile(REPO / "integrations/pi/delivery-prompts.json", tmp_path / "delivery-prompts.json")
+    with endpoint(lambda _path, _body: complete()) as (url, requests, _):
+        with pytest.raises(AssertionError, match="continuation already owned by finance-mode"):
+            run(url, delivery_style="aligned", postload=duplicate)
+    assert requests == []
+
+
+def test_continuation_owner_is_released_on_real_session_shutdown(run_pi, tmp_path):
+    run, _ = run_pi
+    observed = tmp_path / "shutdown-owner.json"
+    watcher = tmp_path / "owner-watcher.ts"
+    watcher.write_text('import {writeFileSync} from "node:fs";\n'
+                       'export default function(pi) { pi.on("session_shutdown", () => {\n'
+                       f'writeFileSync({json.dumps(str(observed))}, JSON.stringify({{owner: globalThis[Symbol.for("finance.pi.continuation-owner")] ?? null}}));\n'
+                       '}); }\n')
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        run(url, second_look=True, postload=watcher)
+    assert not errors and len(_model_requests(requests)) == 2
+    assert json.loads(observed.read_text()) == {"owner": None}
 
 
 @pytest.mark.parametrize("failure", [False, True])

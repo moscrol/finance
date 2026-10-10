@@ -1493,3 +1493,6 @@ system 分段与记忆丰度注入是后续接线（spec §4），且在 Codex �
 `--numeric-checks --analysis-only` 可将已有D4结构化输入编译为独立 `checked-facts.md`，模型只写独立解释稿；
 复用既有资格规则，不解析展示文字、不新取数、不认证自由解释。`--author-model` 是明确记录的实验变量，无自动回退。
 数字产物在限定范围内通过，解释仍未过；结论与作者对照见 `verification/2026-10-10-numeric-and-analysis-results.md`。
+可选 `--evidence-view factored` 在定稿阶段可逆归并重复字段和正文，执行前后还原核对原包；默认raw未变。
+本线二看/aligned遵守与reviewed-history相同的进程续写所有权约定，冲突启动即拒绝；非自动启用邻线复核。
+实际输入缩减、内容失败与互斥来源见 `handoffs/2026-10-10-evidence-view-and-continuation.md`。
