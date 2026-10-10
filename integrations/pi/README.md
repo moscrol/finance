@@ -53,11 +53,17 @@ python integrations/pi/run_native.py run --root <新定稿目录>
 `completed-drafts.json` 中 aligned 第一稿是工作表，第二稿才是最终正文；阶段正确不等于语义通过。
 设计：`docs/verification/2026-10-10-frozen-evidence-delivery-design.md`。
 
+可另加 `--numeric-checks`，从已有D4结构化输入生成确定性核算记录，并验证首请求完整送达。
+它复用既有严格双红校验器，分开价格/成交方向、规则资格和完整组计数；没有全量字段时不从预览补造。
+原始证据包不删改，旧市场总览的展示文字没有结构化列，不在核算覆盖内。
+`numeric-checks.json` 带来源摘要且执行前后复算；计算正确不代表正文的资金因果、解释或假设通过。
+两阶段aligned未证明质量收益，仍只作显式诊断。设计：`docs/verification/2026-10-10-frozen-numeric-support.md`。
+
 ## 验证与产物
 
 ```bash
 python -m pytest -q tests/test_pi_native_runner.py tests/test_pi_finance_extension.py \
-  tests/test_pi_model_view.py tests/test_knevo_market_scope_cases.py \
+  tests/test_pi_model_view.py tests/test_knevo_market_scope_cases.py tests/test_frozen_numeric_checks.py \
   intelligence/tests/test_knevo_skill_layer.py
 ```
 

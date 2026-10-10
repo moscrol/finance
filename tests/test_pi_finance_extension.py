@@ -332,7 +332,8 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("style", ["direct", "aligned"])
-def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style):
+@pytest.mark.parametrize("numeric", [False, True])
+def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric):
     source = make_source(tmp_path / "source")
     root = tmp_path / "delivery"
     launcher = tmp_path / "launcher.sh"
@@ -353,6 +354,7 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         system = "\n".join(m["content"] for m in body["messages"] if m["role"] == "system")
         assert method in system
         assert "ADMITTED_FACT" in encoded
+        assert ("frozen_numeric_checks_v1" in encoded) is numeric
         assert "PRIVATE_AUDIT_SENTINEL" not in encoded and "OLD_DRAFT_SENTINEL" not in encoded
         if turns == 1:
             with pytest.raises(urllib.error.HTTPError) as denied:
@@ -376,7 +378,8 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         assert runner.main(["prepare", "--root", str(root), "--source-run", str(source),
                             "--delivery-style", style, "--delivery-skill", "finance-market-review",
                             "--launcher", str(launcher),
-                            "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40"]) == 0
+                            "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40",
+                            *(["--numeric-checks"] if numeric else [])]) == 0
         assert not (root / "market_feature_store.duckdb").exists()
         assert runner.main(["run", "--root", str(root)]) == 0
     assert not errors
@@ -384,6 +387,9 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
     assert result["status"] == "completed"
     assert result["arm"]["data_tools_disabled"] is True
     assert result["arm"]["delivery_method_in_first_request"] is True
+    if numeric:
+        assert result["arm"]["numeric_checks_in_first_request"] is True
+        assert result["arm"]["numeric_checked_observations"] == 0, "untyped fixture prose must remain unsupported"
     assert result["arm"]["tool_calls"] == result["arm"]["tool_observations"] == 0
     assert result["arm"]["skill_reads"] == 1
     assert result["arm"]["completed_drafts"] == (2 if style == "aligned" else 1)

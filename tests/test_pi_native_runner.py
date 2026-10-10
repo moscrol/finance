@@ -223,3 +223,24 @@ def test_delivery_method_receipt_requires_full_body_in_first_system_request(tmp_
     assert runner.delivery_method_received(plan, [full])
     assert not runner.delivery_method_received(plan, [partial, full])
     assert not runner.delivery_method_received(plan, [])
+
+
+def test_numeric_receipt_is_reproduced_even_if_its_hash_is_updated(frozen, tmp_path, monkeypatch):
+    code, root, plan = frozen
+    source = make_source(tmp_path / "source")
+    packet, source_plan, hashes = runner.delivered_packet(source)
+    runner.save(root / "evidence-packet.json", packet)
+    receipt = {"schema": "test-receipt", "checks": []}
+    monkeypatch.setattr(runner, "numeric_check_receipt", lambda _packet, _code: receipt)
+    runner.save(root / "numeric-checks.json", receipt)
+    plan.update(mode="delivery", source_run=str(source), source_hashes=hashes,
+                packet_sha256=runner.digest(root / "evidence-packet.json"),
+                question=packet["question"], information_cutoff=packet["information_cutoff"], model=source_plan["model"],
+                subagents=False, second_look=False, tool_calls=0, rag_bindings="off",
+                delivery_skill="finance-mode", app_skills=["finance-mode"], numeric_checks=True,
+                numeric_checks_sha256=runner.digest(root / "numeric-checks.json"))
+    runner.verify_plan(plan, root)
+    (root / "numeric-checks.json").write_text('{"checks":["invented"]}')
+    plan["numeric_checks_sha256"] = runner.digest(root / "numeric-checks.json")
+    with pytest.raises(RuntimeError, match="reproduce"):
+        runner.verify_plan(plan, root)
