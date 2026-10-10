@@ -39,7 +39,7 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 
 ## 断言「我们没有 X」之前
 
-- 权威事实源是 `.agent-memory/10_knowledge/finance-agent-capability-graph.md`（`graph_audit.py` 三级断言校验）。改能力回写它，不另建第二份清单。完整的负面断言纪律由用户级 SessionStart hook 注入，这里不抄（抄件已漂过一次）。
+- 权威事实源是 `.agent-memory/10_knowledge/finance-agent-capability-graph.md`（`graph_audit.py` 三级断言校验）。改能力回写它，不另建第二份清单。完整的负面断言纪律在 `~/.claude/hooks/session-context.sh` 的「断言纪律」段，断言「没有」之前先读它；这里不抄（抄件已漂过一次）。
 - 数数用解析器，不用固定行号：agent 可调工具全在 `intelligence/services/research_tool_registry.py::_DEFAULT_TOOL_METADATA`（带类型注解，AST 里是 `AnnAssign`），且逐个受 `contract.allowed_capabilities` 门控，定义了 ≠ 这次开着。
 - 「有多少能力」先点名分母：`skills/`（仓内全集）、`.claude/skills/`（人工策划的视图子集）、工具注册表——三套不是同一张表，不加总、不写死个数（`comm -23 <(ls skills | grep -v '^lib$' | sort) <(ls .claude/skills | sort)` 看差集）。
 - 编排层已存在：`answer_orchestrator` / `question_router` / `route_table` / `ask_planner` / `retrieval_planner` / `research_task_planner` / `research_plan` / `generic_research_owner`（`intelligence/services/`），`conversation_orchestrator`（`intelligence/runtime/`，管 loop 与预算）。
