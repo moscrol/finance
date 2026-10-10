@@ -1,0 +1,480 @@
+{
+  "tool": "mutation_check",
+  "spec": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/mutation-writer.json",
+  "spec_sha256": "ecd0fc60d60193583ffdb2024e58d171e369010e973d2edcd7679028242c1df4",
+  "repo": "/Users/a77/finance-workspace-private/.claude/worktrees/pi-8792-glm-harness-db07ee",
+  "head": "3c57aab6a5d0cd709c8dbc220f8f83da33c487fe",
+  "tree_dirty": [],
+  "python": "/Users/a77/.finance-runtime/finance-workspace-ffe1c60d84da/.venv-workbench/bin/python",
+  "pytest": [
+    "tests/test_sync_global_daily_akshare.py"
+  ],
+  "pytest_args": [],
+  "timeout_s": 600.0,
+  "dry_run": false,
+  "status": "ok",
+  "exit_code": 0,
+  "problems": [],
+  "baseline": {
+    "exit": 0,
+    "timed_out": false,
+    "duration_s": 2.16,
+    "collected": 19,
+    "passed": 19,
+    "failed": []
+  },
+  "mutants": [
+    {
+      "name": "W1 前视：会话不再受行日期约束",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_never_reads_a_session_after_the_row_date",
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_never_reads_a_session_after_the_row_date",
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract"
+      ],
+      "not_red": {},
+      "other_red": [
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values",
+        "tests/test_sync_global_daily_akshare.py::test_split_day_return_uses_the_adjusted_series_and_close_stays_actual",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]",
+        "tests/test_sync_global_daily_akshare.py::test_validation_compares_against_the_independent_old_rows"
+      ],
+      "pytest_exit": 1,
+      "duration_s": 1.78,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_never_reads_a_session_after_the_row_date": "assert (999.0 not in [104.0, 105.0, 105.0, 201.5, 202.0, 203.0, ...] and 8 == 0)",
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract": "AssertionError: assert ('2026-09-09'...5.0, 0.961538) == ('2026-09-02'...6.0, 0.952381)\n  \n  At index 0 diff: '2026-09-09' != '2026-09-02'\n  Use -v to get more diff"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "W2 用了未收完的会话",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_never_reads_an_unfinished_session"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_never_reads_an_unfinished_session"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.82,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_never_reads_an_unfinished_session": "AssertionError: assert '2026-09-08' == '2026-09-04'\n  \n  - 2026-09-04\n  ?          ^\n  + 2026-09-08\n  ?          ^"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "W3 断档扩到内部空洞（改写已有行）",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_dry_run_reports_targets_and_writes_nothing",
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_dry_run_reports_targets_and_writes_nothing",
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract"
+      ],
+      "not_red": {},
+      "other_red": [
+        "tests/test_sync_global_daily_akshare.py::test_a_genuinely_flat_stock_is_not_mistaken_for_a_frozen_copy",
+        "tests/test_sync_global_daily_akshare.py::test_adjusted_failure_below_threshold_skips_only_the_affected_stock",
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values",
+        "tests/test_sync_global_daily_akshare.py::test_validation_compares_against_the_independent_old_rows"
+      ],
+      "pytest_exit": 1,
+      "duration_s": 2.0,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_dry_run_reports_targets_and_writes_nothing": "AssertionError: assert {'clone': 0, ... 0, 'gap': 14} == {'clone': 1, ...: 0, 'gap': 8}\n  \n  Omitting 1 identical items, use -vv to show\n  Differing items:\n  {'clone': 0} != {'clone': 1}\n  {'gap': 14} != {'gap': 8}\n  Use -v to get more diff",
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract": "AssertionError: assert ('ok' == 'ok'\n  \n    ok and {'index_rows'...ock_rows': 14} == {'index_rows'...tock_rows': 8}\n  \n  Differing items:\n  {'index_rows': 14} != {'index_rows': 9}\n  {'stock_rows': 14} != {'stock_rows': 8}\n  Use -v to get more diff)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "W4 缺口阈值失效",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_missing_tickers_over_the_threshold_stop_for_a_human"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_missing_tickers_over_the_threshold_stop_for_a_human"
+      ],
+      "not_red": {},
+      "other_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[empty]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[exception]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[nan]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[stale]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[zero]"
+      ],
+      "pytest_exit": 1,
+      "duration_s": 1.96,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_missing_tickers_over_the_threshold_stop_for_a_human": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "W5 指数取不到不停",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_an_index_that_cannot_be_fetched_stops_the_run"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_an_index_that_cannot_be_fetched_stops_the_run"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.93,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_an_index_that_cannot_be_fetched_stops_the_run": "assert False\n +  where False = any(<generator object test_an_index_that_cannot_be_fetched_stops_the_run.<locals>.<genexpr> at 0x10b433c60>)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "W6 允许写主库",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_apply_refuses_the_main_database"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_apply_refuses_the_main_database"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.87,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_apply_refuses_the_main_database": "AssertionError: assert 'ok' == 'refused'\n  \n  - refused\n  + ok"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "W7 5 日涨跌少算一场",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.78,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_apply_on_clone_follows_the_existing_calendar_contract": "assert (19.0 == 19.0 and 26.66666666666666 == 35.71428571428572 ± 3.6e-05\n  \n  comparison failed\n  Obtained: 26.66666666666666\n  Expected: 35.71428571428572 ± 3.6e-05)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "W8 对账把复制行也算进去",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_validation_compares_against_the_independent_old_rows"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_validation_compares_against_the_independent_old_rows"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.89,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_validation_compares_against_the_independent_old_rows": "assert (6 == 5)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "F1 冻结行不认",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 19.48,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values": "AssertionError: assert {'clone': 1, ...: 0, 'gap': 2} == {'clone': 1, ...: 1, 'gap': 2}\n  \n  Omitting 2 identical items, use -vv to show\n  Differing items:\n  {'frozen': 0} != {'frozen': 1}\n  Use -v to get more diff"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "F2 真平盘也当冻结",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_a_genuinely_flat_stock_is_not_mistaken_for_a_frozen_copy"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_a_genuinely_flat_stock_is_not_mistaken_for_a_frozen_copy"
+      ],
+      "not_red": {},
+      "other_red": [
+        "tests/test_sync_global_daily_akshare.py::test_adjusted_failure_below_threshold_skips_only_the_affected_stock"
+      ],
+      "pytest_exit": 1,
+      "duration_s": 1.85,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_a_genuinely_flat_stock_is_not_mistaken_for_a_frozen_copy": "AssertionError: assert {'clone': 0, ...: 2, 'gap': 6} == {'clone': 0, ...: 0, 'gap': 6}\n  \n  Omitting 2 identical items, use -vv to show\n  Differing items:\n  {'frozen': 2} != {'frozen': 0}\n  Use -v to get more diff"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "F3 不核源头有没有新会话（合法休市重复被改）",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.9,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values": "AssertionError: assert {'clone': 1, ...: 2, 'gap': 2} == {'clone': 1, ...: 1, 'gap': 2}\n  \n  Omitting 2 identical items, use -vv to show\n  Differing items:\n  {'frozen': 2} != {'frozen': 1}\n  Use -v to get more diff"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "F4 休市型也用新浪值覆盖",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.75,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values": "AssertionError: assert 'akshare:sina...us_stock_sina' == 'akshare:sina/session-fix'\n  \n  - akshare:sina/session-fix\n  + akshare:sina/index_us_stock_sina"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "F5 美股涨跌不走前复权",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_split_day_return_uses_the_adjusted_series_and_close_stays_actual"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_split_day_return_uses_the_adjusted_series_and_close_stays_actual"
+      ],
+      "not_red": {},
+      "other_red": [
+        "tests/test_sync_global_daily_akshare.py::test_adjusted_failure_below_threshold_skips_only_the_affected_stock",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[empty]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[exception]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[nan]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[stale]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[zero]"
+      ],
+      "pytest_exit": 1,
+      "duration_s": 1.75,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_split_day_return_uses_the_adjusted_series_and_close_stays_actual": "assert -74.87623762376238 == 0.4950495049504955 ± 5.0e-07\n  \n  comparison failed\n  Obtained: -74.87623762376238\n  Expected: 0.4950495049504955 ± 5.0e-07"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "Q1 缺前复权退回裸价收益",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[exception]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[empty]",
+        "tests/test_sync_global_daily_akshare.py::test_adjusted_failure_below_threshold_skips_only_the_affected_stock"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[exception]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[empty]",
+        "tests/test_sync_global_daily_akshare.py::test_adjusted_failure_below_threshold_skips_only_the_affected_stock"
+      ],
+      "not_red": {},
+      "other_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[nan]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[stale]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[zero]"
+      ],
+      "pytest_exit": 1,
+      "duration_s": 1.75,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[exception]": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[empty]": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)",
+        "tests/test_sync_global_daily_akshare.py::test_adjusted_failure_below_threshold_skips_only_the_affected_stock": "AssertionError: assert ('ok' == 'ok'\n  \n    ok and 63 == 60)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "Q2 只比末场日期漏掉中间缺场",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.66,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "Q3 不核收益窗口会话错位",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[stale]"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[stale]"
+      ],
+      "not_red": {},
+      "other_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]",
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]"
+      ],
+      "pytest_exit": 1,
+      "duration_s": 1.79,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[stale]": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "Q4 放行非有限复权价格",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[nan]"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[nan]"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.78,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[nan]": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    },
+    {
+      "name": "Q5 放行零复权价格",
+      "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+      "verdict": "killed",
+      "expected_red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[zero]"
+      ],
+      "red": [
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[zero]"
+      ],
+      "not_red": {},
+      "other_red": [],
+      "pytest_exit": 1,
+      "duration_s": 1.68,
+      "messages": {
+        "tests/test_sync_global_daily_akshare.py::test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[zero]": "AssertionError: assert ('ok' == 'needs_user'\n  \n  - needs_user\n  + ok)"
+      },
+      "collect_errors": [],
+      "imported": true,
+      "warnings": [],
+      "restored": true
+    }
+  ],
+  "counts": {
+    "killed": 18
+  }
+}

@@ -361,10 +361,12 @@ _LEADING_LIST_LABEL_RE = re.compile(
     r"^\s*(?:[-*]\s*)?(?:\d+|[一二三四五六七八九十]+)\s*"
     r"(?:(?:[:：、)）]|[.-](?!\d))\s*)"
 )
+# 中文日期里的空白与 _ARABIC_QUANTITY_RE 单位前的 \s* 对齐：GLM 爱在数字与汉字之间加空格，
+# ``6 月 30 日`` 要与 ``6月30日`` 一样整段掩掉，否则拆成「6 月」「30 日」两个数。
 _DATE_TOKEN_RE = re.compile(
-    r"(?:20\d{2}年\d{1,2}月\d{1,2}日|"
+    r"(?:20\d{2}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日|"
     r"20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|"
-    r"\d{1,2}月\d{1,2}日|"
+    r"\d{1,2}\s*月\s*\d{1,2}\s*日|"
     r"(?<!\d)(?:0?[1-9]|1[0-2])/(?:0?[1-9]|[12]\d|3[01])(?!\d)|"
     r"(?<!\d)(?:0[1-9]|1[0-2])[-/.](?:0[1-9]|[12]\d|3[01])(?!\d))"
 )
@@ -372,9 +374,13 @@ _DATE_TOKEN_RE = re.compile(
 # L6-N1 重放：``10月前公告…`` 的 10月 被当成证据里没有的阈值，整句删除。``6月以上``
 # 是时长门槛，照旧受审。只在抽数时掩、不并进上面的 _DATE_TOKEN_RE：那一步也喂表头
 # 识别，早掩会让 ``| 条件 | 10月 | 11月 |`` 被认成表头，数据行里的阈值就被筛掉了。
+# 2026-10-06 T1 生产探针：``6 月底``（数字后带空格）与 ``较前一月放大``（汉字数词）同是
+# 月份，各自挂了待核。汉字只认一月到十二月：``两月`` 不是月份名，``二十月`` 的尾巴不是十月。
 _MONTH_TOKEN_RE = re.compile(
-    r"(?:20\d{2}年)?(?<![\d.])(?:0?[1-9]|1[0-2])"
-    r"(?:\s*(?:至|到|-|~|～|—)\s*(?:0?[1-9]|1[0-2]))?月(?!\s*(?:以上|以下))"
+    r"(?:20\d{2}\s*年\s*)?"
+    r"(?:(?<![\d.])(?:0?[1-9]|1[0-2])(?:\s*(?:至|到|-|~|～|—)\s*(?:0?[1-9]|1[0-2]))?\s*"
+    r"|(?<![一二两三四五六七八九十百千万亿])(?:十[一二]?|[一二三四五六七八九]))"
+    r"月(?!\s*(?:以上|以下))"
 )
 # 证据序号与季度标签不是数量：``（E6）``、``E47–E52``、``Q3/Q4``、``2026Q4``。
 # 2026-09-21 冒烟 3（run_20260921_123745_556321）：``E6``→6、``Q3``→3 被当成
@@ -6613,6 +6619,13 @@ def _quantity_supported_by_evidence(
     the field name; they match a candidate in any unit at the candidate's
     base scale (``成交额亿=20764.84`` supports both ``20764.84 亿`` and
     ``2.08 万亿``).
+
+    A range is also supported when each endpoint, read with the range's unit,
+    is supported on its own: ``0.75~1.07`` is two bound values side by side
+    (2026-10-06 T1: derived ratios 0.7511 / 1.0747). An integer endpoint does
+    not borrow a unit-less observation's half-unit rounding: across dozens of
+    observations something always lands within 0.5 of 2 or 3, which would
+    release self-chosen windows such as ``2-3个交易日`` (archive census).
     """
 
     normalized = _normalize_quantity(quantity)
@@ -6621,6 +6634,20 @@ def _quantity_supported_by_evidence(
     candidate = _parse_quantity(normalized)
     if candidate is None:
         return False
+    if len(candidate[0]) == 2:
+        parts = _QUANTITY_PARSE_RE.fullmatch(normalized)
+        if all(
+            _quantity_supported_by_evidence(
+                f"{parts[end]}{candidate[1]}",
+                evidence_quantities,
+                sentence=sentence,
+                observation_values=observation_values if "." in parts[end] else frozenset(),
+                percent_fields=percent_fields,
+                money_fields=money_fields,
+            )
+            for end in ("first", "second")
+        ):
+            return True
     for evidence in evidence_quantities:
         observed = _parse_quantity(evidence)
         if observed is None or not _same_quantity_dimension(candidate, observed):

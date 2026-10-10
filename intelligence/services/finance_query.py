@@ -453,6 +453,16 @@ _STOCK_DAILY_TURNOVER_RELATION = """(
     ) AS m USING (trade_date, stock_ts_code)
 )"""
 
+# 两张外盘表共用的会话口径说明（2026-10-06 换源重建后按实测改写）。
+_OVERSEAS_SESSION_COVERAGE = (
+    "`trade_date` 是 A 股日 D；那一行放外盘「日历日 D」那一场，外盘休市取 D 之前最近一场，"
+    "`session_date` 写实际会话日（只做维度，不当时间轴）。"
+    "**美股 D 日那一场在北京时间 D+1 凌晨才收盘**：问「D 日开盘前看到的隔夜美股」取 session_date 早于 D 的最近一场"
+    "（通常是上一个 A 股日那行），站在 D 日盘后研判也不能用 trade_date=D 的美股行；港股 D 日那一场当天下午收盘。"
+    "2026-09-03 起的行与修复过的历史复制 / 冻结行来自新浪（AKShare），其余来自复盘会，两源重叠期逐日核对一致；"
+    "`updated_at` 是写入时间，不能当 PIT。若工具逐行标注「疑似复制旧值」，被标注的行不可当作该日行情。"
+)
+
 _RETURN_SUMMARY_KEYS = {
     "stock_daily": "stock_code", "sector_daily": "sector_code", "sw_l1_daily": "sw_l1_code",
 }
@@ -1146,14 +1156,10 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         label="海外指数日频（隔夜外盘）",
         population="full",
         coverage=(
-            "隔夜外盘指数全集，每日固定 5 个：DJI 道琼斯 / IXIC 纳斯达克 / SPX 标普500 / "
-            "HSI 恒生 / HKTECH 恒生科技（实测与个股表同一 399 个 A 股交易日）。"
-            "`trade_date` 是 A 股日历（隔夜对照日=信息日）；`session_date` 是外盘实际会话日，只做维度。"
-            "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
-            "**不要按 session_date 当时间轴**——问「今天隔夜」应对 A 股日。"
-            "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
-            "⚠️ 部分日期是上游回填复制的旧值（收盘与涨跌幅和上一 A 股日完全相同、会话日却不同）；"
-            "工具会逐行标注，被标注的行不可当作该日外盘行情，引用时写成缺口。"
+            "外盘指数全集，每日固定 5 个：DJI 道琼斯 / IXIC 纳斯达克 / SPX 标普500 / "
+            "HSI 恒生 / HKTECH 恒生科技，2025-01-02 起每个 A 股交易日一行。"
+            + _OVERSEAS_SESSION_COVERAGE
+            + "收盘是指数点位，涨跌幅 = 本场 ÷ 上一场 − 1。"
         ),
         time_field="trade_date",
         clone_key="code",
@@ -1174,17 +1180,11 @@ _DATASETS: dict[str, _DatasetDefinition] = {
         label="海外核心股日频（隔夜外盘）",
         population="full",
         coverage=(
-            "隔夜外盘核心股全集，每日固定 194 只（NASDAQ/NYSE；"
-            "实测 399 个交易日天天 194，首末日 ticker 集合同一）。"
-            "`trade_date` 是 A 股日历（隔夜对照日=信息日）；`session_date` 是外盘实际会话日，只做维度。"
-            "多数日子两日同一天；美股休市/时差时 session 会早 1 或 3 天。"
-            "**不要按 session_date 当时间轴**——问「今天隔夜英伟达」应对 A 股日。"
-            "代码是 `NVDA` 这种美股 ticker，不是 `.SH/.SZ`。"
-            "涨跌幅是百分数（1.30=+1.3%），与 A 股 `stock_daily` 同量纲。"
-            "**不开放市值**：`market_cap_usd` 是原样美元（英伟达约 5.4e12），不是亿。"
-            "`updated_at` 大量写于 2026-08-12 回填墙，不能当 PIT。"
-            "与 `global_index_daily` 同一套 A 股日历。"
-            "⚠️ 少数日期是上游回填复制的旧值，工具会逐行标注，被标注的行不可当作该日行情。"
+            "外盘核心美股全集，每日固定 194 只（NASDAQ/NYSE），2025-01-02 起每个 A 股交易日一行。"
+            + _OVERSEAS_SESSION_COVERAGE
+            + "代码是 `NVDA` 这种美股 ticker，不是 `.SH/.SZ`。"
+            "收盘是当天实际收盘；涨跌幅是百分数（1.30=+1.3%）、按复权口径算的经济收益，拆股日不会出现假暴跌。"
+            "**不开放市值**：`market_cap_usd` 是原样美元（英伟达约 5.4e12），不是亿，新源写入的行为空。"
         ),
         time_field="trade_date",
         clone_key="ts_code",

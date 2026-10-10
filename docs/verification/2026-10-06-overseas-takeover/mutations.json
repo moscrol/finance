@@ -1,0 +1,155 @@
+{
+ "file": "market_feature_store/sync/sync_global_daily_akshare.py",
+ "pytest": "tests/test_sync_global_daily_akshare.py",
+ "mutants": [
+  {
+   "name": "W1 前视：会话不再受行日期约束",
+   "old": "bound = min(day, complete_before - timedelta(days=1))",
+   "new": "bound = complete_before - timedelta(days=1)",
+   "expected_red": [
+    "test_never_reads_a_session_after_the_row_date",
+    "test_apply_on_clone_follows_the_existing_calendar_contract"
+   ]
+  },
+  {
+   "name": "W2 用了未收完的会话",
+   "old": "bound = min(day, complete_before - timedelta(days=1))",
+   "new": "bound = day",
+   "expected_red": [
+    "test_never_reads_an_unfinished_session"
+   ]
+  },
+  {
+   "name": "W3 断档扩到内部空洞（改写已有行）",
+   "old": "tail_days = [day for day in days if last is None or day > last]",
+   "new": "tail_days = list(days)",
+   "expected_red": [
+    "test_dry_run_reports_targets_and_writes_nothing",
+    "test_apply_on_clone_follows_the_existing_calendar_contract"
+   ]
+  },
+  {
+   "name": "W4 缺口阈值失效",
+   "old": "if total and missing / total > MAX_SKIP_RATIO:",
+   "new": "if False:",
+   "expected_red": [
+    "test_missing_tickers_over_the_threshold_stop_for_a_human"
+   ]
+  },
+  {
+   "name": "W5 指数取不到不停",
+   "old": "if failed_indices & set(index_codes):",
+   "new": "if False:",
+   "expected_red": [
+    "test_an_index_that_cannot_be_fetched_stops_the_run"
+   ]
+  },
+  {
+   "name": "W6 允许写主库",
+   "old": "if apply and db_path == Path(main_db_path).expanduser().resolve():",
+   "new": "if False:",
+   "expected_red": [
+    "test_apply_refuses_the_main_database"
+   ]
+  },
+  {
+   "name": "W7 5 日涨跌少算一场",
+   "old": "five_back = closes[index - 6] if index >= 6 else None",
+   "new": "five_back = closes[index - 5] if index >= 5 else None",
+   "expected_red": [
+    "test_apply_on_clone_follows_the_existing_calendar_contract"
+   ]
+  },
+  {
+   "name": "W8 对账把复制行也算进去",
+   "old": "        if (str(code), day) in targets:\n            continue",
+   "new": "        pass",
+   "expected_red": [
+    "test_validation_compares_against_the_independent_old_rows"
+   ]
+  },
+  {
+   "name": "F1 冻结行不认",
+   "old": "        if not flat:\n            frozen.add((code, day))",
+   "new": "        if False:\n            frozen.add((code, day))",
+   "expected_red": [
+    "test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+   ]
+  },
+  {
+   "name": "F2 真平盘也当冻结",
+   "old": "        flat = abs(true_pct) <= FROZEN_PCT_TOLERANCE and abs(stored_pct or 0.0) <= FROZEN_PCT_TOLERANCE",
+   "new": "        flat = False",
+   "expected_red": [
+    "test_a_genuinely_flat_stock_is_not_mistaken_for_a_frozen_copy"
+   ]
+  },
+  {
+   "name": "F3 不核源头有没有新会话（合法休市重复被改）",
+   "old": "if now_values is None or prev_values is None or now_values[0] == prev_values[0] or now_values[2] is None:",
+   "new": "if now_values is None or prev_values is None or now_values[2] is None:",
+   "expected_red": [
+    "test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+   ]
+  },
+  {
+   "name": "F4 休市型也用新浪值覆盖",
+   "old": "            if previous_day is not None and previous_session == session:",
+   "new": "            if False:",
+   "expected_red": [
+    "test_holiday_copies_only_get_their_session_date_fixed_and_frozen_rows_get_real_values"
+   ]
+  },
+  {
+   "name": "F5 美股涨跌不走前复权",
+   "old": "        if spec.is_stock:\n            reason = \"\"",
+   "new": "        if False:\n            reason = \"\"", 
+   "expected_red": [
+    "test_split_day_return_uses_the_adjusted_series_and_close_stays_actual"
+   ]
+  },
+  {
+   "name": "Q1 缺前复权退回裸价收益",
+   "old": "                unavailable_returns[(code, day)] = reason or \"adjusted_no_session\"\n                return None",
+   "new": "                unavailable_returns[(code, day)] = reason or \"adjusted_no_session\"\n                return values",
+   "expected_red": [
+    "test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[exception]",
+    "test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[empty]",
+    "test_adjusted_failure_below_threshold_skips_only_the_affected_stock"
+   ]
+  },
+  {
+   "name": "Q2 只比末场日期漏掉中间缺场",
+   "old": "                if raw_days != adjusted_days:",
+   "new": "                if raw_days[-1:] != adjusted_days[-1:]:",
+   "expected_red": [
+    "test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_previous]",
+    "test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[missing_five_back]"
+   ]
+  },
+  {
+   "name": "Q3 不核收益窗口会话错位",
+   "old": "                if raw_days != adjusted_days:",
+   "new": "                if False:",
+   "expected_red": [
+    "test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[stale]"
+   ]
+  },
+  {
+   "name": "Q4 放行非有限复权价格",
+   "old": "not math.isfinite(close) or close <= 0",
+   "new": "close <= 0",
+   "expected_red": [
+    "test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[nan]"
+   ]
+  },
+  {
+   "name": "Q5 放行零复权价格",
+   "old": "not math.isfinite(close) or close <= 0",
+   "new": "not math.isfinite(close)",
+   "expected_red": [
+    "test_unusable_adjusted_history_blocks_apply_without_raw_return_fallback[zero]"
+   ]
+  }
+ ]
+}

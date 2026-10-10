@@ -1,0 +1,129 @@
+{
+  "revision": "3c57aab6a5d0cd709c8dbc220f8f83da33c487fe",
+  "started_at": "2026-10-06T15:09:33.699096+00:00",
+  "checks": [
+    {
+      "name": "doctor",
+      "command": [
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6/.venv-workbench/bin/python",
+        "scripts/workspace.py",
+        "doctor"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 0.76,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/doctor.log",
+      "log_sha256": "6a449c6a530ab6c4ed2882e824ded29e17c8df0fcf12dfcac81704f4a5223cca"
+    },
+    {
+      "name": "registry-0",
+      "command": [
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check-parseability"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 0.08,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/registry-0.log",
+      "log_sha256": "b51e9381db04ba38043f910bb96bef5b2fa938766a50778afad648b006d47abe"
+    },
+    {
+      "name": "registry-1",
+      "command": [
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 0.08,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/registry-1.log",
+      "log_sha256": "cd23fc68109e09614cda1546571454ec5b5cfc79323009e7435c563b71047b3a"
+    },
+    {
+      "name": "registry-2",
+      "command": [
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "backfill-tables",
+        "--check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 0.08,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/registry-2.log",
+      "log_sha256": "362c2b566827eb15434ae230b1ce60edad2006c45ff08836d0a24fc744447261"
+    },
+    {
+      "name": "registry-3",
+      "command": [
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6/.venv-workbench/bin/python",
+        "scripts/build_registry.py",
+        "generate-views",
+        "--check"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 0.04,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/registry-3.log",
+      "log_sha256": "9730a43a0a4535867153d7ac0afd888b1feaaa96f3846b2922c39a16ad068e89"
+    },
+    {
+      "name": "ledger-crosswalk",
+      "command": [
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6/.venv-workbench/bin/python",
+        "scripts/audit_ledger_spec_crosswalk.py"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 0.13,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/ledger-crosswalk.log",
+      "log_sha256": "601049c7600f57d525410bf14b4ed6c2f962369aec0a0d5839d3a64cbf5e610c"
+    },
+    {
+      "name": "python",
+      "command": [
+        "bash",
+        "scripts/run_main_gate.sh",
+        "--pytest-args",
+        "-q -p no:cacheprovider --basetemp=/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/basetemp --junitxml=/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/pytest-junit.xml"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 1056.96,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/python.log",
+      "log_sha256": "6bdebaf73dc3cd154d3a68abcc6ca1e9545a0f1838b833c5d939430afb979b71"
+    },
+    {
+      "name": "frontend",
+      "command": [
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/gate-tree-3c57aab6/.venv-workbench/bin/python",
+        "scripts/run_frontend_gate.py",
+        "--tree",
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/frontend-tree-3c57aab6",
+        "--expect-revision",
+        "3c57aab6a5d0cd709c8dbc220f8f83da33c487fe",
+        "--output",
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/frontend",
+        "--python",
+        "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/frontend-tree-3c57aab6/.venv-workbench/bin/python"
+      ],
+      "cwd": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/frontend-tree-3c57aab6",
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 114.17,
+      "log": "/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/takeover-20261006/final-3c57aab6/frontend.log",
+      "log_sha256": "488a0ae0c4444a16a1c5e5552118e48c480bff0d30d565afb8d8a2e493578140"
+    }
+  ],
+  "finished_at": "2026-10-06T15:29:06.055561+00:00",
+  "exit_code": 0
+}
