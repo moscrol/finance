@@ -102,9 +102,15 @@ def _strings(value):
 
 def _shell_paths(text: str, home: Path):
     # Launchers are shell text, not plist XML. Include quoted paths with spaces.
+    # A path ends at the `}` closing the ${...} it sits in, and before the next `${`:
+    # "${FINANCE_CODE_ROOT:-$HOME/finance-workspace-runtime}/x" and
+    # "$HOME/finance-workspace-runtime${PYTHONPATH:+:$PYTHONPATH}" both name the runtime link.
+    # 2026-10-05: 63 launcher references kept the brace, so realpath never followed the link.
     prefix = rf"(?:{re.escape(str(home))}|\$HOME|\$\{{HOME\}}|~)/"
-    pattern = rf'''["']({prefix}[^"'\n]+)["']|({prefix}[^\s"'<>;)]+)'''
-    for match in re.finditer(pattern, text):
+    not_expansion = r"(?!\$\{)"
+    quoted = rf'''["']({prefix}(?:{not_expansion}[^"'\n])+)(?:["']|(?=\$\{{))'''
+    bare = rf'''({prefix}(?:{not_expansion}[^\s"'<>;)}}])+)'''
+    for match in re.finditer(f"{quoted}|{bare}", text):
         raw = match.group(1) or match.group(2)
         for variable in ("${HOME}", "$HOME", "~"):
             if raw.startswith(variable + "/"):

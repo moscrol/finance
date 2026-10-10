@@ -285,6 +285,60 @@ def test_shell_reference_with_spaces_and_home_expansion(tmp_path):
     ]
 
 
+@pytest.mark.parametrize(('text', 'expected'), [
+    # 路径在闭合它所在 ${...} 的那个 } 处结束；} 后面的部分不拼回去。
+    ('exec "${FINANCE_CODE_ROOT:-$HOME/finance-workspace-runtime}/scripts/serve.sh"', 'finance-workspace-runtime'),
+    ('FINANCE_S7_ROOT="${FINANCE_S7_ROOT:-$HOME/.finance-runtime/finance-s7-sync}"', '.finance-runtime/finance-s7-sync'),
+    ('FINANCE_WS="${FINANCE_WS:-<home>/finance-workspace-private}"', 'finance-workspace-private'),
+    ('KB="${PIT_KNOWLEDGE_ROOT:-${KNOWLEDGE_WIKI:-${HOME}/knowledge-base-private}}"', 'knowledge-base-private'),
+    # 后面紧跟另一个 ${...}：路径停在它前面，引号里外一样，引号里的空格照留。
+    ('export PYTHONPATH="$HOME/finance-workspace-runtime${PYTHONPATH:+:$PYTHONPATH}"', 'finance-workspace-runtime'),
+    ('PYTHONPATH=$HOME/finance-workspace-runtime${PYTHONPATH:+:$PYTHONPATH} exec serve', 'finance-workspace-runtime'),
+    ('exec "$HOME/tree with spaces${RUN_SUFFIX:-}/bin/start"', 'tree with spaces'),
+], ids=['default-then-suffix', 'default-assignment', 'absolute-home-default', 'nested-defaults',
+        'quoted-then-expansion', 'bare-then-expansion', 'quoted-spaces-then-expansion'])
+def test_shell_path_ends_where_its_brace_expansion_closes(text, expected, tmp_path):
+    # 2026-10-05：本机 63 条启动器引用以 } 结尾（${FINANCE_RUNTIME:-$HOME/finance-workspace-runtime}
+    # 采成 …/finance-workspace-runtime}），realpath 过不了软链，对不上启动器真正点名的树。
+    text = text.replace('<home>', str(tmp_path))
+    assert list(safety._shell_paths(text, tmp_path)) == [str(tmp_path / expected)]
+
+
+def test_launcher_naming_a_tree_through_a_brace_default_blocks_it(tmp_path, monkeypatch):
+    # ${VAR:-默认值} 的默认值就是变量没设时真正跑的树；夜跑与 Workbench 启动器都这么写代码根。
+    home = tmp_path / 'home'
+    runtime = home / '.finance-runtime'
+    snapshot, s7_root = runtime / 'finance-workspace-765ecbac9ad3', runtime / 'finance-s7-sync'
+    sync_root = runtime / 'finance-sync-7eec31b04b4b'
+    for tree in (snapshot, s7_root, sync_root):
+        tree.mkdir(parents=True)
+    (home / 'finance-workspace-runtime').symlink_to(snapshot, target_is_directory=True)
+    bin_dir = home / '.local/bin'
+    bin_dir.mkdir(parents=True)
+    launchers = {
+        'start-finance-workbench': 'exec "${FINANCE_CODE_ROOT:-$HOME/finance-workspace-runtime}/scripts/serve.sh"\n',
+        'perspective-workbench': 'export PYTHONPATH="$HOME/finance-workspace-runtime${PYTHONPATH:+:$PYTHONPATH}"\n',
+        'nightly-full-review-s7.sh': f'FINANCE_S7_ROOT="${{FINANCE_S7_ROOT:-{s7_root}}}"\n',
+        'nightly-review-sync.sh': 'ROOT="${FINANCE_SYNC_CODE_ROOT:-${FINANCE_CODE_ROOT:-${HOME}/.finance-runtime/'
+                                  'finance-sync-7eec31b04b4b}}"\n',
+    }
+    for name, text in launchers.items():
+        (bin_dir / name).write_text(text)
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+    assert [ref['path'] for ref in context['references'] if '{' in ref['path'] or '}' in ref['path']] == []
+
+    def blocked_by(tree):
+        return ' | '.join(safety.context_blockers(str(tree), context))
+
+    # 运行时软链本身也挡快照，所以这里点名的是启动器，不是「有没有被挡」。
+    assert 'start-finance-workbench' in blocked_by(snapshot)
+    assert 'perspective-workbench' in blocked_by(snapshot)
+    assert 'nightly-full-review-s7.sh' in blocked_by(s7_root)
+    assert 'nightly-review-sync.sh' in blocked_by(sync_root)
+
+
 def test_cli_and_board_consume_same_blockers(tmp_path, monkeypatch, capsys):
     from scripts import worktree_board as board
 
