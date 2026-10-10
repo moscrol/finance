@@ -1,6 +1,6 @@
 ## 这个分支做什么
 
-在 Pi 线 `fix/knevo-pi-runtime-1010`（HEAD `708411e7d`）之上，只做不与 Pi 线相撞的 knevo 炼化：按 44 轮原文的 `load_skill` 真实返回补齐其余专项，落机制来源清单，并用六道真题验证。不碰 `finance-market-review` / `finance-mode`、`integrations/pi/`、产品代码、出口门、`agent-product-door.md`。
+基于A线（原基座708411e7d，本轮已合流82f20863e及main 8b01812bd），只做专项knevo炼化：按 44 轮原文的 `load_skill` 真实返回补齐其余专项，落机制来源清单，并用六道真题验证。不碰 `finance-market-review` / `finance-mode`、`integrations/pi/`、产品代码、出口门、`agent-product-door.md`。
 前身 `feat/knevo-skill-layer-1009` 已被 Pi 线超集接手并删除。决策与踩坑展开见 `docs/handoffs/2026-10-10-knevo-skill-inventory.md`。
 
 ## 当前状态
@@ -9,7 +9,7 @@
 - 清单：`docs/superpowers/specs/2026-10-10-knevo-mechanism-inventory.md`。
 - **六题真实首发已跑**（`a6cf2e289`，证据根 `~/.finance-runtime/knevo-skill-inventory-1010/`）：读数与裁决见 `docs/verification/2026-10-10-knevo-skill-inventory-live-results.md`。路由6/6、工具错误0、截止日泄漏0；全量计数被消费，但q0集中带动归因仍在，q4反向量价推资金，q1两项自算同比错（应约-14.5%/-15.3%），不是只剩两族错句。review-check对三处D维问题查出0/3，详情已勘误。
 - 据此给 review-check 的 D 维补了「逐句核一票否决清单」，**同题复跑 q5b（`4f147e50a`）一处都没抓到且自报「核过」**：禁止句进正文换来的是自报通过。又改为 D 维必须逐句列出原文与判定（未验证）。表达层的修法是 lint 标注回灌而非拒收，归 Pi 线表达阶段，本分支不做。
-- 未推送、未合并、未部署。
+- 已推GitHub Draft #87，base为A线#86；未合main、未部署。本轮组合4933412a5，registry由技能源重建且check/table校验过；后续文档tip另计。完整工程状态看`~/.finance-runtime/pi-crossline-closeout-20261011/`同SHA收据和#87回贴。
 
 ## 已验证 / 未验证
 
