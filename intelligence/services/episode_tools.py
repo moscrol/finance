@@ -131,7 +131,7 @@ def mainline_snapshot_tool_result(
             tool="mainline_context", title=f"{fact.theme_name} / {fact.sector_name}",
             detail=detail,
             source="本地 DuckDB · fact_mainline_sector_daily × fact_sector_daily（published 视图）",
-            source_date=fact.trade_date, evidence_tier="L4_structured", freshness="current",
+            source_date=fact.trade_date, evidence_tier="L4_structured", freshness="unknown",
             independent_key=json.dumps(
                 [fact.trade_date, fact.theme_code, fact.sector_ts_code], ensure_ascii=False,
             ),
@@ -145,7 +145,8 @@ def mainline_snapshot_tool_result(
             "## 主线题材结构数据块 [D4]",
             "- 口径：本表当日主题、每组最多预览8行；完整覆盖与历史聚合见 query_basis。"
             "量价描述不是资金因果或公司基本面证据；diff_ratio 是成交额环比%，不是净流入。",
-            f"- 最新主线日期：{snapshot.snapshot_date}；本表共{snapshot.total_groups}组、"
+            "- 新鲜度：以下只证明匹配查询快照，不证明是运行日最新行情；请核对来源日期。",
+            f"- 查询主线日期：{snapshot.snapshot_date}；本表共{snapshot.total_groups}组、"
             f"{snapshot.total_rows}行，交付{len(evidence)}条板块行情事实。",
             *(["### 判读指导（方法，不是事实证据）"] if snapshot.guidance else []),
             *[

@@ -1380,6 +1380,18 @@ class ResearchToolRegistry:
             # The runner cannot self-certify local provenance. Stamp the same
             # trusted IO declaration used by authorization, before caching.
             evidence = [replace(item, io_effect=spec.io_effect) for item in run_result.evidence]
+            # Independent of parsed target/cutoff: a historical target cannot
+            # certify a market card as current relative to the execution day.
+            if spec.capability == "mainline_context":
+                runtime_day = closed_loop_retrieval.parse_source_date(effective_context.today)
+                qualified = []
+                for item in evidence:
+                    source_day = closed_loop_retrieval.parse_source_date(item.source_date)
+                    if item.freshness == "current" and (runtime_day is None or source_day != runtime_day):
+                        label = "historical" if runtime_day and source_day and source_day < runtime_day else "unknown"
+                        item = replace(item, freshness=label)
+                    qualified.append(item)
+                evidence = qualified
             observation = run_result.observation
             # 代偿必须让模型看见：输入被改过而不说，模型下一轮还会照原样写，
             # 且它无法自行诊断为什么检索总是空手（ch4「参数传递的保真性」）。
