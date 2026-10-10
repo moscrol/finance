@@ -1,4 +1,4 @@
-"""夜跑入口：分享转存 → 分片下载 → 解算入库 → 删本地 7z。不打 ClickHouse。"""
+"""夜跑入口：分享转存 → 分片下载 → 解算入库，仅成功后清理本地下载。不打 ClickHouse。"""
 from __future__ import annotations
 
 import os
@@ -61,6 +61,8 @@ def already_complete(date: str) -> bool:
 
 
 def cleanup_local(day: str) -> None:
+    if len(day) != 8 or not day.isascii() or not day.isdigit():
+        raise ValueError("L2 cleanup requires a YYYYMMDD date, not a path")
     cache = cache_dir()
     for path in (
         cache / f"{day}.7z",
@@ -68,8 +70,10 @@ def cleanup_local(day: str) -> None:
         cache / f"{day}.7z.part.ok",
         cache / f"extract-{day}",
     ):
-        if path.is_dir():
-            shutil.rmtree(path, ignore_errors=True)
+        if path.is_symlink():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
         elif path.exists():
             path.unlink()
 
@@ -120,18 +124,22 @@ def run_date(date: str) -> None:
         process_date(date, archive)
     except Exception as exc:
         mark_failed(date, f"file pipeline failed: {exc}")
-        print(f"FAIL {date}，本地 7z 留下便于重试", flush=True)
+        print(f"FAIL {date}，保留本地下载包供重试", flush=True)
         raise
-    cleanup_local(day)
     meta = transferred["meta"]
     meta["last_processed"] = date
     meta["last_file"] = name
     meta["updated_at"] = date
     write_meta(meta)
+    cleanup_local(day)
     print(f"done {date}", flush=True)
 
 
-if __name__ == "__main__":
+def main() -> None:
     if len(sys.argv) < 2:
         raise SystemExit("用法: run_l2_from_share.py YYYY-MM-DD")
     run_date(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()
