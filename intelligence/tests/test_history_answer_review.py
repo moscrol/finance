@@ -35,6 +35,9 @@ def test_typed_readouts_keep_identity_kind_units_and_missingness(source):
     missing = next(row for row in rows if row["kind"] == "observation_coverage" and row["value"].get("feature") == "登记判断数")
     assert missing["value"]["read_status"] == "not_requested"
     assert missing["value"]["non_null_days"] == 0
+    assert missing["value"]["metric_value_in_this_record"] == "not_provided"
+    assert missing["value"]["count_unit"] == "非空观测日"
+    assert "unit" not in missing["value"]
     direction = next(row for row in rows if row["kind"] == "signatures" and row["value"].get("window_ref") == "river.1" and row["value"]["feature"] == "涨家数")
     assert direction["value"]["direction_relation"] == "一方近零"
     assert direction["value"]["source_unit"] == "家"
@@ -211,6 +214,38 @@ def test_duplicate_json_fields_cannot_hide_a_rejection(source):
     request = request_for(source)
     text = json.dumps(report_for(request)).replace('"passed": true', '"passed": false, "passed": true')
     assert review.validate_history_review(request, text)["status"] == "unavailable"
+
+
+def test_informational_issues_do_not_execute_a_rejection(source):
+    request = request_for(source)
+    payload = report_for(request)
+    payload["issues"] = ["方法说明按非事实处理，无需拒绝。"]
+    result = review.validate_history_review(request, payload)
+    assert result["status"] == "reviewed"
+    assert result["issues"] == payload["issues"]
+
+
+def test_reviewer_receives_the_exact_delivered_reading_contract(source):
+    request = request_for(source)
+    public = json.loads(source["public_text"])
+    scopes = [row for row in request["readouts"] if row["kind"] == "scope"]
+    for block, scope in zip(public["blocks"], scopes, strict=True):
+        prefix, _ = block["detail"].split("```yaml\n", 1)
+        assert scope["value"]["reading_contract"] == prefix
+        assert "eligibility_by_window_days" in scope["value"]["signature_contract"]
+    assert "fact_market_daily.updated_at" in scopes[0]["value"]["reading_contract"]
+    assert "覆盖惩罚" in scopes[0]["value"]["reading_contract"]
+    assert "所有子断言" in review.review_messages(request)[0]["content"]
+
+
+def test_explicit_rejection_remains_blocking_even_if_issue_sounds_positive(source):
+    request = request_for(source)
+    payload = report_for(request)
+    payload["issues"] = ["其余内容可保留。"]
+    payload["material_claim_checks"][0].update(supported=False, support_kind="contradicted")
+    result = review.validate_history_review(request, payload)
+    assert result["status"] == "revision_required"
+    assert result["rejected_sentence_indexes"] == [1]
 
 
 def test_bare_negative_without_any_basis_is_unavailable(source):

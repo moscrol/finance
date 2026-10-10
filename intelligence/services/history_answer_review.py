@@ -55,16 +55,24 @@ REVIEW_RULE = (
     "每条都有唯一claim_id和sentence_index；readouts的anchor_index在本次请求内有效，"
     "所有claims允许引用同一个已送达历史材料池，但必须逐条指明直接支持或矛盾的具体读数。"
     "逐条检查窗口/特征/来源身份、数值类型、比较算子、量词范围、分母及未知状态；"
+    "每条是整条陈述，不是单个事实：先列出其中相互独立的断言（包括粗体标题、括号、转折前后和表格各列），"
+    "再分别核对。只有所有子断言均获支持，整条supported才能为true；数字正确不能掩盖分类/量词错误，"
+    "后一正确解释不能替前一错误断言赎回资格。reason指出具体断言及所用读数/口径，不得只复述数字。"
     "结论为否定也需要证据，正确的总体拒绝或免责声明不豁免其他句子的错误。"
     "按实际语义区分断言、假设、引用和纯格式，不因为出现某个词就拒绝。"
     "原值、观测数、水平、差值、方向、路径、描述频率、预测概率不能互换。"
-    "纯标题/表头/分隔线和不含具体事实的通用方法可为nonfactual；具体数字、来源状态和资格判断不能借此豁免。"
+    "supported表示本条是否可保留，不是'是否含有事实'：纯标题/表头/分隔线和不含具体事实的通用方法"
+    "应supported=true、support_kind=nonfactual、anchor_indexes=[]，不能因无需事实证据就判false。"
+    "含具体事实的标题/表头也须核对；具体数字、来源状态和资格判断不能借非事实豁免。"
+    "scope.reading_contract是作者实际收到的口径原文，允许支持关于计算方法、阈值、PIT和覆盖政策的陈述；"
+    "signature_contract给省略项与准入条件。不得因为这些规则不是数值行就说材料没提供。"
     "material_claim_checks必须精确覆盖每个claim_id且无重复。每项supported、reason、support_kind、anchor_indexes按schema填写。"
     "bound_material的正判须引用存在的anchor_index；contradicted须supported=false并引用矛盾读数；"
     "unsupported须false且[]，nonfactual须[]；本请求不存在historical_quote许可。"
     "reason写具体读数和推导，不用空泛的'材料支持'。拒绝的sentence_index须进入rejected_sentence_indexes。"
     "material_output_checks独立判断是否实质回答原问题，不能把复述输入/格式标题当作已回答；"
     "所报answer_sentence_indexes只能来自本次claims。没有取到足够材料应明确未完成。"
+    "issues只是解释/备注，不能代替逐项supported和索引；若有问题须明确拒绝对应句或output。"
     "passed=true要求逐句无拒绝且问题已实质回答。只输出一个符合response_schema的JSON对象，不重写答案。"
 )
 
@@ -139,8 +147,12 @@ def _catalogue(sources: list[dict]) -> list[dict]:
             if _json(payload) != _json(delivered):
                 raise ValueError("readout differs from delivered history")
             base = {"set": payload["set"], "as_of": cutoff}
-            add(digest, "scope", {**base, **{key: value for key, value in payload.items()
-                if key not in {"signatures", "raw_summaries", "forwards", "feature_observations", "candidates"}}})
+            prefix = block["detail"].split("```yaml\n", 1)[0]
+            suffix = block["detail"].rsplit("\n```", 1)[1]
+            add(digest, "scope", {**base, "reading_contract": prefix + suffix,
+                "signature_contract": {key: value for key, value in payload["signatures"].items() if key != "windows"},
+                **{key: value for key, value in payload.items()
+                   if key not in {"signatures", "raw_summaries", "forwards", "feature_observations", "candidates"}}})
             obs = payload["feature_observations"]
             observations = {}
             for label, values in obs["features"].items():
@@ -148,7 +160,10 @@ def _catalogue(sources: list[dict]) -> list[dict]:
                 row.update({key: overrides[label] for key, overrides in obs.get("overrides", {}).items() if label in overrides})
                 observations[label] = row
                 add(digest, "observation_coverage", {**base, "feature": label,
-                    "feature_key": payload.get("feature_keys", {}).get(label, label), "input_days": obs["input_days"], **row})
+                    "feature_key": payload.get("feature_keys", {}).get(label, label),
+                    "quantity_role": "observation_counts_not_metric_values", "count_unit": "非空观测日",
+                    "metric_unit": row.get("unit"), "metric_value_in_this_record": "not_provided",
+                    "input_days": obs["input_days"], **{key: value for key, value in row.items() if key != "unit"}})
             for name in ("signatures", "raw_summaries"):
                 if name not in payload:
                     continue
@@ -259,7 +274,7 @@ def validate_history_review(request: dict, response: str | dict) -> dict:
                 return result
         if not payload["passed"] and not reconciled["rejected_sentence_indexes"] and answered and not payload["issues"]:
             return result
-        passed = reconciled["passed"] and answered and not payload["issues"]
+        passed = reconciled["passed"] and answered
         issues = reconciled["issues"] + [output["reason"] for output in outputs if not output["answered"]]
         return {**result, "status": "reviewed" if passed else "revision_required", "issues": issues,
                 "rejected_sentence_indexes": reconciled["rejected_sentence_indexes"], "claim_checks": checks,
