@@ -331,13 +331,14 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
     assert "offline-fixture-key" not in transport
 
 
-@pytest.mark.parametrize("style,numeric,analysis_only,author_model", [
-    ("direct", False, False, None), ("aligned", False, False, None),
-    ("direct", True, False, None), ("aligned", True, False, None), ("direct", True, True, None),
-    ("direct", True, True, "explicit-author"),
+@pytest.mark.parametrize("style,numeric,analysis_only,author_model,evidence_view", [
+    ("direct", False, False, None, "raw"), ("aligned", False, False, None, "raw"),
+    ("direct", True, False, None, "raw"), ("aligned", True, False, None, "raw"),
+    ("direct", True, True, None, "raw"), ("direct", True, True, "explicit-author", "raw"),
+    ("direct", True, True, "explicit-author", "factored"), ("aligned", False, False, None, "factored"),
 ])
-def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric, analysis_only, author_model):
-    source = make_source(tmp_path / "source")
+def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric, analysis_only, author_model, evidence_view):
+    source = make_source(tmp_path / "source", repeated_evidence=evidence_view == "factored")
     root = tmp_path / "delivery"
     launcher = tmp_path / "launcher.sh"
     launcher.write_text("")
@@ -360,7 +361,18 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         assert "ADMITTED_FACT" in encoded
         assert ("frozen_numeric_checks_v1" in encoded) is numeric
         assert "PRIVATE_AUDIT_SENTINEL" not in encoded and "OLD_DRAFT_SENTINEL" not in encoded
+        assert ("factored_public_evidence_v1" in encoded) is (evidence_view == "factored")
         if turns == 1:
+            filename = "model-evidence.json" if evidence_view == "factored" else "evidence-packet.json"
+            expected = json.loads((root / filename).read_text())
+            assert json.dumps(expected, ensure_ascii=False) in "\n".join(
+                message["content"] for message in body["messages"] if message["role"] == "user")
+            if evidence_view == "factored":
+                from intelligence.eval.factored_evidence import restore_packet
+                original = json.loads((root / "evidence-packet.json").read_text())
+                assert restore_packet(expected) == original
+                public = expected["observations"][0]["result"]
+                assert "evidence_common" in public and "observation_parts" in public
             with pytest.raises(urllib.error.HTTPError) as denied:
                 runner.call(port, "/tool", {"tool": "finance_query", "args": {}})
             assert denied.value.code == 403
@@ -382,7 +394,7 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
         monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_BASE_URL", url + "/v1")
         assert runner.main(["prepare", "--root", str(root), "--source-run", str(source),
                             "--delivery-style", style, "--delivery-skill", "finance-market-review",
-                            "--launcher", str(launcher),
+                            "--evidence-view", evidence_view, "--launcher", str(launcher),
                             "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40",
                             *(["--numeric-checks"] if numeric else []),
                             *(["--analysis-only"] if analysis_only else []),
@@ -397,6 +409,12 @@ def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monk
     assert result["model_axis_changed"] is (author_model is not None)
     assert result["arm"]["data_tools_disabled"] is True
     assert result["arm"]["delivery_method_in_first_request"] is True
+    assert result["arm"]["evidence_view_in_first_request"] is True
+    assert result["evidence_view"] == evidence_view
+    if evidence_view == "factored":
+        view_record = json.loads((root / "evidence-view-receipt.json").read_text())
+        assert view_record["roundtrip_equal"] is True
+        assert view_record["view_bytes"] < view_record["original_bytes"]
     if numeric:
         assert result["arm"]["numeric_checks_in_first_request"] is True
         assert result["arm"]["numeric_checked_observations"] == 0, "untyped fixture prose must remain unsupported"

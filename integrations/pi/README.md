@@ -65,11 +65,17 @@ python integrations/pi/run_native.py run --root <新定稿目录>
 两份产物分别审查；`delivery_scope=fixed_numeric_document_and_unreviewed_model_analysis` 不代表解释已通过。
 两阶段aligned未证明质量收益，仍只作显式诊断。设计：`docs/verification/2026-10-10-frozen-numeric-support.md`。
 
+定稿另有可选 `--evidence-view factored`（默认raw）：相同的证据行元数据归并为公共字段，
+重复正文用明确索引引用，但每个原字段与字符串均可还原。原始证据包不变，另存 `model-evidence.json` 和还原收据。
+执行前后重新生成核对，实际请求必须带完整视图；这不是摘要、截断或语义过滤，也不继承内容质量认证。
+设计：`docs/verification/2026-10-10-reversible-evidence-view.md`。
+
 ## 验证与产物
 
 ```bash
 python -m pytest -q tests/test_pi_native_runner.py tests/test_pi_finance_extension.py \
   tests/test_pi_model_view.py tests/test_knevo_market_scope_cases.py tests/test_frozen_numeric_checks.py \
+  tests/test_factored_evidence.py \
   intelligence/tests/test_knevo_skill_layer.py
 ```
 

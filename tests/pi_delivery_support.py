@@ -14,11 +14,19 @@ def seal_source(root: Path) -> None:
     (root / "capture-manifest.json").write_text(json.dumps(entries))
 
 
-def make_source(root: Path) -> Path:
+def make_source(root: Path, *, repeated_evidence: bool = False) -> Path:
     root.mkdir()
     public = {"tool": "finance_query", "status": "success", "ok": True,
               "observation": "ADMITTED_FACT: five of ten records match.", "evidence": [],
               "query_basis": {"total_rows": 10, "matching_rows": 5}, "gaps": []}
+    if repeated_evidence:
+        public["evidence"] = [{
+            "title": "Shared title", "source": "fixture", "source_date": "2026-09-30",
+            "detail": f"ADMITTED_FACT_{index}: " + "Exact repeated data, no normalized whitespace. " * 5,
+            "content_hash": f"fixture-{index}", "supports": [], "contradicts": [],
+        } for index in range(3)]
+        public["observation"] = "Scope: ten records, only three shown.\n" + "\n".join(
+            row["detail"] for row in public["evidence"])
     plan = {"question": "Summarize the supplied market observation.", "model": "glm-5.3-flash",
             "information_cutoff": "2026-09-30", "today": "2026-10-09",
             "latest_data_date": "2026-09-30", "revision": "source-revision"}

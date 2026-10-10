@@ -9,6 +9,7 @@ import subprocess
 import pytest
 
 from tests.pi_delivery_support import make_source, seal_source
+from intelligence.eval.factored_evidence import factor_packet, view_receipt
 
 REPO = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("pi_native_runner", REPO / "integrations/pi/run_native.py")
@@ -286,5 +287,40 @@ def test_model_axis_change_must_be_explicit_and_keeps_source_identity(frozen, tm
     plan["author_model"] = "explicit-author"
     runner.verify_plan(plan, root)
     plan["source_model"] = "forged-source-model"
+    with pytest.raises(RuntimeError):
+        runner.verify_plan(plan, root)
+
+
+@pytest.mark.parametrize("target", ["view", "receipt", "mode"])
+def test_factored_view_must_reproduce_even_if_modified_hashes_match(frozen, tmp_path, monkeypatch, target):
+    _, root, plan = frozen
+    source = make_source(tmp_path / "source", repeated_evidence=True)
+    packet, source_plan, hashes = runner.delivered_packet(source)
+    view = factor_packet(packet)
+    receipt = view_receipt(packet, view)
+    monkeypatch.setattr(runner, "factored_packet", lambda data, _code: (factor_packet(data), view_receipt(data, factor_packet(data))))
+    for filename, value in (("evidence-packet.json", packet), ("model-evidence.json", view),
+                            ("evidence-view-receipt.json", receipt)):
+        runner.save(root / filename, value)
+    plan.update(mode="delivery", source_run=str(source), source_hashes=hashes,
+                packet_sha256=runner.digest(root / "evidence-packet.json"),
+                question=packet["question"], information_cutoff=packet["information_cutoff"], model=source_plan["model"],
+                subagents=False, second_look=False, tool_calls=0, rag_bindings="off", delivery_style="direct",
+                delivery_skill="finance-mode", app_skills=["finance-mode"], evidence_view="factored",
+                model_evidence_sha256=runner.digest(root / "model-evidence.json"),
+                evidence_view_receipt_sha256=runner.digest(root / "evidence-view-receipt.json"))
+    runner.verify_plan(plan, root)
+    if target == "mode":
+        plan["evidence_view"] = "lossy-summary"
+    else:
+        filename, key = ("model-evidence.json", "model_evidence_sha256") if target == "view" else (
+            "evidence-view-receipt.json", "evidence_view_receipt_sha256")
+        value = json.loads((root / filename).read_text())
+        if target == "view":
+            value["observations"][0]["result"]["evidence_common"]["source_date"] = "2099-01-01"
+        else:
+            value["original_canonical_sha256"] = "invented"
+        (root / filename).write_text(json.dumps(value))
+        plan[key] = runner.digest(root / filename)
     with pytest.raises(RuntimeError):
         runner.verify_plan(plan, root)

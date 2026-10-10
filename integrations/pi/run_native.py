@@ -118,6 +118,15 @@ def delivered_packet(source: Path) -> tuple[dict, dict, dict[str, str]]:
              "observations": observations}, plan, hashes)
 
 
+def factored_packet(packet: dict, code: Path) -> tuple[dict, dict]:
+    sys.path.insert(0, str(code))
+    from intelligence.eval import factored_evidence  # noqa: PLC0415
+    if Path(factored_evidence.__file__).resolve() != (code / "intelligence/eval/factored_evidence.py").resolve():
+        raise RuntimeError("evidence encoder was loaded from a different source tree")
+    view = factored_evidence.factor_packet(packet)
+    return view, factored_evidence.view_receipt(packet, view)
+
+
 def _numeric_checker(code: Path):
     sys.path.insert(0, str(code))
     from intelligence.eval import frozen_numeric_checks  # noqa: PLC0415
@@ -317,7 +326,8 @@ def prepare(args: argparse.Namespace) -> None:
         args.tool_cap = 0
     elif not args.question_file or not args.as_of or not args.rag_bindings:
         raise ValueError("research requires --db, --question-file, --as-of and --rag-bindings")
-    elif args.delivery_style != "direct" or args.delivery_skill or args.numeric_checks or args.analysis_only or args.author_model:
+    elif (args.delivery_style != "direct" or args.delivery_skill or args.numeric_checks
+          or args.analysis_only or args.author_model or args.evidence_view != "raw"):
         raise ValueError("delivery settings require --source-run")
     root.mkdir(parents=True, exist_ok=True)
     kit = root / "kit"
@@ -327,6 +337,10 @@ def prepare(args: argparse.Namespace) -> None:
     source_db = cloned = db_sha = None
     if packet is not None:
         save(root / "evidence-packet.json", packet)
+        if args.evidence_view == "factored":
+            view, view_record = factored_packet(packet, code)
+            save(root / "model-evidence.json", view)
+            save(root / "evidence-view-receipt.json", view_record)
         if args.numeric_checks:
             receipt = numeric_check_receipt(packet, code)
             save(root / "numeric-checks.json", receipt)
@@ -364,6 +378,9 @@ def prepare(args: argparse.Namespace) -> None:
         "numeric_checks": bool(args.numeric_checks),
         "numeric_checks_sha256": digest(root / "numeric-checks.json") if args.numeric_checks else None,
         "analysis_only": bool(args.analysis_only),
+        "evidence_view": args.evidence_view,
+        "model_evidence_sha256": digest(root / "model-evidence.json") if args.evidence_view == "factored" else None,
+        "evidence_view_receipt_sha256": digest(root / "evidence-view-receipt.json") if args.evidence_view == "factored" else None,
         "checked_facts_sha256": digest(root / "checked-facts.md") if args.analysis_only else None,
         "source_run": str(Path(args.source_run).resolve()) if packet is not None else None,
         "source_revision": source_plan["revision"] if source_plan is not None else None,
@@ -410,6 +427,16 @@ def verify_plan(plan: dict, root: Path) -> None:
                 or plan["model"] != (plan.get("author_model") or original_plan["model"])
                 or plan.get("delivery_style", "direct") not in ("direct", "aligned")):
             raise RuntimeError("delivery question, cutoff, model or packet differs from its origin")
+        if plan.get("evidence_view", "raw") not in ("raw", "factored"):
+            raise RuntimeError("unknown frozen evidence representation")
+        if plan.get("evidence_view") == "factored":
+            view, view_record = factored_packet(packet, code)
+            for filename, value, hash_key in (("model-evidence.json", view, "model_evidence_sha256"),
+                                              ("evidence-view-receipt.json", view_record, "evidence_view_receipt_sha256")):
+                path = root / filename
+                expected[path] = plan[hash_key]
+                if json.dumps(json.loads(path.read_text()), sort_keys=True, allow_nan=False) != json.dumps(value, sort_keys=True, allow_nan=False):
+                    raise RuntimeError("factored evidence does not reproduce from its public source")
         if plan.get("numeric_checks"):
             expected[root / "numeric-checks.json"] = plan["numeric_checks_sha256"]
             if json.loads((root / "numeric-checks.json").read_text()) != numeric_check_receipt(packet, code):
@@ -452,7 +479,8 @@ def build_prompt(plan: dict, menu: dict, root: Path | None = None) -> str:
         if root is None:
             raise ValueError("delivery prompt requires its frozen artifact directory")
         prompts = json.loads((root / "kit" / "delivery-prompts.json").read_text())
-        packet = json.loads((root / "evidence-packet.json").read_text())
+        packet_name = "model-evidence.json" if plan.get("evidence_view") == "factored" else "evidence-packet.json"
+        packet = json.loads((root / packet_name).read_text())
         task = prompts["analysis_task"] if plan.get("analysis_only") else (
             prompts["audit_task"] if plan["delivery_style"] == "aligned" else prompts["direct_task"])
         text = task + "\n\n原问题：\n" + plan["question"]
@@ -566,18 +594,23 @@ def run(args: argparse.Namespace) -> int:
         if plan.get("mode") == "delivery":
             result["arm"]["data_tools_disabled"] = transport.get("data_tools_enabled") is False
             result["arm"]["delivery_method_in_first_request"] = delivery_method_received(plan, requests)
+            first_user = "\n".join(message["content"] for message in requests[0]["payload"].get("messages", [])
+                                   if message.get("role") == "user" and isinstance(message.get("content"), str)) if requests else ""
+            packet_name = "model-evidence.json" if plan.get("evidence_view") == "factored" else "evidence-packet.json"
+            actual_view = json.loads((root / packet_name).read_text())
+            result["arm"]["evidence_view_in_first_request"] = json.dumps(actual_view, ensure_ascii=False) in first_user
+            result["evidence_view"] = plan.get("evidence_view", "raw")
             if plan.get("numeric_checks"):
                 receipt = json.loads((root / "numeric-checks.json").read_text())
                 expected_receipt = json.dumps(receipt, ensure_ascii=False)
-                first_user = "\n".join(message["content"] for message in requests[0]["payload"].get("messages", [])
-                                       if message.get("role") == "user" and isinstance(message.get("content"), str)) if requests else ""
                 result["arm"]["numeric_checks_in_first_request"] = expected_receipt in first_user
                 result["arm"]["numeric_checked_observations"] = len(receipt["checks"])
                 if not result["arm"]["numeric_checks_in_first_request"]:
                     result["failure"] = {"type": "NumericReceiptNotDelivered", "message": "calculation receipt missing in first request"}
             expected_drafts = 2 if plan["delivery_style"] == "aligned" else 1
             if (not result["arm"]["data_tools_disabled"] or transport["tool_calls"] or tool_calls
-                    or not result["arm"]["delivery_method_in_first_request"] or len(drafts) != expected_drafts):
+                    or not result["arm"]["delivery_method_in_first_request"]
+                    or not result["arm"]["evidence_view_in_first_request"] or len(drafts) != expected_drafts):
                 result["failure"] = {"type": "DeliveryContractFailure", "message": "new retrieval or unexpected delivery stages"}
         if not arm_completed(result["arm"]):
             result["failure"] = {"type": "IncompleteRun", "message": "Pi did not deliver a complete model-admitted answer"}
@@ -619,6 +652,7 @@ def main(argv: list[str] | None = None) -> int:
     prep.add_argument("--delivery-skill", help="application skill injected in full before the first delivery request")
     prep.add_argument("--numeric-checks", action="store_true", help="append deterministic checks of supported typed frozen inputs")
     prep.add_argument("--analysis-only", action="store_true", help="render numeric facts separately; the model writes only interpretation and hypotheses")
+    prep.add_argument("--evidence-view", choices=("raw", "factored"), default="raw", help="delivery-only reversible public evidence representation")
     prep.add_argument("--question-file")
     prep.add_argument("--as-of", help="information cutoff YYYY-MM-DD")
     prep.add_argument("--today", default=datetime.now().date().isoformat())
