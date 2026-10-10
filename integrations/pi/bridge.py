@@ -87,6 +87,11 @@ def configure(payload):
     schemas and the information cutoff, not any product-derived output contract.
     """
     global state
+    if state:
+        raise RuntimeError('bridge is already configured; research permissions cannot be reset')
+    mode = payload.get('mode', 'research')
+    if mode not in ('research', 'delivery'):
+        raise ValueError('unknown Pi run mode')
     question = payload['question']
     as_of = payload['expected_as_of']
     tier = payload.get('research_tier', 'max')
@@ -111,19 +116,21 @@ def configure(payload):
         latest_data_date=payload.get('latest_data_date') or as_of,
         information_cutoff=cut,
     )
-    paths = default_paths()
-    registry = build_episode_registry(
-        frame, ctx, finance_root=paths.finance_root, knowledge_wiki=paths.knowledge_wiki,
-        memory_user=payload['user'], memory_users_root=Path(payload['users_root']) / payload['user'],
-    )
+    registry = None
+    if mode == 'research':
+        paths = default_paths()
+        registry = build_episode_registry(
+            frame, ctx, finance_root=paths.finance_root, knowledge_wiki=paths.knowledge_wiki,
+            memory_user=payload['user'], memory_users_root=Path(payload['users_root']) / payload['user'],
+        )
     state = {
-        'case': payload['case'], 'context': ctx, 'registry': registry,
+        'case': payload['case'], 'context': ctx, 'registry': registry, 'data_tools_enabled': mode == 'research',
         'expires': min(batch_deadline, time.time() + min(600, ctx.policy.total_seconds)),
         'calls': 0, 'tool_calls': 0,
         'call_cap': int(payload.get('call_cap') or (120 if ctx.contract.research_tier == 'max' else 40)),
-        'tool_cap': int(payload.get('tool_cap') or 60),
+        'tool_cap': int(payload.get('tool_cap', 60)) if mode == 'research' else 0,
     }
-    specs = registry.authorized_specs(ctx.contract.allowed_capabilities)
+    specs = registry.authorized_specs(ctx.contract.allowed_capabilities) if registry is not None else ()
     return {
         'case': payload['case'], 'as_of': safe(ctx.information_cutoff),
         'research_tier': ctx.contract.research_tier,
@@ -161,7 +168,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/health':
             self.reply(200, {'case': state.get('case'), 'calls': state.get('calls', 0),
-                             'tool_calls': state.get('tool_calls', 0), 'model': EXPECTED_MODEL})
+                             'tool_calls': state.get('tool_calls', 0), 'model': EXPECTED_MODEL,
+                             'data_tools_enabled': state.get('data_tools_enabled', False)})
             return
         self.reply(404, {'error': 'unknown evaluation route'})
 
@@ -175,6 +183,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if self.path == '/tool':
                 with lock:
+                    if not state.get('data_tools_enabled', False):
+                        self.reply(403, {'error': 'data_tools_disabled', 'detail': 'frozen-evidence delivery cannot retrieve new data'})
+                        return
                     if time.time() >= state['expires'] or state['tool_calls'] >= state['tool_cap']:
                         raise RuntimeError('Pi absolute tool budget exhausted')
                     state['tool_calls'] += 1

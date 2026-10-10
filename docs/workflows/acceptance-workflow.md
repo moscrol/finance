@@ -75,9 +75,9 @@ exit 0 只对「命令里那个 `origin/main` 解析出的 SHA」成立；报告
 
 首尾采样不能证明期间没有发生又恢复的改动，因此仍要用独占检出。历史收据缺字段时保留原件，另起目录重跑；不得把今天的干净状态补写成过去的观测。`git status` 相同也不等于内容相同，复核既有脏树时还要比较二进制 diff 与未跟踪文件内容哈希。
 
-## 4. 切 8792（链切五步）
+## 4. 切 8792（准备、切换与验证）
 
-链切用下面五步。`scripts/deploy_workbench_runtime.sh` 仅面向不受 Git 管理的旧式 standalone 目录：必须显式设置 `WORKBENCH_REPO_ROOT=<干净源树>` 并传入 `--apply --expect-revision <完整SHA>`。它拒绝覆盖 Git worktree 快照，也拒绝 `intelligence/` 为软链的运行目标；版本快照只能新建再切链；无参数、未知参数和不匹配的版本均拒绝执行，`--help` 只显示帮助。旧版本没有参数解析，连 `--help` 都可能执行真实部署，禁止以运行旧脚本的方式探测用法，先读源码。
+链切按下面的准备、切换和验证段执行。`scripts/deploy_workbench_runtime.sh` 仅面向不受 Git 管理的旧式 standalone 目录：必须显式设置 `WORKBENCH_REPO_ROOT=<干净源树>` 并传入 `--apply --expect-revision <完整SHA>`。它拒绝覆盖 Git worktree 快照，也拒绝 `intelligence/` 为软链的运行目标；版本快照只能新建再切链；无参数、未知参数和不匹配的版本均拒绝执行，`--help` 只显示帮助。旧版本没有参数解析，连 `--help` 都可能执行真实部署，禁止以运行旧脚本的方式探测用法，先读源码。
 
 ```bash
 # ⚠️ 这条 fetch 不能省（2026-08-18 实测补入）：验收 session 总是刚合完 PR 才切，
@@ -94,23 +94,15 @@ git -C /Users/a77/finance-workspace-private worktree add --detach \
 # 软链被 .gitignore 忽略，不影响「快照干净」判据。先补软链、确认可执行，再进下面的 bootout。
 ln -s /Users/a77/finance-workspace-private/.venv-workbench ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench
 test -x ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench/bin/python
-launchctl bootout "gui/$(id -u)/com.a77.finance-workbench"
-/bin/ln -sfh ~/.finance-runtime/finance-workspace-${sha:0:12} /Users/a77/finance-workspace-runtime
-# ⚠️ 脚本从**新快照**里取，不要从主检出取（2026-08-21 实测补入）：主检出常年停在别的任务分支上，
-# 那个分支不一定有 scripts/audit_deploy_ledger.py（本次停在 feat/reading-rules-baseline-batch1，就没有），
-# 结果是账本静默漏记一次 switch——而切换本身已经生效，事后没人看得出来漏了。
-# FINANCE_WS 仍指主仓（数据仓），只有解释器和脚本路径跟着快照走。
-# ⚠️ `--port 8792` 不能省：`infer_port` 认不出就 None（写入侧明写不猜），账本那行无从归属。
-# 读取侧现在会报「账本判不出」而不是回落到上一版 rev（`worktree_board.last_switch_for_port`
-# 返回 `(matched, unattributed)`，判据锁在 `tests/test_worktree_board.py` 的
-# `test_newer_switch_without_port_is_not_masked_by_older_matched_row`）——但那只是不再骗人，
-# 漏了 `--port` 这次切换仍然**判不出来**。账本里已有 16 行是这么来的（09-03 f4c03b9a 被报成 c88c81da）。
-# 账本只有一个家 `~/.finance-runtime/deploy-ledger.jsonl`（2026-09-09 工单 #44 起，FINANCE_WS 与代码根不再影响它写到哪）。
-# 下面的 `--ledger` 在新快照上是冗余的，保留是为了回滚到 #44 之前的旧快照时仍写对地方——旧代码不带它会写进
-# `$FINANCE_WS/state/deploy-ledger.jsonl`（2026-09-07 0907g 实测的坑：切换生效了、看板判不出 8792 在哪个 rev）。
-# 切完顺手 `audit_deploy_ledger.py homes`：旧家还有行就 `migrate-homes --apply` 并进来（旧文件改名保留，不删）。
-FINANCE_WS=/Users/a77/finance-workspace-private /Users/a77/finance-workspace-private/.venv-workbench/bin/python ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/audit_deploy_ledger.py record --action switch --rev "$sha" --snapshot-path ~/.finance-runtime/finance-workspace-${sha:0:12} --port 8792 --ledger ~/.finance-runtime/deploy-ledger.jsonl
-launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbench.plist
+# 四叶过后，切换段只执行这一条（2026-10-06 起）；不要再重复手动 bootout / ln /
+# ledger record / bootstrap，否则会造成二次切换或重复记账：
+bash ~/.finance-runtime/finance-workspace-${sha:0:12}/scripts/switch_8792.sh "$sha" <切换记录目录>
+# 脚本核对完整 SHA、快照 HEAD、快照干净、venv 可执行和运行链接，bootout 后确认服务
+# 卸载且 8792 端口空出，再用新快照里的解释器记录 --port 8792 并 bootstrap；账本失败、
+# 链接失败或三次 bootstrap 失败会尝试恢复旧链接、旧版本账本和服务；回滚同样等待卸载与端口释放。
+# 回滚不完整退出 7，读 switch.log 定位。退出 0 / SWITCH_BOOTSTRAP_DONE 只说明切换命令成功，仍须切后验证。
+# INT / TERM / HUP 会触发一次补偿；恢复期间忽略重复信号。SIGKILL、断电或机器故障无法由脚本捕获。
+# 脚本不负责上面的 fetch / worktree / venv 软链，也不替代下面的 readiness、health、grounded 探针。
 ```
 
 验证（三项全过才算切完）：
@@ -147,7 +139,7 @@ launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.a77.finance-workbe
    2026-08-19 切 `8bbfc4e41a5a` 时的实测读数：`dataset=stock_daily`×12 /
    `caliber=fact_stock_daily`×4，数据日 2026-08-18 == 库内最新。
 
-回滚 = 反向 `ln -sfh` 到上一快照目录（历史快照都保留在 `~/.finance-runtime/`）+ bootstrap。
+回滚也从已通过门禁的新快照运行同一 `switch_8792.sh`，参数传上一快照的完整 SHA 和独立回滚记录目录；不调用旧快照里未经本轮核验的脚本。它会按相同前置条件停服、等待卸载和端口释放、换链、用旧快照解释器记录 `--port 8792` 并启动。完成后仍做上面的三项验证，历史快照保留在 `~/.finance-runtime/`。
 
 切后确认备份已覆盖新主干：`git ls-remote gitea refs/heads/main` 应等于新 sha（GitHub→Gitea 定时备份，见 `dual-remote-collaboration.md`「本地备份任务」；没覆盖就按那一节手动跑一轮 runner）。2026-09-30 之前的 `tar -czf ~/backups/gitea-…` 口径已被它取代。
 

@@ -46,6 +46,10 @@ const DEPTH = Number(process.env.FINANCE_PI_SUBAGENT_DEPTH ?? "0") || 0;
 const SECOND_LOOK = process.env.FINANCE_PI_SECOND_LOOK === "1";
 const SUBAGENTS = process.env.FINANCE_PI_SUBAGENTS === "1";
 const MENU_FILE = process.env.FINANCE_PI_MENU_FILE;
+const DELIVERY = process.env.FINANCE_PI_MODE === "delivery";
+const DELIVERY_STYLE = process.env.FINANCE_PI_DELIVERY_STYLE ?? "direct";
+const DELIVERY_SKILL = process.env.FINANCE_PI_DELIVERY_SKILL;
+const ALIGNED_DELIVERY = DELIVERY && DELIVERY_STYLE === "aligned";
 const THINKING = process.env.FINANCE_PI_THINKING ?? "low";
 const PI_BIN = process.env.FINANCE_PI_BIN ?? "pi";
 const SELF = fileURLToPath(import.meta.url);
@@ -83,7 +87,8 @@ function toolMenu() {
 	if (!MENU_FILE) throw new Error("FINANCE_PI_MENU_FILE is required for financial research");
 	const menu = JSON.parse(readFileSync(MENU_FILE, "utf8"));
 	if (menu.case !== CASE || !menu.as_of || !Array.isArray(menu.authorized_tools)
-		|| !menu.authorized_tools.length || menu.authorized_tools.some((tool: { name?: unknown }) => typeof tool.name !== "string")) {
+		|| (DELIVERY ? menu.authorized_tools.length !== 0 : !menu.authorized_tools.length)
+		|| menu.authorized_tools.some((tool: { name?: unknown }) => typeof tool.name !== "string")) {
 		throw new Error("tool menu does not match the configured research case");
 	}
 	return menu;
@@ -216,10 +221,33 @@ function childSucceeded(result: ChildResult): boolean {
 	return result.exitCode === 0 && result.stopReason === "stop" && !!result.text.trim();
 }
 
+// Shared with reviewed-history's continuation owner; inactive extensions do not claim it.
+const CONTINUATION_OWNER = Symbol.for("finance.pi.continuation-owner");
+
+function claimContinuation(pi: ExtensionAPI, name: string): void {
+	const registry = globalThis as unknown as Record<symbol, string | undefined>;
+	const owner = registry[CONTINUATION_OWNER];
+	if (owner !== undefined) {
+		throw new Error(`Pi continuation already owned by ${owner}; ${name} would stack a second follow-up turn. Load only one of them.`);
+	}
+	registry[CONTINUATION_OWNER] = name;
+	pi.on("session_shutdown", () => {
+		if (registry[CONTINUATION_OWNER] === name) delete registry[CONTINUATION_OWNER];
+	});
+}
+
 export default function financeMode(pi: ExtensionAPI) {
 	let secondLookDone = false;
 	let activeChildren = 0;
 	const toolNames = toolMenu().authorized_tools.map((tool: { name: string }) => tool.name);
+	const deliveryPrompts = DELIVERY
+		? JSON.parse(readFileSync(path.join(path.dirname(SELF), "delivery-prompts.json"), "utf8")) : null;
+	if (DELIVERY && (!DELIVERY_SKILL || !APP_SKILLS.includes(DELIVERY_SKILL)
+		|| !['direct', 'aligned'].includes(DELIVERY_STYLE)
+		|| ['stage_boundary', 'direct_task', 'audit_task', 'render_task'].some((key) => typeof deliveryPrompts[key] !== 'string'))) {
+		throw new Error("invalid frozen delivery mode or prompt contract");
+	}
+	if (SECOND_LOOK || ALIGNED_DELIVERY) claimContinuation(pi, "finance-mode");
 	pi.registerProvider(PROVIDER, {
 		baseUrl: `${BRIDGE}/v1`,
 		api: "openai-completions",
@@ -240,10 +268,16 @@ export default function financeMode(pi: ExtensionAPI) {
 			event.systemPromptOptions.sections["finance-mode"] = skillBody(OS_SKILL);
 		}
 		event.systemPromptOptions.promptGuidelines.push(
-			"finance-mode 一节是常驻基础协议，每一轮都生效；skills 里列出的专项是应用层，命中时先 read 其 SKILL.md 再按骨架执行，未命中专项时仍按 finance-mode 完整执行。",
-			"所有数据只能通过 finance_call 取得；read 只用于读取专项 skill 文件。",
+			DELIVERY ? "finance-mode 是基础协议，本轮指定专项已完整放在 finance-delivery-method 中，先按它核对并定稿，无需重复 read。"
+				: "finance-mode 一节是常驻基础协议，每一轮都生效；skills 里列出的专项是应用层，命中时先 read 其 SKILL.md 再按骨架执行，未命中专项时仍按 finance-mode 完整执行。",
+			DELIVERY ? "当前只定稿，数据已在冻结证据包中；read 只用于读取专项 skill 文件。"
+				: "所有数据只能通过 finance_call 取得；read 只用于读取专项 skill 文件。",
 		);
-		if (SUBAGENTS && DEPTH === 0 && APP_SKILLS.length > 0) {
+		if (DELIVERY && DELIVERY_SKILL) {
+			event.systemPromptOptions.sections["finance-delivery-method"] = skillBody(DELIVERY_SKILL);
+			event.systemPromptOptions.sections["finance-delivery"] = deliveryPrompts.stage_boundary;
+		}
+		if (!DELIVERY && SUBAGENTS && DEPTH === 0 && APP_SKILLS.length > 0) {
 			event.systemPromptOptions.promptGuidelines.push(
 				`需要派单时用 spawn_sub_agent，可派专项：${APP_SKILLS.join("、")}；并行不超过 ${MAX_PARALLEL} 个，子任务只读。`,
 			);
@@ -261,7 +295,7 @@ export default function financeMode(pi: ExtensionAPI) {
 		return undefined;
 	});
 
-	pi.registerTool({ name: "finance_call", label: "finance",
+	if (!DELIVERY) pi.registerTool({ name: "finance_call", label: "finance",
 		description: "调用已授权金融研究工具，args 遵循题面的对应 schema。结构化查询的 tool 是 finance_query，dataset 名放在 args.dataset。返回共享注册表的真实观察（带来源、日期与状态）。",
 		parameters: Type.Object({
 			tool: Type.String({ enum: toolNames, description: "授权工具名，不是 dataset 名" }),
@@ -274,7 +308,7 @@ export default function financeMode(pi: ExtensionAPI) {
 	});
 
 	// knevo 机制 B5/B6/B7：派单只在主线程；子任务 = 独立 pi 进程 + 只读预设 + [OS, 一个专项]。
-	if (SUBAGENTS && DEPTH === 0 && APP_SKILLS.length > 0) {
+	if (!DELIVERY && SUBAGENTS && DEPTH === 0 && APP_SKILLS.length > 0) {
 		pi.registerTool({ name: "spawn_sub_agent", label: "sub-agent",
 			description: `派出只读研究子任务（finance-researcher 预设，独立上下文，恒挂 finance-mode + 一个专项）。单个：{skill,title,task}；并行：{tasks:[…]}（最多 ${MAX_PARALLEL} 个，彼此不能有信息流依赖）。task 写三段：范围点列、用户记忆线索、输出格式约定；子任务读不到本对话。返回每个子任务的最终文本，父线程负责汇总、对齐口径与保留缺口。短问题不要派单。`,
 			parameters: Type.Object({
@@ -313,10 +347,11 @@ export default function financeMode(pi: ExtensionAPI) {
 
 	// knevo 机制 A5 的可选形状：交付前再看一眼，不拒稿、不重写、只补缺。默认关。
 	pi.on("agent_before_settle", (event) => {
-		if (!SECOND_LOOK || secondLookDone || event.outcome !== "completed" || event.continue) return undefined;
+		if (!(SECOND_LOOK || ALIGNED_DELIVERY) || secondLookDone || event.outcome !== "completed" || event.continue) return undefined;
 		secondLookDone = true;
 		return {
-			entries: [{ type: "custom_message", customType: "finance-second-look", content: SECOND_LOOK_PROMPT, display: true }],
+			entries: [{ type: "custom_message", customType: ALIGNED_DELIVERY ? "finance-delivery-render" : "finance-second-look",
+				content: ALIGNED_DELIVERY ? deliveryPrompts.render_task : SECOND_LOOK_PROMPT, display: true }],
 			continue: true,
 		};
 	});

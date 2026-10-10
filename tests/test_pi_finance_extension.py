@@ -11,8 +11,11 @@ import shutil
 import socket
 import subprocess
 import threading
+import urllib.error
 
 import pytest
+
+from tests.pi_delivery_support import make_source
 
 REPO = Path(__file__).resolve().parents[1]
 PI = shutil.which("pi")
@@ -36,7 +39,7 @@ def tools(*calls, text=None):
 
 
 @contextmanager
-def endpoint(respond):
+def endpoint(respond, *, model=MODEL):
     requests, errors = [], []
 
     class Handler(BaseHTTPRequestHandler):
@@ -71,7 +74,7 @@ def endpoint(respond):
                 self.send_header("Content-Type", "text/event-stream")
                 self.send_header("Connection", "close")
                 self.end_headers()
-                chunk = {"id": "stub", "object": "chat.completion.chunk", "created": 1, "model": MODEL,
+                chunk = {"id": "stub", "object": "chat.completion.chunk", "created": 1, "model": model,
                          "choices": [{"index": 0, "delta": result, "finish_reason": None}]}
                 self.wfile.write(("data: " + json.dumps(chunk) + "\n\n").encode())
                 reason = "tool_calls" if result.get("tool_calls") else "stop"
@@ -95,6 +98,7 @@ def run_pi(tmp_path):
     root = tmp_path / "run"
     (root / "kit").mkdir(parents=True)
     shutil.copyfile(REPO / "integrations/pi/finance-mode.ts", root / "kit/finance-mode.ts")
+    shutil.copyfile(REPO / "integrations/pi/delivery-prompts.json", root / "kit/delivery-prompts.json")
     skills = tmp_path / "skills"
     for name in runner.DEFAULT_SKILLS:
         (skills / name).mkdir(parents=True)
@@ -109,17 +113,28 @@ def run_pi(tmp_path):
     menu_file = root / "menu.json"
     menu_file.write_text(json.dumps(menu))
 
-    def run(url, *, second_look=False, subagents=False):
+    def run(url, *, second_look=False, subagents=False, preload=None, postload=None, delivery_style=None):
+        mode = "delivery" if delivery_style else "research"
+        menu_file.write_text(json.dumps({**menu, "authorized_tools": []} if delivery_style else menu))
         plan = {"pi_bin": PI, "code_root": str(tmp_path), "os_skill": "finance-mode",
                 "app_skills": list(runner.DEFAULT_SKILLS[1:]), "model": MODEL, "thinking": "low",
-                "subagents": subagents}
+                "subagents": subagents, "mode": mode}
         env = {**os.environ, "PI_CODING_AGENT_DIR": str(agent_dir),
                "FINANCE_PI_BRIDGE_URL": url, "FINANCE_PI_CASE": "offline-test", "FINANCE_PI_MODEL": MODEL,
                "FINANCE_PI_SKILL_ROOT": str(skills), "FINANCE_PI_OS_SKILL": "finance-mode",
                "FINANCE_PI_APP_SKILLS": ",".join(plan["app_skills"]), "FINANCE_PI_SUBAGENT_DEPTH": "0",
                "FINANCE_PI_SUBAGENTS": "1" if subagents else "0", "FINANCE_PI_BIN": PI,
-               "FINANCE_PI_SECOND_LOOK": "1" if second_look else "0", "FINANCE_PI_MENU_FILE": str(menu_file)}
-        process = subprocess.Popen(runner.pi_command(plan, root, "Offline test only."), cwd=root / "kit",
+               "FINANCE_PI_SECOND_LOOK": "1" if second_look else "0", "FINANCE_PI_MENU_FILE": str(menu_file),
+               "FINANCE_PI_MODE": mode, "FINANCE_PI_DELIVERY_STYLE": delivery_style or "direct",
+               "FINANCE_PI_DELIVERY_SKILL": "finance-market-review" if delivery_style else ""}
+        command = runner.pi_command(plan, root, "Offline test only.")
+        if preload is not None:
+            index = command.index("-e")
+            command[index:index] = ["-e", str(preload)]
+        if postload is not None:
+            index = command.index("--")
+            command[index:index] = ["-e", str(postload)]
+        process = subprocess.Popen(command, cwd=root / "kit",
                                    env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True, start_new_session=True)
         try:
@@ -200,6 +215,104 @@ def test_second_look_settles_after_exactly_one_continuation(run_pi):
     assert not errors
     assert calls == 2
     assert events[-1]["type"] == "agent_settled"
+
+
+OTHER_CONTINUATION_OWNER = """export default function (pi) {
+    const key = Symbol.for("finance.pi.continuation-owner");
+    const owner = globalThis[key];
+    if (owner !== undefined) throw new Error(`Pi continuation already owned by ${owner}`);
+    globalThis[key] = "reviewed-history";
+    pi.on("session_shutdown", () => {
+        if (globalThis[key] === "reviewed-history") delete globalThis[key];
+    });
+}
+"""
+
+
+@pytest.mark.parametrize("order", ["preload", "postload"])
+@pytest.mark.parametrize("mode", ["second-look", "aligned"])
+def test_financial_continuations_refuse_another_owner_before_model_call(run_pi, tmp_path, order, mode):
+    run, _ = run_pi
+    other = tmp_path / "other-owner.ts"
+    other.write_text(OTHER_CONTINUATION_OWNER)
+    settings = {"second_look": True} if mode == "second-look" else {"delivery_style": "aligned"}
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        with pytest.raises(AssertionError, match="continuation already owned"):
+            run(url, **{order: other}, **settings)
+    assert requests == [] and not errors
+
+
+@pytest.mark.parametrize("delivery_style", [None, "direct"])
+@pytest.mark.parametrize("order", ["preload", "postload"])
+def test_no_followup_does_not_claim_continuation_ownership(run_pi, tmp_path, order, delivery_style):
+    run, _ = run_pi
+    other = tmp_path / "other-owner.ts"
+    other.write_text(OTHER_CONTINUATION_OWNER)
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        events = run(url, **{order: other}, delivery_style=delivery_style)
+    assert not errors and len(_model_requests(requests)) == 1
+    assert events[-1]["type"] == "agent_settled"
+
+
+@pytest.fixture
+def real_history_extension(tmp_path):
+    configured = os.environ.get("FINANCE_PI_HISTORY_TEST_ROOT")
+    source = Path(configured) if configured else REPO
+    files = [source / "integrations/pi" / name for name in ("reviewed-history.ts", "market-history.ts")]
+    if not all(path.is_file() for path in files):
+        if configured:
+            pytest.fail("FINANCE_PI_HISTORY_TEST_ROOT must contain both real history adapter files")
+        pytest.skip("requires the history adapter in this checkout or FINANCE_PI_HISTORY_TEST_ROOT")
+    target = tmp_path / "real-history"
+    target.mkdir()
+    for path in files:
+        shutil.copyfile(path, target / path.name)
+    return target / "reviewed-history.ts"
+
+
+@pytest.mark.parametrize("order", ["preload", "postload"])
+@pytest.mark.parametrize("mode", ["second-look", "aligned"])
+def test_real_history_and_finance_continuations_conflict_before_model_call(run_pi, real_history_extension, order, mode):
+    run, _ = run_pi
+    settings = {"second_look": True} if mode == "second-look" else {"delivery_style": "aligned"}
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        with pytest.raises(AssertionError, match="continuation already owned"):
+            run(url, **{order: real_history_extension}, **settings)
+    assert requests == [] and not errors
+
+
+@pytest.mark.parametrize("order", ["preload", "postload"])
+def test_real_history_can_coexist_with_finance_without_followup(run_pi, real_history_extension, order):
+    run, _ = run_pi
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        events = run(url, **{order: real_history_extension})
+    assert not errors and len(_model_requests(requests)) == 1
+    assert events[-1]["type"] == "agent_settled"
+
+
+def test_duplicate_same_named_continuation_cannot_stack(run_pi, tmp_path):
+    run, _ = run_pi
+    duplicate = tmp_path / "finance-mode-copy.ts"
+    shutil.copyfile(REPO / "integrations/pi/finance-mode.ts", duplicate)
+    shutil.copyfile(REPO / "integrations/pi/delivery-prompts.json", tmp_path / "delivery-prompts.json")
+    with endpoint(lambda _path, _body: complete()) as (url, requests, _):
+        with pytest.raises(AssertionError, match="continuation already owned by finance-mode"):
+            run(url, delivery_style="aligned", postload=duplicate)
+    assert requests == []
+
+
+def test_continuation_owner_is_released_on_real_session_shutdown(run_pi, tmp_path):
+    run, _ = run_pi
+    observed = tmp_path / "shutdown-owner.json"
+    watcher = tmp_path / "owner-watcher.ts"
+    watcher.write_text('import {writeFileSync} from "node:fs";\n'
+                       'export default function(pi) { pi.on("session_shutdown", () => {\n'
+                       f'writeFileSync({json.dumps(str(observed))}, JSON.stringify({{owner: globalThis[Symbol.for("finance.pi.continuation-owner")] ?? null}}));\n'
+                       '}); }\n')
+    with endpoint(lambda _path, _body: complete()) as (url, requests, errors):
+        run(url, second_look=True, postload=watcher)
+    assert not errors and len(_model_requests(requests)) == 2
+    assert json.loads(observed.read_text()) == {"owner": None}
 
 
 @pytest.mark.parametrize("failure", [False, True])
@@ -326,3 +439,105 @@ def test_full_runner_bridge_and_pi_round_trip_is_offline(tmp_path, monkeypatch):
     assert (root / "pi/answer.md").read_text() == "Complete test answer."
     transport = (root / "pi-model-requests.jsonl").read_text() + (root / "pi-model-responses.jsonl").read_text()
     assert "offline-fixture-key" not in transport
+
+
+@pytest.mark.parametrize("style,numeric,analysis_only,author_model,evidence_view", [
+    ("direct", False, False, None, "raw"), ("aligned", False, False, None, "raw"),
+    ("direct", True, False, None, "raw"), ("aligned", True, False, None, "raw"),
+    ("direct", True, True, None, "raw"), ("direct", True, True, "explicit-author", "raw"),
+    ("direct", True, True, "explicit-author", "factored"), ("aligned", False, False, None, "factored"),
+])
+def test_frozen_delivery_has_no_data_tools_and_stages_are_bounded(tmp_path, monkeypatch, style, numeric, analysis_only, author_model, evidence_view):
+    source = make_source(tmp_path / "source", repeated_evidence=evidence_view == "factored")
+    root = tmp_path / "delivery"
+    launcher = tmp_path / "launcher.sh"
+    launcher.write_text("")
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    monkeypatch.setattr(runner, "require_clean_code", lambda _code: None)
+    runner.PROCESSES.clear()
+    turns = 0
+
+    def respond(_path, body):
+        nonlocal turns
+        turns += 1
+        assert {tool["function"]["name"] for tool in body["tools"]} == {"read"}
+        assert body["model"] == (author_model or MODEL)
+        encoded = json.dumps(body, ensure_ascii=False)
+        method = (REPO / "skills/finance-market-review/SKILL.md").read_text().partition("\n---\n")[2].strip()
+        system = "\n".join(m["content"] for m in body["messages"] if m["role"] == "system")
+        assert method in system
+        assert "ADMITTED_FACT" in encoded
+        assert ("frozen_numeric_checks_v1" in encoded) is numeric
+        assert "PRIVATE_AUDIT_SENTINEL" not in encoded and "OLD_DRAFT_SENTINEL" not in encoded
+        assert ("factored_public_evidence_v1" in encoded) is (evidence_view == "factored")
+        if turns == 1:
+            filename = "model-evidence.json" if evidence_view == "factored" else "evidence-packet.json"
+            expected = json.loads((root / filename).read_text())
+            assert json.dumps(expected, ensure_ascii=False) in "\n".join(
+                message["content"] for message in body["messages"] if message["role"] == "user")
+            if evidence_view == "factored":
+                from intelligence.eval.factored_evidence import restore_packet
+                original = json.loads((root / "evidence-packet.json").read_text())
+                assert restore_packet(expected) == original
+                public = expected["observations"][0]["result"]
+                assert "evidence_common" in public and "observation_parts" in public
+            with pytest.raises(urllib.error.HTTPError) as denied:
+                runner.call(port, "/tool", {"tool": "finance_query", "args": {}})
+            assert denied.value.code == 403
+            with pytest.raises(urllib.error.HTTPError) as reset:
+                runner.call(port, "/configure", {"mode": "research"})
+            assert b"already configured" in reset.value.read()
+            return tools(("read", {"path": str(REPO / "skills/finance-market-review/SKILL.md")}))
+        if style == "aligned" and turns == 2:
+            return complete("WORKING_TABLE: observed five of ten; scope is the supplied ten.")
+        if style == "aligned":
+            assert turns == 3 and "WORKING_TABLE" in encoded
+        else:
+            assert turns == 2
+        return complete("FINAL_DELIVERY: FICTIONAL_NUMERIC_SENTINEL" if analysis_only else
+                        "FINAL_DELIVERY: five of the supplied ten records match.")
+
+    with endpoint(respond, model=author_model or MODEL) as (url, requests, errors):
+        monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_API_KEY", "offline-fixture-key")
+        monkeypatch.setenv("FORESIGHT_BUILTIN_LLM_BASE_URL", url + "/v1")
+        assert runner.main(["prepare", "--root", str(root), "--source-run", str(source),
+                            "--delivery-style", style, "--delivery-skill", "finance-market-review",
+                            "--evidence-view", evidence_view, "--launcher", str(launcher),
+                            "--bridge-port", str(port), "--pi-bin", PI, "--turn-seconds", "40",
+                            *(["--numeric-checks"] if numeric else []),
+                            *(["--analysis-only"] if analysis_only else []),
+                            *(["--author-model", author_model] if author_model else [])]) == 0
+        assert not (root / "market_feature_store.duckdb").exists()
+        assert runner.main(["run", "--root", str(root)]) == 0
+    assert not errors
+    result = json.loads((root / "RESULT.json").read_text())
+    assert result["status"] == "completed"
+    assert result["source_model"] == MODEL
+    assert result["author_model"] == (author_model or MODEL)
+    assert result["model_axis_changed"] is (author_model is not None)
+    assert result["arm"]["data_tools_disabled"] is True
+    assert result["arm"]["delivery_method_in_first_request"] is True
+    assert result["arm"]["evidence_view_in_first_request"] is True
+    assert result["evidence_view"] == evidence_view
+    if evidence_view == "factored":
+        view_record = json.loads((root / "evidence-view-receipt.json").read_text())
+        assert view_record["roundtrip_equal"] is True
+        assert view_record["view_bytes"] < view_record["original_bytes"]
+    if numeric:
+        assert result["arm"]["numeric_checks_in_first_request"] is True
+        assert result["arm"]["numeric_checked_observations"] == 0, "untyped fixture prose must remain unsupported"
+    assert result["arm"]["tool_calls"] == result["arm"]["tool_observations"] == 0
+    assert result["arm"]["skill_reads"] == 1
+    assert result["arm"]["completed_drafts"] == (2 if style == "aligned" else 1)
+    assert result["arm"]["physical_requests"] == len(requests) == (3 if style == "aligned" else 2)
+    assert result["inputs_unchanged"] and result["processes_stopped"]
+    assert (root / "pi/answer.md").read_text().startswith("FINAL_DELIVERY")
+    if analysis_only:
+        facts = (root / "checked-facts.md").read_text()
+        assert "FICTIONAL_NUMERIC_SENTINEL" not in facts
+        assert "FICTIONAL_NUMERIC_SENTINEL" in (root / "pi/analysis.md").read_text()
+        assert result["checked_facts_sha256"] == runner.digest(root / "checked-facts.md")
+        assert result["quality"] == "UNREVIEWED"
+        assert result["delivery_scope"] == "fixed_numeric_document_and_unreviewed_model_analysis"

@@ -1487,3 +1487,12 @@ system 分段与记忆丰度注入是后续接线（spec §4），且在 Codex �
 `query_basis.groups[].full_group_counts` 在截取前统计涨跌、成交变化、严格双红及未知数量，并报告不同板块代码数。
 这是每组登记行的全量描述，不是跨组去重股票数，也不新增 owned 文本认证角色；未部署，不以工程通过代替首答质量。
 验收：`verification/2026-10-10-pi-model-view-cutoff.md`、`verification/2026-10-10-mainline-full-group-counts.md`。
+`run_native.py prepare --source-run --delivery-skill ...` 可用冻结的实际送达证据做 direct/aligned 定稿对照，
+工具桥拒绝新取数，指定方法在首个请求完整注入；它是诊断模式，不是第三条生产引擎或默认两阶段流程。
+两阶段未显示可靠内容收益，保留显式开关；逐句结果见 `verification/2026-10-10-frozen-evidence-delivery-results.md`。
+`--numeric-checks --analysis-only` 可将已有D4结构化输入编译为独立 `checked-facts.md`，模型只写独立解释稿；
+复用既有资格规则，不解析展示文字、不新取数、不认证自由解释。`--author-model` 是明确记录的实验变量，无自动回退。
+数字产物在限定范围内通过，解释仍未过；结论与作者对照见 `verification/2026-10-10-numeric-and-analysis-results.md`。
+可选 `--evidence-view factored` 在定稿阶段可逆归并重复字段和正文，执行前后还原核对原包；默认raw未变。
+本线二看/aligned遵守与reviewed-history相同的进程续写所有权约定，冲突启动即拒绝；非自动启用邻线复核。
+实际输入缩减、内容失败与互斥来源见 `handoffs/2026-10-10-evidence-view-and-continuation.md`。

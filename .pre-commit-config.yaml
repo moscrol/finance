@@ -119,6 +119,15 @@ repos:
         pass_filenames: false
         files: '^docs/handoffs/inflight/.*\.md$'
         verbose: true
+      # 文件名不是内容边界：普通归档 .txt 也可能携带完整登录会话。
+      # 只读暂存区 blob，值不进输出；是窄回归闸，不替代全历史扫描/凭据撤销。
+      - id: staged-credentials
+        name: "凭据内容：暂存区不得携带登录会话或应用密钥"
+        language: system
+        entry: python3 scripts/check_staged_credentials.py
+        pass_filenames: false
+        always_run: true
+        verbose: true
       - id: block-forbidden-files
         name: "红线：禁止提交 密钥/大二进制/缓存/虚拟环境/依赖"
         language: fail

@@ -1,0 +1,14 @@
+{
+  "status": "ok",
+  "applied": {
+    "index_rows": 4,
+    "stock_rows": 6
+  },
+  "skipped": [],
+  "split_day": [
+    "2026-07-06",
+    101.5,
+    -74.87623762376238,
+    "akshare:sina/stock_us_daily"
+  ]
+}
