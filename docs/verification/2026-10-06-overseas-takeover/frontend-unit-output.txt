@@ -1,0 +1,46 @@
+
+> market-intelligence-workbench@0.1.0 test /Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/frontend-tree-3c57aab6/intelligence/webapp
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/Users/a77/.finance-runtime/backfill-overseas-rebuild-1006/frontend-tree-3c57aab6/intelligence/webapp[39m
+
+ [32m✓[39m src/components/ResearchActivityControl.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 293[2mms[22m[39m
+ [32m✓[39m src/components/river/OriginalDailyReview.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 550[2mms[22m[39m
+ [32m✓[39m src/components/ResearchEvolutionPanel.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 680[2mms[22m[39m
+ [32m✓[39m src/components/BoardCalendarDashboard.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 645[2mms[22m[39m
+ [32m✓[39m src/components/river/DailyReviewWorkspace.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 1429[2mms[22m[39m
+ [32m✓[39m src/components/river/OriginalWorkbench.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 1637[2mms[22m[39m
+   [33m[2m✓[22m[39m original ladder reading flow[2m > [22mclicking a rung filters stocks and provides actual code/first-board detail [33m 326[2mms[22m[39m
+ [32m✓[39m src/components/river/DailyRiverDashboard.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1816[2mms[22m[39m
+   [33m[2m✓[22m[39m daily river[2m > [22mselecting a heat cell links date and sector and opens research [33m 656[2mms[22m[39m
+   [33m[2m✓[22m[39m daily river[2m > [22msearch and ranking controls affect the heatmap [33m 311[2mms[22m[39m
+ [32m✓[39m src/components/river/ScanPanel.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 326[2mms[22m[39m
+ [32m✓[39m src/components/river/RiverTimeline.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 221[2mms[22m[39m
+ [32m✓[39m src/components/river/OriginalScan.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 285[2mms[22m[39m
+ [32m✓[39m src/components/river/LimitUpHistory.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 297[2mms[22m[39m
+ [32m✓[39m src/components/river/ObservationWorkbench.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 2715[2mms[22m[39m
+   [33m[2m✓[22m[39m shows facts without automatically checking any framework condition [33m 324[2mms[22m[39m
+   [33m[2m✓[22m[39m requires falsification and a future review date, while allowing explicit missing evidence [33m 324[2mms[22m[39m
+   [33m[2m✓[22m[39m freezes original conditions and appends review without changing them or sending a model call [33m 380[2mms[22m[39m
+ [32m✓[39m src/components/DailyReportView.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 466[2mms[22m[39m
+   [33m[2m✓[22m[39m DailyReportView[2m > [22mkeeps glossary and the original report behind disclosure controls [33m 335[2mms[22m[39m
+ [32m✓[39m src/components/river/RangePanel.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 397[2mms[22m[39m
+   [33m[2m✓[22m[39m breaks the curve at unknown trading days without squeezing the date axis [33m 342[2mms[22m[39m
+ [32m✓[39m src/api.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/components/ResearchProjectPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 203[2mms[22m[39m
+ [32m✓[39m src/components/river/AttentionPanel.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m src/components/StaleDataBanner.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[32m 168[2mms[22m[39m
+ [32m✓[39m src/researchActivity.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/streamEventRegistry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/theme.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/components/components.test.tsx [2m([22m[2m86 tests[22m[2m)[22m[33m 8549[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench components[2m > [22mstarts a workflow preset and submits from the unified composer [33m 402[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mopens on today and navigates across the six product surfaces [33m 814[2mms[22m[39m
+   [33m[2m✓[22m[39m Workbench navigation reliability[2m > [22mkeeps cancel pending until polling confirms the cancelled state [33m 319[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m      Tests [22m [1m[32m210 passed[39m[22m[90m (210)[39m
+[2m   Start at [22m 23:27:20
+[2m   Duration [22m 11.18s[2m (transform 2.28s, setup 8.61s, collect 5.67s, tests 20.75s, environment 14.22s, prepare 1.90s)[22m
+

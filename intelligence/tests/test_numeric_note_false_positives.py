@@ -19,25 +19,45 @@
 - ``fact_sector_period_rank_daily.change_pct`` = (∏(1 + pct_chg/100) − 1) × 100，由日更 features 步
   （``scripts/compute_features.py`` 的 period-rank）写入。
 竞价涨幅（复盘会原样落库）与海外个股 5日涨幅 在沙箱里核不了量纲，没改：要在 Mac 上查一次真实量级。
+
+第七、八种（2026-10-06 8792 生产探针 T1-turnover，夹具即那次存证的裁剪件）：
+- 月份与日期。GLM 在数字与汉字之间加空格，``6 月底`` 逃过只认 ``6月`` 的月份掩码；``较前一月放大``
+  的 ``一月`` 是汉字数词，掩码根本不认。它们是时间点不是阈值，与 ``6月`` 同等对待；``6 月以上``、
+  ``三月以上`` 与不是月份名的 ``两月`` 是时长，照旧受审。
+- 区间。``0.75~1.07`` 是派生计算两个比值（0.7511 / 1.0747）的舍入，此前区间只与证据里的区间整体
+  比对，两端各自有出处也挂待核。现在两端按区间的单位各过一遍数值门，都有出处才放行；一端是自拟
+  阈值的照旧点名。整数端点不借无单位观察值的 ±0.5 舍入：全存档普查里 ``后续2-3个交易日`` 这类
+  自拟窗口，两端都是这样被随便哪个观察值「撑」起来的。
+同一份稿里模型给自己定的判据（``1.2`` / ``0.9`` / ``44%`` / ``6%``）照旧点名。
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date
+import json
+from pathlib import Path
 
 import duckdb
 import pytest
 
+from intelligence.services.agent_research import StructuredObservation
 from intelligence.services.episode_semantic_verifier import (
     SemanticEpisodeVerifier,
     _novel_numeric_condition_tokens,
     _numbered_sentences,
     numeric_condition_unsupported,
 )
+from intelligence.services.episode_verifier import verify_episode_outcome
 from intelligence.services.finance_query import FinanceQuery, FinanceQuerySpec
-from intelligence.services.research_contract import InformationCutoff, ResearchDeadline
+from intelligence.services.research_contract import (
+    InformationCutoff,
+    ResearchDeadline,
+    ResearchTaskContract,
+)
+from intelligence.services.task_frame import TaskFrame
 from intelligence.tests.test_episode_semantic_verifier import _judge, _structural
+from scripts.judge_loss_point_replay import _rebuild_outcome
 
 ROW_0915 = "股票代码=300308.SZ；交易日=2026-09-15；收盘价=864.01；UP偏离度=-6.58；涨跌幅=-5.72；换手率=2.45"
 
@@ -379,3 +399,90 @@ def test_bare_names_without_percent_are_still_doubted(draft, detail):
     # 改标签前的证据形状：名字里没有 %，数值门不替它猜单位（与裸名「量比」同一立场）。
     _, verified = _dated(draft, source_date="2026-09-29", detail=detail)
     assert numeric_condition_unsupported(verified)
+
+
+# 10-06 8792 生产探针 T1-turnover（run_20261006_123340_714206）的存证裁剪件，来历见夹具 note。
+T1 = json.loads(
+    (Path(__file__).parent / "fixtures" / "numeric_note_t1_turnover_20261006.json").read_text(encoding="utf-8")
+)
+
+
+def test_t1_replay_names_only_the_thresholds_the_model_set_itself(monkeypatch):
+    """存证原样重建（观察值保留）后重放：月份与派生比值的区间不再点名，自拟判据照旧点名。"""
+
+    monkeypatch.setenv("ASK_SEMANTIC_JUDGE", "off")  # 生产当时 judge_mode=deterministic
+    frame = TaskFrame.from_dict(T1["task_frame"])
+    verified = verify_episode_outcome(ResearchTaskContract.from_dict(T1["contract"]), _rebuild_outcome(T1["outcome"]))
+    sentences = _numbered_sentences(verified.outcome.draft)
+    assert _novel_numeric_condition_tokens(sentences, verified) == {
+        15: ("1.2", "0.9"), 16: ("44%",), 18: ("6%",),
+    }
+    result = SemanticEpisodeVerifier(judge_fn=_judge(True)).verify(
+        frame=frame, structurally_verified=verified, deadline=ResearchDeadline.from_timeout(5),
+    )
+    archived = T1["public_answer"]
+    months, span = "（待核：「6 月」、「一月」未在证据中找到出处）", "、「0.75~1.07」"
+    assert archived.count(months) == 1 and archived.count(span) == 1
+    assert result.public_answer == archived.replace(months, "").replace(span, "")
+
+
+@pytest.mark.parametrize("draft", [
+    # T1 句 13 的骨架：「6 月」带空格，「一月」是汉字数词。
+    "若以「较前一月放大」为放量定义，本周仍低于 6 月底高点，不构成整体放量。",
+    "若股价跌回 2026 年 6 月的平台，则趋势转弱。",
+    "若跌破 6 月 30 日低点，则止损。",
+    "若跌破 2026 年 6 月 30 日低点，则止损。",
+    "若十二月仍未放量，则下调判断。",
+], ids=["spaced-and-chinese", "spaced-year-month", "spaced-date", "spaced-full-date", "chinese-two-digit"])
+def test_month_and_date_mentions_are_not_quantities(draft):
+    _, verified = _dated(draft)
+    assert _flagged(verified) == []
+
+
+@pytest.mark.parametrize("draft,flagged", [
+    # 「N 月以上 / 以下」是时长门槛：空格、汉字数词都不改变这一点。
+    ("若缩量持续 6 月以上，则下调判断。", ["6 月"]),
+    ("若缩量持续三月以上，则下调判断。", ["三月"]),
+    # 不是月份名的「两月」、汉字数词的尾巴「二十月」、数字的尾巴「16 月」都是时长。
+    ("若缩量持续两月，则下调判断。", ["两月"]),
+    ("若缩量持续二十月，则下调判断。", ["二十月"]),
+    ("若缩量持续 16 月，则下调判断。", ["16 月"]),
+], ids=["spaced-above", "chinese-above", "liang", "chinese-tail", "arabic-tail"])
+def test_month_shaped_durations_are_still_doubted(draft, flagged):
+    _, verified = _dated(draft)
+    assert _flagged(verified) == flagged
+
+
+# T1 派生计算卡的两个比值：结果摘要里的原文，加上结构化观察值。
+CALC_DETAIL = "结果 摘要 amt_ratio_recent_over_base=0.7511，to_ratio_recent_over_base=1.0747"
+CALC_OBSERVATIONS = (
+    StructuredObservation("放量对比", "2026-07-22", "amt_ratio_recent_over_base", 0.7511),
+    StructuredObservation("放量对比", "2026-07-22", "to_ratio_recent_over_base", 1.0747),
+)
+# 普查形状（probe-v6-0821 run_20260822_022527_478248 句 15）：两天的边际量，与「2」「3」只是凑巧相近。
+MARGIN_OBSERVATIONS = (
+    StructuredObservation("板块", "2026-08-20", "边际量", -1.86),
+    StructuredObservation("板块", "2026-08-21", "边际量", -3.29),
+)
+
+
+@pytest.mark.parametrize("draft,detail,observations,supported", [
+    ("若比值仍落在 0.75~1.07 区间，则判持平。", CALC_DETAIL, CALC_OBSERVATIONS, True),
+    # 一端是自拟阈值：整个区间照旧受审，哪一端都一样。
+    ("若比值落在 0.75~1.2 区间，则判持平。", CALC_DETAIL, CALC_OBSERVATIONS, False),
+    ("若比值落在 0.9~1.07 区间，则判持平。", CALC_DETAIL, CALC_OBSERVATIONS, False),
+    # 整数端点不借观察值的 ±0.5 舍入：自拟的观察窗口照旧受审。
+    ("若后续2-3个交易日缩量企稳，则可视为二波确认。", "板块边际量观察", MARGIN_OBSERVATIONS, False),
+    # 单位对两端都算：66 / 74 亿元分别是两个成交额的舍入。
+    ("若成交额回到 66~74 亿元，则缩量确认。", "成交额低点 65.88 亿元，高点 74.01 亿元", (), True),
+    # 每端照旧走单个数的全部判据：百分比字段、负向语境、带限定词的金额字段。
+    ("若换手率回到 6.28~8.19% 区间，则活跃度确认。", "换手率推算%=6.2811；最高换手率推算%=8.1947", (), True),
+    ("若跌幅扩大到 5.7~6.4% 区间，则止损。", "涨跌幅=-5.72；5日涨跌幅=-6.41", (), True),
+    ("若全市场成交额回到 1.41~1.50 万亿元，则量能确认。", "市场成交额亿=14090.71；前日市场成交额亿=15012.3", (), True),
+], ids=[
+    "calc-ratios", "invented-upper", "invented-lower", "integer-window",
+    "unit-both-ends", "percent-fields", "negative-context", "qualified-money",
+])
+def test_range_is_supported_when_each_endpoint_is(draft, detail, observations, supported):
+    _, verified = _structural(draft, detail=detail, observations=observations)
+    assert numeric_condition_unsupported(verified) is not supported
