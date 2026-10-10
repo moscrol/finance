@@ -3,7 +3,27 @@
 日期：2026-10-04  
 题集：`intelligence/eval/fixtures/harness_quality_holdout_20261004.json`  
 入口：Workbench conversation API  
-状态：已冻结，尚未运行，不能作为“质量已通过”的证据。
+状态：本页原记首次冻结时点；**2026-10-07 回查已确认曾被使用，不再声称“尚未运行”**。
+冻结 fixture 和 receipt 保持原字节，不能据其中的历史 `holdout_frozen_not_run` 判定今天的资格。
+
+## 2026-10-07 使用记录补记
+
+私有证据根 `~/.finance-runtime/harness-quality-closeout-1003/` 中：
+
+- `task6-arena-strong-proxy-20261004/completion-manifest.json` 记有 12 题 / 14 轮答卷；
+  其 `external_model_calls=0`，且明确不声称底层 Arena 模型身份或 fully blind unseen holdout。
+  不能把它写成 12 次已核实外部模型调用。
+- `task6-arena-vs-glm-8792-20261004/CLOSED.json` 记有 4 次尝试，
+  `status=closed_not_eligible_for_comparison`；该轮依用户要求取消，原文禁止补跑、评分
+  或并入正式比较，strong-proxy 包也一并排除。4 次尝试不等于 4 次已确认模型回包。
+- 两包 `input-only.json` 的源 fixture SHA-256 均为
+  `32f4416057ca12df2459f0fd48bc3607fd2c1afe22eee2f46820860c7af405db`，
+  与仓内冻结文件一致；逐题 turns 也全部相等。身份复核收据：
+  `~/.finance-runtime/reviews/review-takeover-20261007/holdout-prior-use-identity.json`。
+
+这些记录证明“已使用”，**不单独证明每题后来都被用于调参**，也不证明内容通过。
+新一轮独立留出验收应另冻结新题与真值；旧题可保留作历史或回归材料，旧批不重开。
+首次冻结和返修时的“零调用”叙述只对当时时点有效。
 
 ## 目的
 
@@ -39,7 +59,7 @@
 
 ## 解冻与使用规则
 
-- `tuning_case_ids` 当前为空；任何用于修复提示、路由、schema 或代码的题必须另建调参集，不能回写本套题。
+- 冻结时 `tuning_case_ids` 为空；任何用于修复提示、路由、schema 或代码的题都应登记为调参/回归题，退出后续“未见留出”分母。保留冻结原件，使用历史另外记账，不靠修改原件重置资格。
 - 旧失败题只能进入回归集，不能因为修复后通过就变成新留出题。
 - 运行产物必须包含 conversation、run、assistant message、候选 SHA、部署/服务指纹和完整子调用索引；CLI 或离线 replay 只能作为链路证据。
 - 新题结果只能证明本套题及其模型/资源设置下的表现，不能自动外推所有金融问题。
@@ -52,6 +72,6 @@
 
 - [x] 原输入运行材料完整性检查，复现十题遗漏：1 failed / 2 passed。
 - [x] 修正完整逐轮文本，重算 turns 和 manifest 哈希；保留原 question/materials/gold 哈希。
-- [ ] 复验材料送达、多轮时序和哈希一致性，独立复审后随 PR #31 发布。
+- [x] 历史核对：FINANCEWORKS-4 评论记录 `eb927244c053` 完成返修及独立复审，PR #31 已合入；本轮另跑 fixture 检查，不能替签当时的全部工程验收。
 
 离线原件：`~/.finance-runtime/harness-quality-closeout-1003/holdout-input-red.log`。运行题集前还需预注册对照配置与模型身份，本文件不授予正式 240 次启动条件。
