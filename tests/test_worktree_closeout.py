@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 import subprocess
 import sys
 import tarfile
@@ -56,8 +57,8 @@ class Rig:
         git(self.repo, "push", "-q", "gitea", "main")
         git(self.repo, "fetch", "-q", "gitea")
 
-    def add_tree(self, name: str, *, push: bool = True, detach: bool = False) -> Path:
-        path = self.home / name
+    def add_tree(self, name: str, *, push: bool = True, detach: bool = False, path: Path | None = None) -> Path:
+        path = path or self.home / name
         if detach:
             git(self.repo, "worktree", "add", "-q", "--detach", str(path), "main")
             return path
@@ -237,6 +238,34 @@ def test_blockers_keep_trees_out_of_the_plan(rig):
     assert applied.returncode == 0, applied.stdout + applied.stderr
     assert all(path.is_dir() for path in (unpushed, busy, locked, unexplained))
     assert rig.refs("refs/archive") == []
+
+
+def test_launcher_naming_an_ancestor_does_not_block_nested_trees(rig, tmp_path):
+    # 2026-10-05 dry-20261005T040409：主检出根被约 40 个启动器点名，嵌在它 .worktrees/ 下的
+    # capture-quotes-0929 因此被挡；29 份 ima plist 以 /private/tmp 为 WorkingDirectory，其下两棵门禁树同样被挡。
+    nested = rig.add_tree("capture-quotes", path=rig.repo / ".worktrees" / "capture-quotes")
+    scratch_root = tmp_path / "scratch-root"  # 代 /private/tmp
+    scratch = rig.add_tree("pr10-gates", path=scratch_root / "harness-opt" / "tmp" / "pr10-gates")
+    code_root = rig.add_tree("fwp-wt-code-root")
+    agents = rig.home / "Library" / "LaunchAgents"
+    agents.mkdir(parents=True)
+    (agents / "com.financeworkspace.daily-full-review-sync.plist").write_bytes(plistlib.dumps({
+        "WorkingDirectory": str(rig.repo), "EnvironmentVariables": {"FINANCE_WS": str(rig.repo)}}))
+    (agents / "com.a77.ima-stock-queue-0827.plist").write_bytes(plistlib.dumps({"WorkingDirectory": str(scratch_root)}))
+    # 定时任务真正跑的代码根：引用落在树里，照样挡。
+    (agents / "com.financeworkspace.code-root.plist").write_bytes(plistlib.dumps({
+        "ProgramArguments": ["/usr/bin/python3", str(code_root / "src" / "app.py")]}))
+    plan = rig.out.parent / "plan.json"
+    plan.write_text(json.dumps([{"path": str(tree), "reason": "r"} for tree in (nested, scratch, code_root)]))
+
+    result = rig.run("--plan", str(plan))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    receipt = rig.receipt(result)[1]
+    blockers = {Path(rec["path"]).name: rec["blockers"] for rec in receipt["trees"]}
+    assert {name: blockers[name] for name in ("capture-quotes", "pr10-gates")} == {"capture-quotes": [], "pr10-gates": []}
+    assert any(b.startswith("被 launchd/启动器引用") and "code-root.plist" in b for b in blockers["fwp-wt-code-root"])
+    assert receipt["summary"] == {"planned": 3, "eligible": 2, "blocked": 1}
 
 
 def test_release_lock_is_explicit_per_tree(rig):

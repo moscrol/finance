@@ -67,6 +67,78 @@ def test_launcher_pointing_at_home_itself_does_not_block_every_tree(tmp_path, mo
     assert any('exec-server.plist' in b for b in safety.context_blockers(str(tree), context))
 
 
+def test_reference_to_an_ancestor_does_not_block_trees_nested_below_it(tmp_path, monkeypatch):
+    # 2026-10-05 dry-20261005T040409：约 40 个启动器点名主检出根（WorkingDirectory / FINANCE_WS），
+    # 29 份 com.a77.ima-* 的 WorkingDirectory=/tmp（解析成 /private/tmp）；嵌在主检出 .claude/worktrees、
+    # .worktrees 下和 /private/tmp 下的树因此全被判「被 launchd/启动器引用」。祖先目录不是这棵树。
+    home = tmp_path / 'home'
+    main = home / 'finance-workspace-private'
+    private_tmp = tmp_path / 'private/tmp'
+    nested = [main / '.claude/worktrees/hungry-x', main / '.worktrees/capture-quotes-0929',
+              private_tmp / 'harness-opt', private_tmp / 'harness-opt/tmp/pr10-gates-1002']
+    for tree in nested:
+        tree.mkdir(parents=True)
+    tmp_alias = tmp_path / 'tmp'
+    tmp_alias.symlink_to(private_tmp, target_is_directory=True)  # 同 /tmp -> /private/tmp
+    agents = home / 'Library/LaunchAgents'
+    agents.mkdir(parents=True)
+    (agents / 'com.financeworkspace.daily-full-review-sync.plist').write_bytes(plistlib.dumps({
+        'WorkingDirectory': str(main), 'EnvironmentVariables': {'FINANCE_WS': str(main)},
+        'ProgramArguments': ['/bin/sh', 'scripts/run.sh'],
+    }))
+    (agents / 'com.a77.ima-stock-queue-0827.plist').write_bytes(plistlib.dumps({
+        'WorkingDirectory': str(tmp_alias), 'ProgramArguments': ['/bin/echo'],
+    }))
+    launcher = home / '.local/bin/start-finance-workbench'
+    launcher.parent.mkdir(parents=True)
+    launcher.write_text('#!/bin/sh\ncd "$HOME/finance-workspace-private" && exec ./serve\n')
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+    blocked = {tree.name: safety.context_blockers(str(tree), context) for tree in nested}
+    assert blocked == {tree.name: [] for tree in nested}
+    # 同一批引用对它们点名的那个目录照样算：主检出根本身被 plist 和启动器挡住。
+    blockers = ' | '.join(safety.context_blockers(str(main), context))
+    assert 'daily-full-review-sync.plist' in blockers and 'start-finance-workbench' in blockers
+
+
+def test_reference_at_or_inside_a_tree_still_blocks_it(tmp_path, monkeypatch):
+    # 只放掉「祖先」这一个方向：点名树本身、指到树里的文件、经软链落到树上的引用都照挡。
+    home = tmp_path / 'home'
+    runtime = home / '.finance-runtime'
+    sync_root, s7_root = runtime / 'finance-sync-7eec31b04b4b', runtime / 'finance-s7-sync'
+    snapshot = runtime / 'finance-workspace-58d04e3780f4'
+    main = home / 'finance-workspace-private'
+    nested = main / '.worktrees/capture-quotes-0929'
+    for tree in (sync_root, s7_root, snapshot, nested):
+        tree.mkdir(parents=True)
+    alias = home / 'finance-workspace-runtime'
+    alias.symlink_to(snapshot, target_is_directory=True)
+    agents = home / 'Library/LaunchAgents'
+    agents.mkdir(parents=True)
+    (agents / 'com.financeworkspace.daily-full-review-sync.plist').write_bytes(plistlib.dumps({
+        'WorkingDirectory': str(sync_root)}))
+    (agents / 'com.financeworkspace.nested-job.plist').write_bytes(plistlib.dumps({
+        'ProgramArguments': ['/usr/bin/python3', str(nested / 'scripts/job.py')]}))
+    bin_dir = home / '.local/bin'
+    bin_dir.mkdir(parents=True)
+    (bin_dir / 'nightly-review-sync-staged.py').write_text(f'SCRIPT = "{s7_root}/scripts/run_review_sync.py"\n')
+    (bin_dir / 'start-finance-workbench').write_text('exec "$HOME/finance-workspace-runtime/scripts/serve.sh"\n')
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+
+    def blocked_by(tree):
+        return ' | '.join(safety.context_blockers(str(tree), context))
+
+    assert 'daily-full-review-sync.plist' in blocked_by(sync_root)  # 树本身
+    assert 'nightly-review-sync-staged.py' in blocked_by(s7_root)  # 树里的文件
+    assert 'start-finance-workbench' in blocked_by(snapshot)  # 经软链落到树里的文件
+    assert str(alias) in blocked_by(snapshot)  # 软链本身指到树
+    # 指进嵌套树的引用挡这棵树，也挡把它装在里面的主检出：外层目录包含它。
+    assert 'nested-job.plist' in blocked_by(nested) and 'nested-job.plist' in blocked_by(main)
+
+
 def test_directory_watch_handles_are_not_process_usage(tmp_path, monkeypatch):
     root = tmp_path / 'tree'
     root.mkdir()
