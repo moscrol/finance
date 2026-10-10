@@ -93,6 +93,24 @@ def test_launchd_symlink_reference_is_canonicalized(tmp_path):
     assert "被 launchd/启动器引用" in result.stdout
 
 
+def test_brace_default_launcher_keeps_the_tree_it_runs(tmp_path):
+    # 启动器把代码根写成 ${CODE_ROOT:-$HOME/runtime}：采成 …/runtime} 时这条引用对不上任何树，
+    # 它真正跑的那棵树被当成闲置的 detached 树删掉。
+    repo = make_repo(tmp_path)
+    candidate = add_detached(repo, tmp_path / "candidate")
+    age_tree(candidate)
+    home = tmp_path / "home"
+    (home / ".local/bin").mkdir(parents=True)
+    (home / "runtime").symlink_to(candidate, target_is_directory=True)
+    (home / ".local/bin/serve").write_text('exec "${CODE_ROOT:-$HOME/runtime}/scripts/serve.sh"\n')
+
+    result = run_cleanup(repo, home, "exit 0")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert candidate.exists()
+    assert "被 launchd/启动器引用" in result.stdout and ".local/bin/serve" in result.stdout
+
+
 def test_ignored_content_keeps_detached_tree(tmp_path):
     repo = make_repo(tmp_path, ignored=True)
     candidate = add_detached(repo, tmp_path / "candidate")

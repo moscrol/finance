@@ -1,0 +1,77 @@
+{
+  "scope": "read-only model identity replay; no new model call or deployment; no content acceptance",
+  "original_inputs_unchanged": true,
+  "input_sha256": {
+    "/Users/a77/.local/share/finance-workbench/users/deploy-pre-e33021db0-1006/runs/run_20261006_141511_002688/continuous-episode.json": "d40270a217c7985848c57c09086eb0e55954988552b43bb4fac387941a039b21",
+    "/Users/a77/.local/share/finance-workbench/users/deploy-pre-e33021db0-1006/runs/run_20261006_141511_002688/trace.jsonl": "51e251f47c9d4079a66ad6a805b75aee7720e7516976af0b78804b82ce42d2f5",
+    "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/continuous-episode.json": "0b391f0ec23f52e68853f38e59e617214002ac6d3dac711a0de4c6aac249b1b6",
+    "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl": "00763a3c94ff172190c831cc0d78c96d1854f72fc2e73b1fea0d4c00e22ebebb"
+  },
+  "results": [
+    {
+      "version": "deployed-d5",
+      "case": "pre",
+      "command": [
+        "/Users/a77/fwp-wt-answer-quality-closeout-1007/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/finance-workspace-d5d7c5f6017e/scripts/check_model_admission.py",
+        "--expect-model",
+        "glm-5.3-flash",
+        "--json",
+        "/Users/a77/.local/share/finance-workbench/users/deploy-pre-e33021db0-1006/runs/run_20261006_141511_002688"
+      ],
+      "revision": "d5d7c5f6017e12ce5be9414abe31cf763c161f50",
+      "dirty": false,
+      "model_admission_source_sha256": "b183185aca7527ef1e93e70a54c6f0eb3ca152716f4e3a3762306971e4088db9",
+      "exit_code": 2
+    },
+    {
+      "version": "deployed-d5",
+      "case": "post",
+      "command": [
+        "/Users/a77/fwp-wt-answer-quality-closeout-1007/.venv-workbench/bin/python",
+        "/Users/a77/.finance-runtime/finance-workspace-d5d7c5f6017e/scripts/check_model_admission.py",
+        "--expect-model",
+        "glm-5.3-flash",
+        "--json",
+        "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864"
+      ],
+      "revision": "d5d7c5f6017e12ce5be9414abe31cf763c161f50",
+      "dirty": false,
+      "model_admission_source_sha256": "b183185aca7527ef1e93e70a54c6f0eb3ca152716f4e3a3762306971e4088db9",
+      "exit_code": 2
+    },
+    {
+      "version": "candidate-05b776e39",
+      "case": "pre",
+      "command": [
+        "/Users/a77/fwp-wt-answer-quality-closeout-1007/.venv-workbench/bin/python",
+        "/Users/a77/fwp-wt-answer-quality-closeout-1007/scripts/check_model_admission.py",
+        "--expect-model",
+        "glm-5.3-flash",
+        "--json",
+        "/Users/a77/.local/share/finance-workbench/users/deploy-pre-e33021db0-1006/runs/run_20261006_141511_002688"
+      ],
+      "revision": "05b776e39c47969d2caa7bd2edd0ba6617a54f95",
+      "dirty": false,
+      "model_admission_source_sha256": "29d03711d3f487a1f77e84189ab39c8aeb5865d4f358b47b17ccb16a2bd8b842",
+      "exit_code": 0
+    },
+    {
+      "version": "candidate-05b776e39",
+      "case": "post",
+      "command": [
+        "/Users/a77/fwp-wt-answer-quality-closeout-1007/.venv-workbench/bin/python",
+        "/Users/a77/fwp-wt-answer-quality-closeout-1007/scripts/check_model_admission.py",
+        "--expect-model",
+        "glm-5.3-flash",
+        "--json",
+        "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864"
+      ],
+      "revision": "05b776e39c47969d2caa7bd2edd0ba6617a54f95",
+      "dirty": false,
+      "model_admission_source_sha256": "29d03711d3f487a1f77e84189ab39c8aeb5865d4f358b47b17ccb16a2bd8b842",
+      "exit_code": 0
+    }
+  ],
+  "script_sha256": "d6f9e45a60b19648d92d38534e4f6b2cb6d621d09e7f1a6225d5e3144787be03"
+}

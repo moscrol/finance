@@ -92,7 +92,9 @@ git -C /Users/a77/finance-workspace-private worktree add --detach \
 # ⚠️ 生产启动器用「快照目录/.venv-workbench/bin/python」起 uvicorn，新检出的快照没有 venv。
 # 不补这条软链，bootstrap 后服务 exit 127 循环重启（2026-10-06 切 f3b97499aaff 实测停机约 4 分钟）。
 # 软链被 .gitignore 忽略，不影响「快照干净」判据。先补软链、确认可执行，再进下面的 bootout。
-ln -s /Users/a77/finance-workspace-private/.venv-workbench ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench
+# 2026-10-10 生产使用按锁文件安装的独立 venv；主检出 venv 曾有 HTTPX 漂移，不再默认借它。
+# 下面是已验环境的路径快照；换代前须重新跑 doctor 与完整门禁，不能只改软链。
+ln -s /Users/a77/.finance-runtime/venvs/workbench-locked-20261007 ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench
 test -x ~/.finance-runtime/finance-workspace-${sha:0:12}/.venv-workbench/bin/python
 # 四叶过后，切换段只执行这一条（2026-10-06 起）；不要再重复手动 bootout / ln /
 # ledger record / bootstrap，否则会造成二次切换或重复记账：

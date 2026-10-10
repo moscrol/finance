@@ -1,0 +1,193 @@
+{
+  "exit_code": 2,
+  "episode_store": null,
+  "episode_store_roots": [],
+  "results": [
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/continuous-episode.json",
+      "verdict": "admitted",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {
+        "glm-5.3-flash": 3
+      },
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "带回的生效模型全部符合：glm-5.3-flash×3"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {
+        "glm-5.3-flash": 4
+      },
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    },
+    {
+      "source": "/Users/a77/.local/share/finance-workbench/users/deploy-post-d5d7c5f60-1006/runs/run_20261006_143935_713864/trace.jsonl",
+      "verdict": "no_evidence",
+      "expected": [
+        "glm-5.3-flash"
+      ],
+      "served": {},
+      "unexpected": {},
+      "unreported": 0,
+      "not_reached": 0,
+      "branch_unproven": 0,
+      "reason": "workbench trace 解码失败：Expecting value: line 1 column 1 (char 0)"
+    }
+  ]
+}

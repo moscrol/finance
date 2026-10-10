@@ -67,6 +67,78 @@ def test_launcher_pointing_at_home_itself_does_not_block_every_tree(tmp_path, mo
     assert any('exec-server.plist' in b for b in safety.context_blockers(str(tree), context))
 
 
+def test_reference_to_an_ancestor_does_not_block_trees_nested_below_it(tmp_path, monkeypatch):
+    # 2026-10-05 dry-20261005T040409：约 40 个启动器点名主检出根（WorkingDirectory / FINANCE_WS），
+    # 29 份 com.a77.ima-* 的 WorkingDirectory=/tmp（解析成 /private/tmp）；嵌在主检出 .claude/worktrees、
+    # .worktrees 下和 /private/tmp 下的树因此全被判「被 launchd/启动器引用」。祖先目录不是这棵树。
+    home = tmp_path / 'home'
+    main = home / 'finance-workspace-private'
+    private_tmp = tmp_path / 'private/tmp'
+    nested = [main / '.claude/worktrees/hungry-x', main / '.worktrees/capture-quotes-0929',
+              private_tmp / 'harness-opt', private_tmp / 'harness-opt/tmp/pr10-gates-1002']
+    for tree in nested:
+        tree.mkdir(parents=True)
+    tmp_alias = tmp_path / 'tmp'
+    tmp_alias.symlink_to(private_tmp, target_is_directory=True)  # 同 /tmp -> /private/tmp
+    agents = home / 'Library/LaunchAgents'
+    agents.mkdir(parents=True)
+    (agents / 'com.financeworkspace.daily-full-review-sync.plist').write_bytes(plistlib.dumps({
+        'WorkingDirectory': str(main), 'EnvironmentVariables': {'FINANCE_WS': str(main)},
+        'ProgramArguments': ['/bin/sh', 'scripts/run.sh'],
+    }))
+    (agents / 'com.a77.ima-stock-queue-0827.plist').write_bytes(plistlib.dumps({
+        'WorkingDirectory': str(tmp_alias), 'ProgramArguments': ['/bin/echo'],
+    }))
+    launcher = home / '.local/bin/start-finance-workbench'
+    launcher.parent.mkdir(parents=True)
+    launcher.write_text('#!/bin/sh\ncd "$HOME/finance-workspace-private" && exec ./serve\n')
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+    blocked = {tree.name: safety.context_blockers(str(tree), context) for tree in nested}
+    assert blocked == {tree.name: [] for tree in nested}
+    # 同一批引用对它们点名的那个目录照样算：主检出根本身被 plist 和启动器挡住。
+    blockers = ' | '.join(safety.context_blockers(str(main), context))
+    assert 'daily-full-review-sync.plist' in blockers and 'start-finance-workbench' in blockers
+
+
+def test_reference_at_or_inside_a_tree_still_blocks_it(tmp_path, monkeypatch):
+    # 只放掉「祖先」这一个方向：点名树本身、指到树里的文件、经软链落到树上的引用都照挡。
+    home = tmp_path / 'home'
+    runtime = home / '.finance-runtime'
+    sync_root, s7_root = runtime / 'finance-sync-7eec31b04b4b', runtime / 'finance-s7-sync'
+    snapshot = runtime / 'finance-workspace-58d04e3780f4'
+    main = home / 'finance-workspace-private'
+    nested = main / '.worktrees/capture-quotes-0929'
+    for tree in (sync_root, s7_root, snapshot, nested):
+        tree.mkdir(parents=True)
+    alias = home / 'finance-workspace-runtime'
+    alias.symlink_to(snapshot, target_is_directory=True)
+    agents = home / 'Library/LaunchAgents'
+    agents.mkdir(parents=True)
+    (agents / 'com.financeworkspace.daily-full-review-sync.plist').write_bytes(plistlib.dumps({
+        'WorkingDirectory': str(sync_root)}))
+    (agents / 'com.financeworkspace.nested-job.plist').write_bytes(plistlib.dumps({
+        'ProgramArguments': ['/usr/bin/python3', str(nested / 'scripts/job.py')]}))
+    bin_dir = home / '.local/bin'
+    bin_dir.mkdir(parents=True)
+    (bin_dir / 'nightly-review-sync-staged.py').write_text(f'SCRIPT = "{s7_root}/scripts/run_review_sync.py"\n')
+    (bin_dir / 'start-finance-workbench').write_text('exec "$HOME/finance-workspace-runtime/scripts/serve.sh"\n')
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+
+    def blocked_by(tree):
+        return ' | '.join(safety.context_blockers(str(tree), context))
+
+    assert 'daily-full-review-sync.plist' in blocked_by(sync_root)  # 树本身
+    assert 'nightly-review-sync-staged.py' in blocked_by(s7_root)  # 树里的文件
+    assert 'start-finance-workbench' in blocked_by(snapshot)  # 经软链落到树里的文件
+    assert str(alias) in blocked_by(snapshot)  # 软链本身指到树
+    # 指进嵌套树的引用挡这棵树，也挡把它装在里面的主检出：外层目录包含它。
+    assert 'nested-job.plist' in blocked_by(nested) and 'nested-job.plist' in blocked_by(main)
+
+
 def test_directory_watch_handles_are_not_process_usage(tmp_path, monkeypatch):
     root = tmp_path / 'tree'
     root.mkdir()
@@ -211,6 +283,60 @@ def test_shell_reference_with_spaces_and_home_expansion(tmp_path):
     assert list(safety._shell_paths(text, tmp_path)) == [
         str(tmp_path / 'tree with spaces/bin/start'), str(tmp_path / 'other/bin/start'),
     ]
+
+
+@pytest.mark.parametrize(('text', 'expected'), [
+    # 路径在闭合它所在 ${...} 的那个 } 处结束；} 后面的部分不拼回去。
+    ('exec "${FINANCE_CODE_ROOT:-$HOME/finance-workspace-runtime}/scripts/serve.sh"', 'finance-workspace-runtime'),
+    ('FINANCE_S7_ROOT="${FINANCE_S7_ROOT:-$HOME/.finance-runtime/finance-s7-sync}"', '.finance-runtime/finance-s7-sync'),
+    ('FINANCE_WS="${FINANCE_WS:-<home>/finance-workspace-private}"', 'finance-workspace-private'),
+    ('KB="${PIT_KNOWLEDGE_ROOT:-${KNOWLEDGE_WIKI:-${HOME}/knowledge-base-private}}"', 'knowledge-base-private'),
+    # 后面紧跟另一个 ${...}：路径停在它前面，引号里外一样，引号里的空格照留。
+    ('export PYTHONPATH="$HOME/finance-workspace-runtime${PYTHONPATH:+:$PYTHONPATH}"', 'finance-workspace-runtime'),
+    ('PYTHONPATH=$HOME/finance-workspace-runtime${PYTHONPATH:+:$PYTHONPATH} exec serve', 'finance-workspace-runtime'),
+    ('exec "$HOME/tree with spaces${RUN_SUFFIX:-}/bin/start"', 'tree with spaces'),
+], ids=['default-then-suffix', 'default-assignment', 'absolute-home-default', 'nested-defaults',
+        'quoted-then-expansion', 'bare-then-expansion', 'quoted-spaces-then-expansion'])
+def test_shell_path_ends_where_its_brace_expansion_closes(text, expected, tmp_path):
+    # 2026-10-05：本机 63 条启动器引用以 } 结尾（${FINANCE_RUNTIME:-$HOME/finance-workspace-runtime}
+    # 采成 …/finance-workspace-runtime}），realpath 过不了软链，对不上启动器真正点名的树。
+    text = text.replace('<home>', str(tmp_path))
+    assert list(safety._shell_paths(text, tmp_path)) == [str(tmp_path / expected)]
+
+
+def test_launcher_naming_a_tree_through_a_brace_default_blocks_it(tmp_path, monkeypatch):
+    # ${VAR:-默认值} 的默认值就是变量没设时真正跑的树；夜跑与 Workbench 启动器都这么写代码根。
+    home = tmp_path / 'home'
+    runtime = home / '.finance-runtime'
+    snapshot, s7_root = runtime / 'finance-workspace-765ecbac9ad3', runtime / 'finance-s7-sync'
+    sync_root = runtime / 'finance-sync-7eec31b04b4b'
+    for tree in (snapshot, s7_root, sync_root):
+        tree.mkdir(parents=True)
+    (home / 'finance-workspace-runtime').symlink_to(snapshot, target_is_directory=True)
+    bin_dir = home / '.local/bin'
+    bin_dir.mkdir(parents=True)
+    launchers = {
+        'start-finance-workbench': 'exec "${FINANCE_CODE_ROOT:-$HOME/finance-workspace-runtime}/scripts/serve.sh"\n',
+        'perspective-workbench': 'export PYTHONPATH="$HOME/finance-workspace-runtime${PYTHONPATH:+:$PYTHONPATH}"\n',
+        'nightly-full-review-s7.sh': f'FINANCE_S7_ROOT="${{FINANCE_S7_ROOT:-{s7_root}}}"\n',
+        'nightly-review-sync.sh': 'ROOT="${FINANCE_SYNC_CODE_ROOT:-${FINANCE_CODE_ROOT:-${HOME}/.finance-runtime/'
+                                  'finance-sync-7eec31b04b4b}}"\n',
+    }
+    for name, text in launchers.items():
+        (bin_dir / name).write_text(text)
+    monkeypatch.setattr(safety.subprocess, 'run', lambda *a, **kw: subprocess.CompletedProcess([], 0, '', ''))
+    context = safety.sample_context(timeout=1, home=home)
+    assert not context['errors']
+    assert [ref['path'] for ref in context['references'] if '{' in ref['path'] or '}' in ref['path']] == []
+
+    def blocked_by(tree):
+        return ' | '.join(safety.context_blockers(str(tree), context))
+
+    # 运行时软链本身也挡快照，所以这里点名的是启动器，不是「有没有被挡」。
+    assert 'start-finance-workbench' in blocked_by(snapshot)
+    assert 'perspective-workbench' in blocked_by(snapshot)
+    assert 'nightly-full-review-s7.sh' in blocked_by(s7_root)
+    assert 'nightly-review-sync.sh' in blocked_by(sync_root)
 
 
 def test_cli_and_board_consume_same_blockers(tmp_path, monkeypatch, capsys):
