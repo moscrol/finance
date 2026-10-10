@@ -1487,3 +1487,6 @@ system 分段与记忆丰度注入是后续接线（spec §4），且在 Codex �
 `query_basis.groups[].full_group_counts` 在截取前统计涨跌、成交变化、严格双红及未知数量，并报告不同板块代码数。
 这是每组登记行的全量描述，不是跨组去重股票数，也不新增 owned 文本认证角色；未部署，不以工程通过代替首答质量。
 验收：`verification/2026-10-10-pi-model-view-cutoff.md`、`verification/2026-10-10-mainline-full-group-counts.md`。
+`run_native.py prepare --source-run --delivery-skill ...` 可用冻结的实际送达证据做 direct/aligned 定稿对照，
+工具桥拒绝新取数，指定方法在首个请求完整注入；它是诊断模式，不是第三条生产引擎或默认两阶段流程。
+两阶段未显示可靠内容收益，保留显式开关；逐句结果见 `verification/2026-10-10-frozen-evidence-delivery-results.md`。
