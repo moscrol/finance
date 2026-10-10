@@ -97,6 +97,31 @@ def test_author_cannot_override_results_or_use_undeclared_refs(part):
         render_owned_parts([part], catalogue)
 
 
+@pytest.mark.parametrize("mutation", [
+    lambda counts: counts.update(price_up=-1),
+    lambda counts: counts.update(turnover_up=True),
+    lambda counts: counts.update(double_red=0),
+    lambda counts: counts.update(distinct_sector_codes=999),
+    lambda counts: counts.update(unknown_field=1),
+])
+def test_invalid_optional_group_counts_cannot_grant_owned_results(mutation):
+    source = source_fixture()
+    basis = deepcopy(source.query_basis)
+    group = basis["groups"][0]
+    total = group["total_rows"]
+    group["full_group_counts"] = {
+        "distinct_sector_codes": total,
+        "price_up": total, "price_down": 0, "price_flat": 0, "price_unknown": 0,
+        "turnover_up": total, "turnover_down": 0, "turnover_flat": 0, "turnover_unknown": 0,
+        "double_red": total, "not_double_red": 0, "double_red_unknown": 0,
+    }
+    catalogue = compile_owned_results(replace(source, query_basis=basis), frame_context()[1])
+    assert catalogue.unavailable("full_group_counts"), "new metadata does not grant new owned text roles"
+    mutation(group["full_group_counts"])
+    with pytest.raises(OwnedResultError, match="source_scope_conflict"):
+        compile_owned_results(replace(source, query_basis=basis), frame_context()[1])
+
+
 def test_none_keeps_bad_legacy_prose_and_neighbor_free_text_unassessed():
     draft = "免疫治疗同样双红确认。"
     catalogue = compile_owned_results(source_fixture(), frame_context()[1])

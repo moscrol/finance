@@ -122,6 +122,11 @@ A 股量化复盘 + 研究工具集：fupanhui / iFinD / AKShare 数据经 `mark
 | 潜意识模式 | 开启潜意识模式、潜意识模式、进入潜意识、退出潜意识、收工、回读对话、巩固记忆、沉淀这轮、记进沉淀、潜意识开关 |
 | 行业概览 | 行业概览 |
 | stock-technicals | UP线、偏离度、自选股、回踩、均线、MA10、MA20、技术位 |
+| finance-analyze-stock | 无触发词：运行时专项（knevo 炼化，个股深度 / 财报复盘骨架）；Pi 臂经 `--skill` 渐进加载、模型按需 read，8792 接线待做；不可路由，编码 agent 不要调用 |
+| finance-forecast-event | 无触发词：运行时专项（knevo 炼化，突发六步 / 情景树）；Pi 臂经 `--skill` 渐进加载、模型按需 read，8792 接线待做；不可路由，编码 agent 不要调用 |
+| finance-industry-track | 无触发词：运行时专项（knevo 炼化，行业 report↔track 接力、delta-only）；Pi 臂经 `--skill` 渐进加载、模型按需 read，8792 接线待做；不可路由，编码 agent 不要调用 |
+| finance-market-review | 无触发词：运行时专项（knevo 炼化，复盘骨架 + Pi 对照五类错句的防遗漏清单）；Pi 臂经 `--skill` 渐进加载、模型按需 read，8792 接线待做；不可路由，编码 agent 不要调用 |
+| finance-mode | 无触发词：运行时常驻基础协议（knevo finance-mode OS 层炼化）；Pi 臂由 `integrations/pi/finance-mode.ts` 整段注入 system，8792 接线待做；不可路由，编码 agent 不要调用。设计 `docs/superpowers/specs/2026-10-09-knevo-skill-layer-design.md` |
 
 跨仓引用（规范源在知识库仓，本仓不放正文）：
 

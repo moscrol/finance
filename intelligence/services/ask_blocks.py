@@ -219,6 +219,7 @@ class MainlineGroupCoverage:
     preview_rows: int
     omitted_rows: int
     non_null_counts: tuple[tuple[str, int], ...]
+    full_group_counts: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -334,6 +335,25 @@ def _mainline_read_transaction(con: Any):
         raise
 
 
+def _mainline_full_count_sql() -> dict[str, str]:
+    """Whole-group statistics computed before row previews; unknown is a category."""
+    counts = {"distinct_sector_codes": "count(distinct sector_ts_code)"}
+    for prefix, column in (("price", "sector_pct"), ("turnover", "diff_ratio")):
+        valid = f"coalesce(isfinite({column}), false)"
+        for suffix, operator in (("up", ">"), ("down", "<"), ("flat", "=")):
+            counts[f"{prefix}_{suffix}"] = f"count(*) filter (where {valid} and {column} {operator} 0)"
+        counts[f"{prefix}_unknown"] = f"count(*) filter (where not {valid})"
+    valid = " and ".join(f"coalesce(isfinite({column}), false)"
+                         for column in ("sector_pct", "diff_ratio", "sector_amount"))
+    strict = (f"sector_pct > {market_signals.DOUBLE_RED_PCT:g} "
+              f"and diff_ratio > {market_signals.DOUBLE_RED_DIFF:g} "
+              f"and sector_amount > {market_signals.DOUBLE_RED_AMOUNT:g}")
+    counts["double_red"] = f"count(*) filter (where ({valid}) and ({strict}))"
+    counts["not_double_red"] = f"count(*) filter (where ({valid}) and not ({strict}))"
+    counts["double_red_unknown"] = f"count(*) filter (where not ({valid}))"
+    return counts
+
+
 def _load_mainline_context_snapshot(
     query: str,
     theme: str | None,
@@ -441,6 +461,8 @@ def _load_mainline_context_snapshot(
             counts = ", ".join(
                 f"count({metric}) as non_null_{metric}" for metric in _MAINLINE_COVERAGE_METRICS
             )
+            full_counts = _mainline_full_count_sql()
+            aggregates = ", ".join(f"{expression} as full_{name}" for name, expression in full_counts.items())
             result = con.execute(
                 f"""
                 with joined as (
@@ -462,7 +484,7 @@ def _load_mainline_context_snapshot(
                     on m.trade_date=s.trade_date and m.sector_ts_code=s.sector_ts_code
                   where m.trade_date=? {theme_filter}
                 ), coverage as (
-                  select theme_name, count(*) as total_rows, {counts}
+                  select theme_name, count(*) as total_rows, {counts}, {aggregates}
                   from joined group by theme_name
                 ), ranked as (
                   select *, row_number() over (
@@ -471,6 +493,7 @@ def _load_mainline_context_snapshot(
                   ) as preview_no from joined
                 )
                 select c.total_rows, {', '.join('c.non_null_' + m for m in _MAINLINE_COVERAGE_METRICS)},
+                       {', '.join('c.full_' + name for name in full_counts)},
                        r.* from coverage c join ranked r
                        on c.theme_name is not distinct from r.theme_name
                 where r.preview_no <= {MAINLINE_PREVIEW_ROWS_PER_THEME}
@@ -494,6 +517,7 @@ def _load_mainline_context_snapshot(
                     name, total, min(total, MAINLINE_PREVIEW_ROWS_PER_THEME),
                     max(0, total - MAINLINE_PREVIEW_ROWS_PER_THEME),
                     tuple((m, int(row["non_null_" + m])) for m in _MAINLINE_COVERAGE_METRICS),
+                    tuple((key, int(row["full_" + key])) for key in full_counts),
                 ))
                 fields = {key: row[key] for key in MainlineSectorFact.__dataclass_fields__}
                 fields.update(

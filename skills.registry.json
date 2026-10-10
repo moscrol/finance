@@ -1,13 +1,13 @@
 {
   "version": 2,
   "generator": "scripts/build_registry.py@1",
-  "generated_at": "2026-09-30T09:59:19Z",
+  "generated_at": "2026-10-09T19:05:00Z",
   "repos": [
     {
       "name": "finance-workspace-private",
       "short": "ws",
       "present": true,
-      "skills": 39
+      "skills": 44
     },
     {
       "name": "knowledge-base-private",
@@ -234,6 +234,19 @@
         }
       ]
     },
+    "ws/finance-analyze-stock": {
+      "name": "finance-analyze-stock",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-analyze-stock/SKILL.md",
+      "description": "单只 A 股的深度画像与财报复盘专项——业务与竞争格局、财务质量、估值与隐含预期、催化与风险、持仓者视角的验证点。用于「深度分析 / 这只股怎么看 / 财报怎么看 / 贵不贵」类问题；需要 finance-mode 常驻。只要价格或一个数字的纯事实查询不走本专项，主线程直接调工具。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:88c654bf39f664ae833d4a9efdb75cbf65d3a82fd8c6b2edc022e71d8408b5b4",
+      "agentOnly": false,
+      "views": []
+    },
     "ws/finance-degraded-fallback": {
       "name": "finance-degraded-fallback",
       "repo": "finance-workspace-private",
@@ -247,6 +260,32 @@
       "agentOnly": false,
       "views": []
     },
+    "ws/finance-forecast-event": {
+      "name": "finance-forecast-event",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-forecast-event/SKILL.md",
+      "description": "事件与消息的推演专项——突发消息六步（判级 / 溯源 / 拆传导链 / 量级 / 定价进度 / 裁决）与未来事件情景树（互斥情景 × 触发条件 × 观察窗口）。核心不是「会不会」，而是沿哪条路径传导、各路径的定性可能性与领先信号。用于「这个消息怎么看 / 如果 X 发生 / 会不会 / 影响多大」类问题；需要 finance-mode 常驻。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:8bb0aac0e2ed27fe88446605a0baf355173548dcadaea4c7687909562d3ab0f1",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-industry-track": {
+      "name": "finance-industry-track",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-industry-track/SKILL.md",
+      "description": "行业 / 题材的全景报告与持续跟踪专项——首次覆盖画产业链全景（report），后续按基线只报变化（track，delta-only + 观点四态 + 下期关注）。用于「行业分析 / 题材逻辑 / 最近有什么变化 / 本周更新」类问题；需要 finance-mode 常驻。单个标的走 finance-analyze-stock。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:d2b8ec2636f76a56a2c69f1ac7ab1e81f6c66e95b01f70cbdc4f0f52e69dc2a1",
+      "agentOnly": false,
+      "views": []
+    },
     "ws/finance-longtail-baseline": {
       "name": "finance-longtail-baseline",
       "repo": "finance-workspace-private",
@@ -257,6 +296,32 @@
       "note": "",
       "entrypoint": null,
       "computedHash": "sha256:b7c07982f0b0ded6d705c17cd929191f33c9022fa5e877cedeeedbf6ac5bc1ff",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-market-review": {
+      "name": "finance-market-review",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-market-review/SKILL.md",
+      "description": "当日或指定交易日的 A 股复盘专项。按市场广度、当日领涨、成交主流和主线表名单分别取证，先核比较集与时间，再形成判断、反证和后续观察条件。用于复盘、市场总览、主线强弱；需要 finance-mode 常驻。个股深挖、行业持续跟踪、事件推演走对应专项。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:bd49687fc1a49233761cd59093bd0e8fa33cc5f7fb6547f9863d9eb284dd8893",
+      "agentOnly": false,
+      "views": []
+    },
+    "ws/finance-mode": {
+      "name": "finance-mode",
+      "repo": "finance-workspace-private",
+      "sourceType": "local",
+      "skillPath": "skills/finance-mode/SKILL.md",
+      "description": "A 股投研常驻基础协议（操作系统层）。任何金融问题都生效，规定检索硬触发、路由与派单、记忆纪律、缺数处理、输出纪律与交付前自检；专项 skill 只能在它之上加流程，不能改、不能删。运行时整段注入 system，不是可路由工作流，不要手工调用。无触发词。",
+      "triggers": [],
+      "note": "",
+      "entrypoint": null,
+      "computedHash": "sha256:5bfee90fe2d080a89f9ef0d93161d57c826998ff4b1eeea8339cd7a8e390d84e",
       "agentOnly": false,
       "views": []
     },

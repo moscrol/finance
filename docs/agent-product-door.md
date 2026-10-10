@@ -1475,3 +1475,24 @@ worker 的资料根按调用参数传递且纳入进程复用键，不继承无�
 - `scripts/check_model_admission.py` → `intelligence/eval/model_admission.py`：逐父子产物核响应自报型号，缺失不得拿配置回填。兼容 Workbench `trace.jsonl` 的调用台账，只读 `reported_model` 并核对身份状态/冲突；累计快照去重不覆盖旧错配，编码的子分支引用仍追查。没有台账的普通 Episode trace 不重复充当模型证据；身份准入不等于内容质量通过。
 - `intelligence/eval/thin_react.py`：复用既有薄循环评测对照；非生产factory；真实驱动仍需独立预算/原始HTTP/内容评分。
 - 范围与反证：`docs/verification/2026-10-02-model-harness-f4-preflight-results.md`。
+
+### Pi 原生验证臂：knevo skill 层（2026-10-09，非生产 / 非质量放行）
+
+`integrations/pi/` 把 knevo 的「1 入口 + 专项」炼化成运行时资产挂到 Pi 原生 CLI 上：`skills/finance-mode` 常驻 system、
+四个专项经 `--skill` 渐进加载、`spawn_sub_agent` 只读派单；数据仍走共享注册表（`bridge.py` → `build_episode_registry`），
+库只读克隆、模型请求逐条落盘。它不是第三条引擎，不改两条生产引擎、不写记忆；8792 侧的 `list_skills/use_skill`、
+system 分段与记忆丰度注入是后续接线（spec §4），且在 Codex 线收完出口门之后再做。
+设计与对照表：`superpowers/specs/2026-10-09-knevo-skill-layer-design.md`；跑法与读数纪律：`integrations/pi/README.md`。
+2026-10-10 候选补齐两项数据边界：Pi 工具结果将私有 telemetry/trace 与公开证据分开；D4 来源的
+`query_basis.groups[].full_group_counts` 在截取前统计涨跌、成交变化、严格双红及未知数量，并报告不同板块代码数。
+这是每组登记行的全量描述，不是跨组去重股票数，也不新增 owned 文本认证角色；未部署，不以工程通过代替首答质量。
+验收：`verification/2026-10-10-pi-model-view-cutoff.md`、`verification/2026-10-10-mainline-full-group-counts.md`。
+`run_native.py prepare --source-run --delivery-skill ...` 可用冻结的实际送达证据做 direct/aligned 定稿对照，
+工具桥拒绝新取数，指定方法在首个请求完整注入；它是诊断模式，不是第三条生产引擎或默认两阶段流程。
+两阶段未显示可靠内容收益，保留显式开关；逐句结果见 `verification/2026-10-10-frozen-evidence-delivery-results.md`。
+`--numeric-checks --analysis-only` 可将已有D4结构化输入编译为独立 `checked-facts.md`，模型只写独立解释稿；
+复用既有资格规则，不解析展示文字、不新取数、不认证自由解释。`--author-model` 是明确记录的实验变量，无自动回退。
+数字产物在限定范围内通过，解释仍未过；结论与作者对照见 `verification/2026-10-10-numeric-and-analysis-results.md`。
+可选 `--evidence-view factored` 在定稿阶段可逆归并重复字段和正文，执行前后还原核对原包；默认raw未变。
+本线二看/aligned遵守与reviewed-history相同的进程续写所有权约定，冲突启动即拒绝；非自动启用邻线复核。
+实际输入缩减、内容失败与互斥来源见 `handoffs/2026-10-10-evidence-view-and-continuation.md`。

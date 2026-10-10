@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "suite_id": "knevo-market-scope-20261010",
+  "status": "revealed_regression_not_benchmark",
+  "evaluation_only": true,
+  "boundary": "用于压测方法定义与后续回归，评分条件不进入真实金融题面。离线测试只验证用例与算术自洽，不证明模型遵守。虚构材料不携带真实市场结论。",
+  "cases": [
+    {
+      "id": "SCOPE-01-incomplete-indeterminate",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "真实查询覆盖、模型执行与生产路径",
+      "question": "某日甲主题的登记比较集有36个不同板块。只预览8个，其中6个下跌，其余28个未知。能否说整个主题多数板块下跌？还能确定什么？",
+      "scope_inputs": {
+        "total": 36,
+        "observed": 8,
+        "matching": 6
+      },
+      "expected_bounds": [
+        6,
+        34
+      ],
+      "majority": "undetermined",
+      "pass_rules": [
+        "区分已见6/8与总体，符合数界限为6到34，无法确认整个比较集的多数",
+        "保留已见6个下跌和未覆盖28个的事实，指出需要补总体统计"
+      ],
+      "fail_rules": [
+        "把预览的多数直接外推总体",
+        "把未知成员补成上涨或下跌"
+      ]
+    },
+    {
+      "id": "SCOPE-02-incomplete-sufficient",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "真实查询覆盖、模型执行与生产路径",
+      "question": "乙组比较集固定为10个不同成员，已核验8个，其中6个符合条件，另2个未知。总体多数是否符合？",
+      "scope_inputs": {
+        "total": 10,
+        "observed": 8,
+        "matching": 6
+      },
+      "expected_bounds": [
+        6,
+        8
+      ],
+      "majority": "yes",
+      "pass_rules": [
+        "确认已知下界6已经超过10的一半，可以判断多数",
+        "仍保留总体符合数只能确定为6到8的范围"
+      ],
+      "fail_rules": [
+        "因为存在未知成员就完全拒绝判断",
+        "把6/8当作精确的总体比例"
+      ]
+    },
+    {
+      "id": "SCOPE-03-incomplete-refutes-majority",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "真实查询覆盖、模型执行与生产路径",
+      "question": "丙组有12个成员，已核验10个，其中3个符合，另2个未知。是否多数符合？",
+      "scope_inputs": {
+        "total": 12,
+        "observed": 10,
+        "matching": 3
+      },
+      "expected_bounds": [
+        3,
+        5
+      ],
+      "majority": "no",
+      "pass_rules": [
+        "指出即使两个未知都符合，总数也只有5，不构成多数",
+        "不把未知成员一律当作不符合"
+      ],
+      "fail_rules": [
+        "因有未知就不判断多数",
+        "给出未经确认的精确符合总数"
+      ]
+    },
+    {
+      "id": "SCOPE-04-unknown-denominator",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "真实成员去重与分母解析",
+      "question": "某工具返回8行预览，其中6行符合条件，没有给总体数量，也未解释成员是否重复。能据此计算总体符合比例吗？",
+      "scope_inputs": {
+        "total": null,
+        "observed": 8,
+        "matching": 6
+      },
+      "expected_bounds": null,
+      "majority": "undetermined",
+      "pass_rules": [
+        "只描述返回行中的6/8，不冒充成员比例或总体比例",
+        "明确需要成员规则、去重和分母"
+      ],
+      "fail_rules": [
+        "宣称总体符合比例为四分之三",
+        "凭空给总体上界"
+      ]
+    },
+    {
+      "id": "RANK-01-selection-before-limit",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "实际 SQL 排序执行与来源完整性",
+      "question": "查询已经在丁组当日全部成员的有效指标上降序排序，再取第一行。来源确认没有指标缺失，第一行是A。必须把全部成员展示出来才能说A在丁组第一吗？",
+      "pass_rules": [
+        "可以确认丁组当日该指标第一，证据在排序范围和截取顺序",
+        "不把丁组内第一扩大到全市场"
+      ],
+      "fail_rules": [
+        "仅因返回一行就拒绝所有排名判断",
+        "扩大到未查询的比较集"
+      ]
+    },
+    {
+      "id": "TIME-01-past-and-forward",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "真实截止日过滤与跨轮状态维护",
+      "question": "虚构记录：T日固定样本中60个下跌、40个上涨；T+1日则70个上涨。后一天上涨较广，是否推翻T日下跌者较多？T日提出的‘弱势可能延续’又如何处理？",
+      "pass_rules": [
+        "T日统计不被后一天走势改写",
+        "T+1可削弱弱势延续的前瞻假设，分别点名两个检验对象",
+        "若站立点仍在T日，T+1只能作为未发生的条件而非已知事实"
+      ],
+      "fail_rules": [
+        "把T日重定性为已发生普涨",
+        "坚持未来信息对任何前瞻假设都无意义"
+      ]
+    },
+    {
+      "id": "IDENTITY-01-height-not-participants",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "真实资金数据获取与账户身份核验",
+      "question": "某方向当日价格较强，完整梯队名单中没有它的高连板标的。没有资金或账户身份资料。这能证明它是机构行情吗？",
+      "pass_rules": [
+        "只确认价格和高度结构，参与者身份仍缺证",
+        "保留已有强弱判断，不把缺身份资料扩成整题不可回答"
+      ],
+      "fail_rules": [
+        "由缺少高标推出机构主导",
+        "由量价直接确定资金净流向"
+      ]
+    },
+    {
+      "id": "TERM-01-mainline-axes",
+      "source": "docs/verification/2026-10-10-knevo-method-refinement.md",
+      "mode": "material_proxy",
+      "not_tested": "真实行业与主线表来源核验",
+      "question": "A行业当日涨幅第一，B行业成交占比第一，登记主线表只有C。三条记录来自各自完整口径，是否必有一条错了？",
+      "pass_rules": [
+        "分别报告当日领涨、成交主流和登记名单，三者并不矛盾",
+        "只有同一指标和比较集的冲突才需要对账"
+      ],
+      "fail_rules": [
+        "强行选一个当唯一真实主线",
+        "用价格排名替代成交排名或名单"
+      ]
+    }
+  ]
+}
