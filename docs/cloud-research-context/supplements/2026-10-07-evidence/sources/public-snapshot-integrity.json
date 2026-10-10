@@ -1,0 +1,2617 @@
+{
+  "checked_at": "2026-10-07T14:11:34.305510+00:00",
+  "snapshot": "docs/cloud-research-context/snapshots/2026-10-07/manifest.json",
+  "files": [
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-06-16-三层选票框架-赛道水位-公司纯度-赔率位置.md",
+      "expected_sha256": "c39a423b9ad8e0c3eda7b0d5339ab8af808562cf826fa57322d14b9e97044c25",
+      "actual_sha256": "c39a423b9ad8e0c3eda7b0d5339ab8af808562cf826fa57322d14b9e97044c25",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-08-存储分析框架-按品类画成长-周期光谱.md",
+      "expected_sha256": "c1f71e0166ba6f6120a88658d9ff4ccab70b6198f1535965420d3454e4a50236",
+      "actual_sha256": "c1f71e0166ba6f6120a88658d9ff4ccab70b6198f1535965420d3454e4a50236",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-08-存储周期领先指标体系-Tier-1-3-五级预警框架.md",
+      "expected_sha256": "17d67b110d3a2475cd7e33100eb71e6eeaf0786405b9513df90c576383c49732",
+      "actual_sha256": "17d67b110d3a2475cd7e33100eb71e6eeaf0786405b9513df90c576383c49732",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-10-先头部队ATH突破-高潮而非起点.md",
+      "expected_sha256": "56ff163cdf96e6d91e0f2d1bd1949ad34a26a5c530817093740015f879dfdf3c",
+      "actual_sha256": "56ff163cdf96e6d91e0f2d1bd1949ad34a26a5c530817093740015f879dfdf3c",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-12-7-10暴跌-五类资金共振杀跌的经典案例.md",
+      "expected_sha256": "19973e52f83ec620d3471511f9ac47831afed4759a07b6f1a86ea95a0a44e4f0",
+      "actual_sha256": "19973e52f83ec620d3471511f9ac47831afed4759a07b6f1a86ea95a0a44e4f0",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-12-存储周期领先-确认-滞后三级信号体系.md",
+      "expected_sha256": "f684b37abbc953b09f15a5c35762a681bb6a20fb9952625eecb02986360abd9b",
+      "actual_sha256": "f684b37abbc953b09f15a5c35762a681bb6a20fb9952625eecb02986360abd9b",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-12-本轮存储周期三大结构性保护-vs-2017-2018-价格崩塌.md",
+      "expected_sha256": "5525e0171a7cfe8c82cb9cf99dc0a19de5cd17019d623945119d68c8b9930154",
+      "actual_sha256": "5525e0171a7cfe8c82cb9cf99dc0a19de5cd17019d623945119d68c8b9930154",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-12-风远94共享记忆卡-2026-07-12快照-优先审读组-R12-R27-R30-R35-R61-R65.md",
+      "expected_sha256": "516facf902962635d073321b94feb98fe0b37ba56694646d08cc7584779af426",
+      "actual_sha256": "516facf902962635d073321b94feb98fe0b37ba56694646d08cc7584779af426",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-12-风远94共享记忆卡-2026-07-12快照-新增组第二批-R13-R15-R16-R18-R19-R26-R38-R4.md",
+      "expected_sha256": "e0178691c6470aee651f59222392ddd91a9aa0455a05e5e13375b95d6b38c72a",
+      "actual_sha256": "e0178691c6470aee651f59222392ddd91a9aa0455a05e5e13375b95d6b38c72a",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-12-风远94共享记忆卡-2026-07-12快照-部分覆盖组-台账建议进闭环的15张.md",
+      "expected_sha256": "fbb8274447200cb4accc6944d4a02e6a952a271d2478c18bb4b4fa3b2b4f0837",
+      "actual_sha256": "fbb8274447200cb4accc6944d4a02e6a952a271d2478c18bb4b4fa3b2b4f0837",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-19-多周期共振烈度评估器-六周期叠加模型.md",
+      "expected_sha256": "254c5e524f982f25b689360c4b20e18d2721a819733889b79ffb055605a087ce",
+      "actual_sha256": "254c5e524f982f25b689360c4b20e18d2721a819733889b79ffb055605a087ce",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-19-投机溢价剥离法-出清目标价的三参数模型.md",
+      "expected_sha256": "1caee58ae914ca552b2db4bed787c036f59eb1525da4e510691d21527d05cb16",
+      "actual_sha256": "1caee58ae914ca552b2db4bed787c036f59eb1525da4e510691d21527d05cb16",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-19-资产定价底锚定法-五类产业锚的估值框架.md",
+      "expected_sha256": "6d4e0963d6cc68bdbd61d41abea6fedf4862e4a8cf93867b73ae6b83def8a52e",
+      "actual_sha256": "6d4e0963d6cc68bdbd61d41abea6fedf4862e4a8cf93867b73ae6b83def8a52e",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-19-跨资产通用经验-热门票调整八大规律.md",
+      "expected_sha256": "09c58db1657baeabceb0034085671e540a5942c18b7d6db8272b9773a6f920c0",
+      "actual_sha256": "09c58db1657baeabceb0034085671e540a5942c18b7d6db8272b9773a6f920c0",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-07-19-边缘地带头寸不可完美交易.md",
+      "expected_sha256": "88c8eaf8d6560d1dc7dbff201ee0aa474904394c57560c69d86acf81191fd1b0",
+      "actual_sha256": "88c8eaf8d6560d1dc7dbff201ee0aa474904394c57560c69d86acf81191fd1b0",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-05-下跌三因归因框架-逻辑证伪-vs-流动性挤压-vs-情绪错杀.md",
+      "expected_sha256": "2605ab170f30b6b4e8fe18499873314e5064b4227a6f535d178d948a4381fb92",
+      "actual_sha256": "2605ab170f30b6b4e8fe18499873314e5064b4227a6f535d178d948a4381fb92",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-08-反身性泡沫阶段判断的三变量验证框架.md",
+      "expected_sha256": "7b827da26a9522248a6a49e347106f3399a428991e9fbe98df55f97ecc96201f",
+      "actual_sha256": "7b827da26a9522248a6a49e347106f3399a428991e9fbe98df55f97ecc96201f",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-08-风远94共享记忆卡-2026-08-08快照-B侧新增框架组-11条.md",
+      "expected_sha256": "403ebdafaf791ecd14e2a740dcd3ca3bad7673e315b851e123760ff958d0ecbc",
+      "actual_sha256": "403ebdafaf791ecd14e2a740dcd3ca3bad7673e315b851e123760ff958d0ecbc",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-28-五段第5段-水泥型-纯量只做波段仓.md",
+      "expected_sha256": "8fbd6c3dae85285baf737613ab030e2b0888825ac6de9d64ba05da07ba866d46",
+      "actual_sha256": "8fbd6c3dae85285baf737613ab030e2b0888825ac6de9d64ba05da07ba866d46",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-28-同链后半分层-SST-vs-HBM的四弹性变量比较.md",
+      "expected_sha256": "1d3b8cd30cf1bdca4ee5c403392a87a650e3613d45fe8345772dfd354fb613fa",
+      "actual_sha256": "1d3b8cd30cf1bdca4ee5c403392a87a650e3613d45fe8345772dfd354fb613fa",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-28-框架谱系底部定位-停在段位与无可投标的留白.md",
+      "expected_sha256": "f7bb7c0a9be8717fa10f2aed8658fa47f553cc095d4db1266905ff5bdea7001c",
+      "actual_sha256": "f7bb7c0a9be8717fa10f2aed8658fa47f553cc095d4db1266905ff5bdea7001c",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-28-资金映射0-4-5段-用观察量判别A-E谁主导.md",
+      "expected_sha256": "e56dbab0a88b6477bb88fa8bb266522df5f010eeb1c5647ce5e9b96a026ee58d",
+      "actual_sha256": "e56dbab0a88b6477bb88fa8bb266522df5f010eeb1c5647ce5e9b96a026ee58d",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-28-边缘地带五原则-上限-冻结与升回框架.md",
+      "expected_sha256": "5a07f51329a64e7b09662feeef00823b99ae0bf2077933b1b6e92d72ae693db7",
+      "actual_sha256": "5a07f51329a64e7b09662feeef00823b99ae0bf2077933b1b6e92d72ae693db7",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/fengyuan/raw/2026-08-28-退潮期竞价五模式-模式4全持仓联动与模式5停手默认.md",
+      "expected_sha256": "73052e4b5668c910d6aa9d5aaa02d24288a50475a3b19469097956f3b23c9337",
+      "actual_sha256": "73052e4b5668c910d6aa9d5aaa02d24288a50475a3b19469097956f3b23c9337",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-02-01-2024-2025年跨年综述.md",
+      "expected_sha256": "370f12c08d612d0ebec4b59feea647980223fdc0db4c9437c8d8ef42b1ee133b",
+      "actual_sha256": "370f12c08d612d0ebec4b59feea647980223fdc0db4c9437c8d8ef42b1ee133b",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-02-09-主流主升与DS板块夺量.md",
+      "expected_sha256": "af47be9c26e31175024a7e4365375c600f756ae56acbc016716c773096f84de3",
+      "actual_sha256": "af47be9c26e31175024a7e4365375c600f756ae56acbc016716c773096f84de3",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-02-17-DS板块的一次量顶分歧.md",
+      "expected_sha256": "576f1e829ea8ae0f9a1748ca07fbd626d11238459b03cfa01ed64f4e2793811a",
+      "actual_sha256": "576f1e829ea8ae0f9a1748ca07fbd626d11238459b03cfa01ed64f4e2793811a",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-02-23-反复顶值与狂欢.md",
+      "expected_sha256": "c1c341a360827fe18c5396f10c1b14136c1a0f45e5ccfeb0fa5c31db1400e880",
+      "actual_sha256": "c1c341a360827fe18c5396f10c1b14136c1a0f45e5ccfeb0fa5c31db1400e880",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-03-10-二波的酝酿期.md",
+      "expected_sha256": "5e065b6a6d2ecd7c72f19fe072bb9db73b9dadc4e6e182e8ab13bdf66082480e",
+      "actual_sha256": "5e065b6a6d2ecd7c72f19fe072bb9db73b9dadc4e6e182e8ab13bdf66082480e",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-04-21-等待出清.md",
+      "expected_sha256": "7c45c22e25a6ebe59ced6b7a2b3f51f8a22f7d3a4390d2657d2513c73b0fe474",
+      "actual_sha256": "7c45c22e25a6ebe59ced6b7a2b3f51f8a22f7d3a4390d2657d2513c73b0fe474",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-06-16-博弈的艺术.md",
+      "expected_sha256": "9e151b553ca5def29deba7510f101a1958e61b815134c49884077685093ff621",
+      "actual_sha256": "9e151b553ca5def29deba7510f101a1958e61b815134c49884077685093ff621",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-08-11-2025-33.md",
+      "expected_sha256": "95fdcba55a0afe0afea7d141f681c588f072df8ffbc8b345075532230cb0a39a",
+      "actual_sha256": "95fdcba55a0afe0afea7d141f681c588f072df8ffbc8b345075532230cb0a39a",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-08-15-2025-34.md",
+      "expected_sha256": "e2a9054cd6d4da0e558698d7f1cb48c24a04a1bf9c09531b00d5b4a60d78919d",
+      "actual_sha256": "e2a9054cd6d4da0e558698d7f1cb48c24a04a1bf9c09531b00d5b4a60d78919d",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-08-26-2025-35.md",
+      "expected_sha256": "2de4c60ee79f1adf9f8a0351bcb51bc71dadf0c1e61d0a53384dcd8f4f6d2030",
+      "actual_sha256": "2de4c60ee79f1adf9f8a0351bcb51bc71dadf0c1e61d0a53384dcd8f4f6d2030",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-09-01-2025-36.md",
+      "expected_sha256": "61edd6d4869b58a6f1b5269ae90fab05010450da07a31d62e4246984d8b88676",
+      "actual_sha256": "61edd6d4869b58a6f1b5269ae90fab05010450da07a31d62e4246984d8b88676",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-09-07-2025-37.md",
+      "expected_sha256": "fffd21c9773b7fa4467eb4f33f14629a0fa8efac16558cb0587daa8e86598a72",
+      "actual_sha256": "fffd21c9773b7fa4467eb4f33f14629a0fa8efac16558cb0587daa8e86598a72",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-09-14-2025-38.md",
+      "expected_sha256": "5de6eb41b8f27c344ad770ba0d873e2c6bab46b841689b52f11d615137541524",
+      "actual_sha256": "5de6eb41b8f27c344ad770ba0d873e2c6bab46b841689b52f11d615137541524",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-09-22-2025-39.md",
+      "expected_sha256": "b158a9654e9c85b342defa5f07514c615f874f798c27b4f110b1660b639a952e",
+      "actual_sha256": "b158a9654e9c85b342defa5f07514c615f874f798c27b4f110b1660b639a952e",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-09-29-2025-40.md",
+      "expected_sha256": "e9a91a10886b8e2f602d1c22cd4865e17178601f37e54f9ef0b4ec5f4e92369f",
+      "actual_sha256": "e9a91a10886b8e2f602d1c22cd4865e17178601f37e54f9ef0b4ec5f4e92369f",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-10-12-2025-42.md",
+      "expected_sha256": "d3acfd2169b86d281ed36fd9872206304d05fad9f404ea46987203824fdbe992",
+      "actual_sha256": "d3acfd2169b86d281ed36fd9872206304d05fad9f404ea46987203824fdbe992",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-10-22-2025-43.md",
+      "expected_sha256": "9f6bb09f43ea4113a7b870da2d2ea83692228d3913cabb8919d6ace743442069",
+      "actual_sha256": "9f6bb09f43ea4113a7b870da2d2ea83692228d3913cabb8919d6ace743442069",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-10-26-2025-44.md",
+      "expected_sha256": "336af1a48ac41e8c2768e7ec62f617b25a7fea3c33c8fcce34d0dc3c7ef34835",
+      "actual_sha256": "336af1a48ac41e8c2768e7ec62f617b25a7fea3c33c8fcce34d0dc3c7ef34835",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-11-02-2025-45.md",
+      "expected_sha256": "e99f7fd33612c012b344c8cbc9e156b49b0f399d7f82c0e73f95c091170ef52e",
+      "actual_sha256": "e99f7fd33612c012b344c8cbc9e156b49b0f399d7f82c0e73f95c091170ef52e",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-11-10-2025-46.md",
+      "expected_sha256": "ca53c88dbedf5edb1fdc41ffccd3ed4d1d67d18bb69e89735721455e021b74af",
+      "actual_sha256": "ca53c88dbedf5edb1fdc41ffccd3ed4d1d67d18bb69e89735721455e021b74af",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-11-19-2025-47.md",
+      "expected_sha256": "9cb0cdeb1fd085e8f70d8781af32849657eaf8e030a7d23e468bdb14e0fa57b1",
+      "actual_sha256": "9cb0cdeb1fd085e8f70d8781af32849657eaf8e030a7d23e468bdb14e0fa57b1",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-12-01-2025-49.md",
+      "expected_sha256": "bba6f3720bb1170c0254c01f2eb0d72ad1f4fa537b60fd16386acf8ee72cd7e1",
+      "actual_sha256": "bba6f3720bb1170c0254c01f2eb0d72ad1f4fa537b60fd16386acf8ee72cd7e1",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-12-08-2025-50.md",
+      "expected_sha256": "374d2fec45ce93029b01ea14a35af499d0022099d399166fac2727d9a1bec77e",
+      "actual_sha256": "374d2fec45ce93029b01ea14a35af499d0022099d399166fac2727d9a1bec77e",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-12-15-2025-51.md",
+      "expected_sha256": "a0bb66b1442c1e5162cca00c2e315690b5b5e09750c6b68bb3478e0dee8a1048",
+      "actual_sha256": "a0bb66b1442c1e5162cca00c2e315690b5b5e09750c6b68bb3478e0dee8a1048",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-12-22-2025-52.md",
+      "expected_sha256": "b686fbd1792e80b239e1dc13d63cf01692e93fac9b58464c6b3aee0d4b166258",
+      "actual_sha256": "b686fbd1792e80b239e1dc13d63cf01692e93fac9b58464c6b3aee0d4b166258",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2025-12-29-2026-1.md",
+      "expected_sha256": "b1f753284c085e78b856633df144a062ab8b2732cae553681d347b4bc98bd90c",
+      "actual_sha256": "b1f753284c085e78b856633df144a062ab8b2732cae553681d347b4bc98bd90c",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-01-05-2026-2.md",
+      "expected_sha256": "69eca9d03ab4ec03339aa91c805f746500ea6c0e0fbaad11e3d90a90c7538ead",
+      "actual_sha256": "69eca9d03ab4ec03339aa91c805f746500ea6c0e0fbaad11e3d90a90c7538ead",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-01-12-2026-3.md",
+      "expected_sha256": "321648cf1d7c19907c5457d3296219ab4f1479fb802a2dbfa676bf63d5e52bd1",
+      "actual_sha256": "321648cf1d7c19907c5457d3296219ab4f1479fb802a2dbfa676bf63d5e52bd1",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-01-19-2026-4.md",
+      "expected_sha256": "d51d1fa90275b4f46bbf0494adfae5845afa6f6fe39f0f8141dddf7225eebf9d",
+      "actual_sha256": "d51d1fa90275b4f46bbf0494adfae5845afa6f6fe39f0f8141dddf7225eebf9d",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-02-01-2026-6.md",
+      "expected_sha256": "cc33b7e15bf46e3839855c3cde020f75a847d8b72044dde1882016e56daff303",
+      "actual_sha256": "cc33b7e15bf46e3839855c3cde020f75a847d8b72044dde1882016e56daff303",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-02-09-2026-7.md",
+      "expected_sha256": "aa6744b29735eb140be089472ccc462d9f4ca7300865fea53be6b116447f2a57",
+      "actual_sha256": "aa6744b29735eb140be089472ccc462d9f4ca7300865fea53be6b116447f2a57",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-02-13-2026-8.md",
+      "expected_sha256": "9fdb55df8dc5bc51167c967770ea66ec9017f20126e10bbe38d37bff796c3eab",
+      "actual_sha256": "9fdb55df8dc5bc51167c967770ea66ec9017f20126e10bbe38d37bff796c3eab",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-03-09-2026-11.md",
+      "expected_sha256": "a44a9a8a049238d2fecd6d967f801614b64c880768bbf78aed5fae62185c386e",
+      "actual_sha256": "a44a9a8a049238d2fecd6d967f801614b64c880768bbf78aed5fae62185c386e",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-03-16-2026-12.md",
+      "expected_sha256": "c27901ada1799897a79316d4d2c1a0fdd6a68d1aa7ec2a17b1418e64b845f45d",
+      "actual_sha256": "c27901ada1799897a79316d4d2c1a0fdd6a68d1aa7ec2a17b1418e64b845f45d",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-03-22-2026-13.md",
+      "expected_sha256": "902e6f89bcf36cbfe7bb00e7e6728c8cf2cdbe70de3e7afc0131ccda9cffaf09",
+      "actual_sha256": "902e6f89bcf36cbfe7bb00e7e6728c8cf2cdbe70de3e7afc0131ccda9cffaf09",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-04-13-2026-16.md",
+      "expected_sha256": "f1d319af8db03abebfc62b34252b1f93fc557465a962944297b2a30ee6d1ff56",
+      "actual_sha256": "f1d319af8db03abebfc62b34252b1f93fc557465a962944297b2a30ee6d1ff56",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-04-20-2026-17.md",
+      "expected_sha256": "310e249604948ba8d920be6263976ea0c576de97215d0df30a2d7cb91923d932",
+      "actual_sha256": "310e249604948ba8d920be6263976ea0c576de97215d0df30a2d7cb91923d932",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-04-23-2026-17-1.md",
+      "expected_sha256": "f311e162b0de96d53c7158e726de173216f241bbe959f2ec2a6e78756fc50e69",
+      "actual_sha256": "f311e162b0de96d53c7158e726de173216f241bbe959f2ec2a6e78756fc50e69",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-04-26-2026-18.md",
+      "expected_sha256": "479bdc3ec1e76829b90a967311c8a8f173c42794f091f26d785bdecb5debf390",
+      "actual_sha256": "479bdc3ec1e76829b90a967311c8a8f173c42794f091f26d785bdecb5debf390",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-05-06-2026-19.md",
+      "expected_sha256": "39cd84b5170903915c79711c5431bc32a848cffeee4e6d5eea11ae60e18dc850",
+      "actual_sha256": "39cd84b5170903915c79711c5431bc32a848cffeee4e6d5eea11ae60e18dc850",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-05-18-2026-21.md",
+      "expected_sha256": "ed0b9b605b44e355d899db2a98903d95ffc98dc931c386d39aa8c608c8db42eb",
+      "actual_sha256": "ed0b9b605b44e355d899db2a98903d95ffc98dc931c386d39aa8c608c8db42eb",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-05-22-2026-21-1.md",
+      "expected_sha256": "ca0736a9e0f805ab552ea55569242f914706691ab87de8a625feed42a505c8fb",
+      "actual_sha256": "ca0736a9e0f805ab552ea55569242f914706691ab87de8a625feed42a505c8fb",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-06-01-2026-23.md",
+      "expected_sha256": "1cd061c7b7ffb2f4b82b1ce97a09c0193dca0f7e98acf9294ea3f3512cb8931c",
+      "actual_sha256": "1cd061c7b7ffb2f4b82b1ce97a09c0193dca0f7e98acf9294ea3f3512cb8931c",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-06-02-2026-23-超板块.md",
+      "expected_sha256": "4f56572bb540c85af301e8ec23fe93c3a5985dc4f5af8bd725eb433a2d6179d6",
+      "actual_sha256": "4f56572bb540c85af301e8ec23fe93c3a5985dc4f5af8bd725eb433a2d6179d6",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-06-09-2026-24.md",
+      "expected_sha256": "1c3f6af95764c1f60ae41ed04aafdc3b131e76c4a1d485ef6cad25d830734dd3",
+      "actual_sha256": "1c3f6af95764c1f60ae41ed04aafdc3b131e76c4a1d485ef6cad25d830734dd3",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-06-30-2026-27.md",
+      "expected_sha256": "713b65bd144871d429c361a081aa65e9c8d257b43573c19c2d1f60bed72d0f2c",
+      "actual_sha256": "713b65bd144871d429c361a081aa65e9c8d257b43573c19c2d1f60bed72d0f2c",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-07-06-2026-28.md",
+      "expected_sha256": "82ff93af67336ce0758737e65c0b6c4f059657b4e8174a2f36068ddb02dc9aac",
+      "actual_sha256": "82ff93af67336ce0758737e65c0b6c4f059657b4e8174a2f36068ddb02dc9aac",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-07-13-2026-29.md",
+      "expected_sha256": "e199358af052d686e8c9dd57a76283e8d8a8d7adb6411ba6865d848e5f2a2abc",
+      "actual_sha256": "e199358af052d686e8c9dd57a76283e8d8a8d7adb6411ba6865d848e5f2a2abc",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-07-20-2026-30.md",
+      "expected_sha256": "fd7ce7ebe0c663c7ecc39dca1b40dd88bdb2fb352a7c48ba044ef1bd4eadaaae",
+      "actual_sha256": "fd7ce7ebe0c663c7ecc39dca1b40dd88bdb2fb352a7c48ba044ef1bd4eadaaae",
+      "match": true
+    },
+    {
+      "source": "perspectives/articles/sptfei/raw/2026-08-17-2026-34.md",
+      "expected_sha256": "5d9fb34825a0d9b6acc0e1432e5e34ef695da822eceb30938776d74fe742b7c4",
+      "actual_sha256": "5d9fb34825a0d9b6acc0e1432e5e34ef695da822eceb30938776d74fe742b7c4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-00eae36fbada.json",
+      "expected_sha256": "db86c1a6b22228aaa583aee02483a5bc74261cb58d5c53032e5bab05a9ab70d8",
+      "actual_sha256": "db86c1a6b22228aaa583aee02483a5bc74261cb58d5c53032e5bab05a9ab70d8",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-01dd4c288983.json",
+      "expected_sha256": "df64a00a3e2939021c93733c7944a6d220be053f524fb62d2b8b4dcedfe54b3e",
+      "actual_sha256": "df64a00a3e2939021c93733c7944a6d220be053f524fb62d2b8b4dcedfe54b3e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-01f7cb32f872.json",
+      "expected_sha256": "1ce89b55829f4c951c297a96f57eef7e6a7c1bb5293ba9419ced9971521a0a35",
+      "actual_sha256": "1ce89b55829f4c951c297a96f57eef7e6a7c1bb5293ba9419ced9971521a0a35",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-02a227c1bb60.json",
+      "expected_sha256": "992b25589ecf0be085c97d828bb308c9a1b07132144754ce207d00a9a1c79ec3",
+      "actual_sha256": "992b25589ecf0be085c97d828bb308c9a1b07132144754ce207d00a9a1c79ec3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-02ee8f8a80ea.json",
+      "expected_sha256": "80dc078b581ff267cb13e4f2ee72fc358ad51ad3a2e855a2a3fa10db4a4f07be",
+      "actual_sha256": "80dc078b581ff267cb13e4f2ee72fc358ad51ad3a2e855a2a3fa10db4a4f07be",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-04daeda05854.json",
+      "expected_sha256": "20b4680c1d9cb697b3229f27a9a64ee3f4f90f7ba29910dd30dec34dcc824c4d",
+      "actual_sha256": "20b4680c1d9cb697b3229f27a9a64ee3f4f90f7ba29910dd30dec34dcc824c4d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-0707f95b992a.json",
+      "expected_sha256": "a38ac74abd7d193ab7135e6ebbe5c99f0df9a43a6fd54c041c7b8e265df21cc6",
+      "actual_sha256": "a38ac74abd7d193ab7135e6ebbe5c99f0df9a43a6fd54c041c7b8e265df21cc6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-08725289def1.json",
+      "expected_sha256": "0db2034a4497588a704dbbd3ed53524b2ad1b431c5b5af1f8700b9ada2da1d20",
+      "actual_sha256": "0db2034a4497588a704dbbd3ed53524b2ad1b431c5b5af1f8700b9ada2da1d20",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-09741d566f8a.json",
+      "expected_sha256": "d9ae32acbb48b3c5d9a78033e2bd704281d62e0fec2154ad062d7cf35b094ffb",
+      "actual_sha256": "d9ae32acbb48b3c5d9a78033e2bd704281d62e0fec2154ad062d7cf35b094ffb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-0c0247ed9b10.json",
+      "expected_sha256": "2c03598adbfaa2804704bfccdade8c58a3fa66960a0dce449ed8b153d5056c67",
+      "actual_sha256": "2c03598adbfaa2804704bfccdade8c58a3fa66960a0dce449ed8b153d5056c67",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-0df9b717bdd3.json",
+      "expected_sha256": "fe548ae6ec5253bf49a0355ae810ff49f46159661fe01cd16f449add98097603",
+      "actual_sha256": "fe548ae6ec5253bf49a0355ae810ff49f46159661fe01cd16f449add98097603",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-0f30347014d2.json",
+      "expected_sha256": "eecf0fe8fe42e76212bbaf82eca8b861a5c2b6700aea5bef4117a02b3f46dbbc",
+      "actual_sha256": "eecf0fe8fe42e76212bbaf82eca8b861a5c2b6700aea5bef4117a02b3f46dbbc",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-136b9acfc7e0.json",
+      "expected_sha256": "7d2c65e37292b56055f995205eb0a0a601a465e01d97e2d4ffb70fa01b890c44",
+      "actual_sha256": "7d2c65e37292b56055f995205eb0a0a601a465e01d97e2d4ffb70fa01b890c44",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-14407047aa76.json",
+      "expected_sha256": "c98be6a1712b81ef3219b79242c766c02faf2f8b14090a4e950bfa7349e4bc76",
+      "actual_sha256": "c98be6a1712b81ef3219b79242c766c02faf2f8b14090a4e950bfa7349e4bc76",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-161314e2da2e.json",
+      "expected_sha256": "35515e6dde0cd0e9fcc8f88aa931aded97392dd3ca54094b074ca3824d2f57a8",
+      "actual_sha256": "35515e6dde0cd0e9fcc8f88aa931aded97392dd3ca54094b074ca3824d2f57a8",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-16f956ef3e35.json",
+      "expected_sha256": "c2dd1942f41aafd3aa76fb30986884017b3d08d9ed9950ff43cdf660f19711d5",
+      "actual_sha256": "c2dd1942f41aafd3aa76fb30986884017b3d08d9ed9950ff43cdf660f19711d5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-178aa7155989.json",
+      "expected_sha256": "95b083a3470b47c95ff027cab94e24de0eb2a431342f52a4912216b0c09c858d",
+      "actual_sha256": "95b083a3470b47c95ff027cab94e24de0eb2a431342f52a4912216b0c09c858d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-1a31434f7207.json",
+      "expected_sha256": "01a49190cfc7eed6a79d7f7abd2dd7f8481c9a18e0f43c22e82e4479fb39f58e",
+      "actual_sha256": "01a49190cfc7eed6a79d7f7abd2dd7f8481c9a18e0f43c22e82e4479fb39f58e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-1a3600d69d4c.json",
+      "expected_sha256": "58e2a825ea51982646f29632fbafd62705f2a46e51106dab6d160b3bf5e4fe45",
+      "actual_sha256": "58e2a825ea51982646f29632fbafd62705f2a46e51106dab6d160b3bf5e4fe45",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-1d08a07b0b43.json",
+      "expected_sha256": "41cf416c6de86ecd905a088cefc1db63bb31d33587cd9f9775fb2d8db5226449",
+      "actual_sha256": "41cf416c6de86ecd905a088cefc1db63bb31d33587cd9f9775fb2d8db5226449",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-1de099affd14.json",
+      "expected_sha256": "5808b47b0c19caaaf7b1e847f0dec55076c4dc8ac6bb3d8774716de53098e7d4",
+      "actual_sha256": "5808b47b0c19caaaf7b1e847f0dec55076c4dc8ac6bb3d8774716de53098e7d4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-1f7cf9dd1fe4.json",
+      "expected_sha256": "624a26a8df4da429dd4de5299a28d156313ef6dd0c673db2767062d7c0138134",
+      "actual_sha256": "624a26a8df4da429dd4de5299a28d156313ef6dd0c673db2767062d7c0138134",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-1fe07eff658e.json",
+      "expected_sha256": "c7abfca616f19e5f1caf17defc4fa29cd99675a54a11d4d8bdf4b839b1de48e7",
+      "actual_sha256": "c7abfca616f19e5f1caf17defc4fa29cd99675a54a11d4d8bdf4b839b1de48e7",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2276762c11ee.json",
+      "expected_sha256": "3641598ff3a8d6413382398925338994421ced5219d61c96db8e525c72d152e1",
+      "actual_sha256": "3641598ff3a8d6413382398925338994421ced5219d61c96db8e525c72d152e1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-22e20e72ecd0.json",
+      "expected_sha256": "2780514e76878019c719cbcf1b6846bcc8c62445f96c8f43a1b034fcee22b19c",
+      "actual_sha256": "2780514e76878019c719cbcf1b6846bcc8c62445f96c8f43a1b034fcee22b19c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-22e371c02788.json",
+      "expected_sha256": "ec96478e71b047824eee4b51dc694c1d5e8ba7f6f89c2d72427b3e7c619f0735",
+      "actual_sha256": "ec96478e71b047824eee4b51dc694c1d5e8ba7f6f89c2d72427b3e7c619f0735",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-233c4c035700.json",
+      "expected_sha256": "4683fce62c386140e594af20df4e4c69a563bd12d731ec4ecd173551fe38d851",
+      "actual_sha256": "4683fce62c386140e594af20df4e4c69a563bd12d731ec4ecd173551fe38d851",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2343bd836d54.json",
+      "expected_sha256": "fac615d50be7fbac46310131677944694b95cb34aa3a7176d984b8c5e724d725",
+      "actual_sha256": "fac615d50be7fbac46310131677944694b95cb34aa3a7176d984b8c5e724d725",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-28ebb2b49a03.json",
+      "expected_sha256": "f1c163e6b46c27021288339863238b94209c5bd781e8bf3919ddec362dc8f343",
+      "actual_sha256": "f1c163e6b46c27021288339863238b94209c5bd781e8bf3919ddec362dc8f343",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2997b3700cfc.json",
+      "expected_sha256": "57aaa120549e7a96c81259e6a92969180689c8f7f2e1ec95f070683f9f194649",
+      "actual_sha256": "57aaa120549e7a96c81259e6a92969180689c8f7f2e1ec95f070683f9f194649",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2b82e92db2dd.json",
+      "expected_sha256": "a84aabb3dabbe284dd39591bfb924c90955440910389ee391a6aee949d57f75d",
+      "actual_sha256": "a84aabb3dabbe284dd39591bfb924c90955440910389ee391a6aee949d57f75d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2bded40f84ab.json",
+      "expected_sha256": "4d7473bbb55f9f571943bad1db59978a7f4e05683af55ccc9634ec159d86b778",
+      "actual_sha256": "4d7473bbb55f9f571943bad1db59978a7f4e05683af55ccc9634ec159d86b778",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2c95b55daa30.json",
+      "expected_sha256": "fb53405319dc9196593648a18c84f0c04bb72b7ec7c8a39236fe15701d23fc1b",
+      "actual_sha256": "fb53405319dc9196593648a18c84f0c04bb72b7ec7c8a39236fe15701d23fc1b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2daea2d8f8f5.json",
+      "expected_sha256": "bfc2e88e71358cd6f6fe99bcd2cbc609fe242887486a5a6c6a8132b8bfc9ca60",
+      "actual_sha256": "bfc2e88e71358cd6f6fe99bcd2cbc609fe242887486a5a6c6a8132b8bfc9ca60",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-2ed8e6330b54.json",
+      "expected_sha256": "a6677f14af2c76477e222a445723cc278bb53f63edc916841ff914b996fd71da",
+      "actual_sha256": "a6677f14af2c76477e222a445723cc278bb53f63edc916841ff914b996fd71da",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3475c68f9308.json",
+      "expected_sha256": "9fb5a692b9d98c640404d7a3a5d95e355e3925b423bf14a3fcbc4b09ff08535a",
+      "actual_sha256": "9fb5a692b9d98c640404d7a3a5d95e355e3925b423bf14a3fcbc4b09ff08535a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3487992ec79d.json",
+      "expected_sha256": "ef121f25846ecb5b6f4153ff634518371badd9d1e7007412fa266f133f08ce12",
+      "actual_sha256": "ef121f25846ecb5b6f4153ff634518371badd9d1e7007412fa266f133f08ce12",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-35b0272a6ae4.json",
+      "expected_sha256": "d6ce11ee8330b150e2ae2985d4d25ea4e5cb52de1882a80b1f9401fa264f4f9f",
+      "actual_sha256": "d6ce11ee8330b150e2ae2985d4d25ea4e5cb52de1882a80b1f9401fa264f4f9f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3600ac0adcac.json",
+      "expected_sha256": "96db8de86d3a5dee66ccb65d43be0868dcf806004ef7182d481abe1fc7fa4101",
+      "actual_sha256": "96db8de86d3a5dee66ccb65d43be0868dcf806004ef7182d481abe1fc7fa4101",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3639f881d104.json",
+      "expected_sha256": "b177c5951f64144bca716f7c82506e36b3419caebeb31299cfe7e917456f3adb",
+      "actual_sha256": "b177c5951f64144bca716f7c82506e36b3419caebeb31299cfe7e917456f3adb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-36942c82fddc.json",
+      "expected_sha256": "07ef246e13b5b9d3bb7b0c6673a3f9c497bb4dbd01f92bd97dabe7671b4301f9",
+      "actual_sha256": "07ef246e13b5b9d3bb7b0c6673a3f9c497bb4dbd01f92bd97dabe7671b4301f9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3d043a348af9.json",
+      "expected_sha256": "d10a3e9274dae4e682aced25921e354334ef3b5c42e9320ce495627beb55be1d",
+      "actual_sha256": "d10a3e9274dae4e682aced25921e354334ef3b5c42e9320ce495627beb55be1d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3d374a57fa5b.json",
+      "expected_sha256": "02e94f4d2e5ae8901515b927f7223bdd6fe8473f0d836a1ca283606113bafaf1",
+      "actual_sha256": "02e94f4d2e5ae8901515b927f7223bdd6fe8473f0d836a1ca283606113bafaf1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3da6c84987dc.json",
+      "expected_sha256": "b832c88acb8bde535fcd0d3575c8ccab0999709cd8fb7197353e117399de0194",
+      "actual_sha256": "b832c88acb8bde535fcd0d3575c8ccab0999709cd8fb7197353e117399de0194",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3e63479f44be.json",
+      "expected_sha256": "d757a9ff2ce458808ddfcd191f021a1dbce2a444f6ae5f6c8fb8ec020446728c",
+      "actual_sha256": "d757a9ff2ce458808ddfcd191f021a1dbce2a444f6ae5f6c8fb8ec020446728c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-3f3e5ac9b6a6.json",
+      "expected_sha256": "d860e449152a33fd7388288e3a66033ceb2264a2b1a83db265823197d7fda0fa",
+      "actual_sha256": "d860e449152a33fd7388288e3a66033ceb2264a2b1a83db265823197d7fda0fa",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-40bb9fdd8f6f.json",
+      "expected_sha256": "66cba2e546c7d0915cfb84a422a6f51622d624e07083e61c432fd62544d27163",
+      "actual_sha256": "66cba2e546c7d0915cfb84a422a6f51622d624e07083e61c432fd62544d27163",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-42791bc78807.json",
+      "expected_sha256": "9c4de28392b35fce89d7f99051c861cd9bdfdfe144063b624296c2cffd48379c",
+      "actual_sha256": "9c4de28392b35fce89d7f99051c861cd9bdfdfe144063b624296c2cffd48379c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-44686e92b329.json",
+      "expected_sha256": "599265b55de403511a9f0bfef9c43f357164a43604b75a89072254dedbc83a24",
+      "actual_sha256": "599265b55de403511a9f0bfef9c43f357164a43604b75a89072254dedbc83a24",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-4721abb762fe.json",
+      "expected_sha256": "48e9a5dc2b39508787c63bfaffd3a82a83d7245a8e166db0c5dbd5fb8439cb94",
+      "actual_sha256": "48e9a5dc2b39508787c63bfaffd3a82a83d7245a8e166db0c5dbd5fb8439cb94",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-481620abb1e0.json",
+      "expected_sha256": "d0f08d16d99224e246998cf282f12e27b422c149c61e9eaf0dd236d2690dfb90",
+      "actual_sha256": "d0f08d16d99224e246998cf282f12e27b422c149c61e9eaf0dd236d2690dfb90",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-4a428c3ff262.json",
+      "expected_sha256": "382b258d0bfb7dd88eb2d963abc853b6e8471acdf893e051a1e3197aae595be4",
+      "actual_sha256": "382b258d0bfb7dd88eb2d963abc853b6e8471acdf893e051a1e3197aae595be4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-4a73966ad488.json",
+      "expected_sha256": "9b9fa5730c052850c177d883adf1926faebc08cdd1b8af901167a7d74130d21f",
+      "actual_sha256": "9b9fa5730c052850c177d883adf1926faebc08cdd1b8af901167a7d74130d21f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-4bcbd5e6ef81.json",
+      "expected_sha256": "24aefeed17f87efe72311e599cfc55b4ea8e0a4702b9e20b2d1d0a9f9d82abdc",
+      "actual_sha256": "24aefeed17f87efe72311e599cfc55b4ea8e0a4702b9e20b2d1d0a9f9d82abdc",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-4d63621cf814.json",
+      "expected_sha256": "8eaa435a7024aeec85cf3d28be054eb874f6fac1aca520f0cb5fb47aefb6750e",
+      "actual_sha256": "8eaa435a7024aeec85cf3d28be054eb874f6fac1aca520f0cb5fb47aefb6750e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-4d6b2f849b3d.json",
+      "expected_sha256": "a83b2d4eb1e9c765214bd8ae7f0cb0ee4b89d5907a36b55ef898e74cf4880f5b",
+      "actual_sha256": "a83b2d4eb1e9c765214bd8ae7f0cb0ee4b89d5907a36b55ef898e74cf4880f5b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-4ef6034cf7c5.json",
+      "expected_sha256": "d93783ffc2044d05d44cc7ccc786bfe9a10225e6b3777bda439a88e14c460ac9",
+      "actual_sha256": "d93783ffc2044d05d44cc7ccc786bfe9a10225e6b3777bda439a88e14c460ac9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-52c32c7eef9b.json",
+      "expected_sha256": "983a3bf0ed739ce0b3484a72e738b77def233a14083178e2014841414a3cff9d",
+      "actual_sha256": "983a3bf0ed739ce0b3484a72e738b77def233a14083178e2014841414a3cff9d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-57a62e73db3f.json",
+      "expected_sha256": "f3f6479b046ee49bf58b46de7a3c8c7c36327864f3788ad78686ddd68f67b31b",
+      "actual_sha256": "f3f6479b046ee49bf58b46de7a3c8c7c36327864f3788ad78686ddd68f67b31b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-58fdd5cfbcbc.json",
+      "expected_sha256": "8597140acd99fb0b9a516c42532a64ba3e0c0ba12009e9e15ec35e562fa05658",
+      "actual_sha256": "8597140acd99fb0b9a516c42532a64ba3e0c0ba12009e9e15ec35e562fa05658",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-5960a2a20376.json",
+      "expected_sha256": "6756c9851ea021ba92d33af249cde5abcd83f06d4e3e05484340dc32d04b566f",
+      "actual_sha256": "6756c9851ea021ba92d33af249cde5abcd83f06d4e3e05484340dc32d04b566f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-5cc2a391fe34.json",
+      "expected_sha256": "070e9eaae28e9328de0f313dd3283240abe2f030038876f6ed6a212ee9a4dc0e",
+      "actual_sha256": "070e9eaae28e9328de0f313dd3283240abe2f030038876f6ed6a212ee9a4dc0e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-5cd4795dbc08.json",
+      "expected_sha256": "d6755495318e0b741afc8aa049ac7f8ccc55dfb16bcaf979829b023515252725",
+      "actual_sha256": "d6755495318e0b741afc8aa049ac7f8ccc55dfb16bcaf979829b023515252725",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-5e0f8f936417.json",
+      "expected_sha256": "4f038c5594c939da1f37123bc154997affd6c8c4b05b53d5a11545350b75e81c",
+      "actual_sha256": "4f038c5594c939da1f37123bc154997affd6c8c4b05b53d5a11545350b75e81c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-61a10b8dd2d1.json",
+      "expected_sha256": "8a21d24bb20690630536b9ed8d5c54bfb5d7a879d16f899f77ff77b0fc63fe17",
+      "actual_sha256": "8a21d24bb20690630536b9ed8d5c54bfb5d7a879d16f899f77ff77b0fc63fe17",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-61cc0ef56be6.json",
+      "expected_sha256": "4d5c6ea992519c28cb404d4815cff8ef4709a8fa617bdd5d7adeedeafafe6cca",
+      "actual_sha256": "4d5c6ea992519c28cb404d4815cff8ef4709a8fa617bdd5d7adeedeafafe6cca",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-64277f69c427.json",
+      "expected_sha256": "a5ce38f1c909677f4ad523bae24298beb9a28f878004c47957d1cd5c843ae874",
+      "actual_sha256": "a5ce38f1c909677f4ad523bae24298beb9a28f878004c47957d1cd5c843ae874",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-649005b01853.json",
+      "expected_sha256": "dffaf724074c329fd7ffc5f73116bc49efb2c8a4a9b27d79183a0aa8ccd68d02",
+      "actual_sha256": "dffaf724074c329fd7ffc5f73116bc49efb2c8a4a9b27d79183a0aa8ccd68d02",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-65797a91f32f.json",
+      "expected_sha256": "d34645f63090bea00b6a5e8436f7ef972c2b50edf0b10ac164318ad03967836b",
+      "actual_sha256": "d34645f63090bea00b6a5e8436f7ef972c2b50edf0b10ac164318ad03967836b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-6639de7ca6b7.json",
+      "expected_sha256": "a8f5b796a017ff8c03f36707243de92cb935f2d7003e41f7a6d66d51b4fe564e",
+      "actual_sha256": "a8f5b796a017ff8c03f36707243de92cb935f2d7003e41f7a6d66d51b4fe564e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-66f3c8f94d6d.json",
+      "expected_sha256": "5476d18e4d80ba4c4d66b304e9e54a54cb17102123a08c05cad885791c6ba68c",
+      "actual_sha256": "5476d18e4d80ba4c4d66b304e9e54a54cb17102123a08c05cad885791c6ba68c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-670e35fae470.json",
+      "expected_sha256": "6d50f83b5aeeb85d5f6ac72a251eaf105f865a9dd281e5004377ddd46b4c9388",
+      "actual_sha256": "6d50f83b5aeeb85d5f6ac72a251eaf105f865a9dd281e5004377ddd46b4c9388",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-683411aa1b08.json",
+      "expected_sha256": "4266cb80070f83e794ba1cccb8a92446efd99840536dd2b70d9fc6255456dcc4",
+      "actual_sha256": "4266cb80070f83e794ba1cccb8a92446efd99840536dd2b70d9fc6255456dcc4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-72bb64037d76.json",
+      "expected_sha256": "46b446f42458fd469f8ab07245a61e0b627420e7802b69b51207088260d0c6d5",
+      "actual_sha256": "46b446f42458fd469f8ab07245a61e0b627420e7802b69b51207088260d0c6d5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-72d748a79336.json",
+      "expected_sha256": "63e639eba81c29ba980e4766a56e8d4bb8fd8f96e7d2772b96c9ad424f5e47f4",
+      "actual_sha256": "63e639eba81c29ba980e4766a56e8d4bb8fd8f96e7d2772b96c9ad424f5e47f4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-732eaca91d85.json",
+      "expected_sha256": "4ea5f9afbf9ac624e6ed1da58f32d1fd081ee3483635baa7af3aa60b9c33a709",
+      "actual_sha256": "4ea5f9afbf9ac624e6ed1da58f32d1fd081ee3483635baa7af3aa60b9c33a709",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-73fa481118f8.json",
+      "expected_sha256": "f013f8cab630cb11b86fb2e1f30d028ae446a0fe1c222005a78f68129916d0a3",
+      "actual_sha256": "f013f8cab630cb11b86fb2e1f30d028ae446a0fe1c222005a78f68129916d0a3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-7574978407b8.json",
+      "expected_sha256": "11ef1842d09cd0a4f811d8a6fa5fa84684a08188a4bd3cc713475287f2be6352",
+      "actual_sha256": "11ef1842d09cd0a4f811d8a6fa5fa84684a08188a4bd3cc713475287f2be6352",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-772d9aa82464.json",
+      "expected_sha256": "1cb9f1dfc47519b18daeb592e8c58a43dd7a80d5aa2c1d76d37be200c881f0d6",
+      "actual_sha256": "1cb9f1dfc47519b18daeb592e8c58a43dd7a80d5aa2c1d76d37be200c881f0d6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-773cbd2959ac.json",
+      "expected_sha256": "3ac86696b1032701a2e8f09cd32f9b320e514fb541e5af80685866b27c674101",
+      "actual_sha256": "3ac86696b1032701a2e8f09cd32f9b320e514fb541e5af80685866b27c674101",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-7f84d762596f.json",
+      "expected_sha256": "b65e08edf7526ce6cfd83904843451a5e60dea91e2a07341c55856e11f6db534",
+      "actual_sha256": "b65e08edf7526ce6cfd83904843451a5e60dea91e2a07341c55856e11f6db534",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-7f881d72a3b6.json",
+      "expected_sha256": "d5f44dc86e36ad110b726a3502ff2f5153e97e18edcc4d5b004353c4f06ab54c",
+      "actual_sha256": "d5f44dc86e36ad110b726a3502ff2f5153e97e18edcc4d5b004353c4f06ab54c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-823e5d1beb6b.json",
+      "expected_sha256": "8b30d264a9ae666bec5168f558e484005eaa0bc52ce14a5eae5a741483fe4465",
+      "actual_sha256": "8b30d264a9ae666bec5168f558e484005eaa0bc52ce14a5eae5a741483fe4465",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-83a36807a0ed.json",
+      "expected_sha256": "789f968d16f5d4fe6d23a7ad2838c0cddf26d5a67649512af0ebc0d65235473b",
+      "actual_sha256": "789f968d16f5d4fe6d23a7ad2838c0cddf26d5a67649512af0ebc0d65235473b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-85c385eddafe.json",
+      "expected_sha256": "82041ff4081b4d059b3fbaff83a9a136af54686372a7f8895b7820a8144766ee",
+      "actual_sha256": "82041ff4081b4d059b3fbaff83a9a136af54686372a7f8895b7820a8144766ee",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-8700bb69b02d.json",
+      "expected_sha256": "ba8be3adc86dd829564d63523e04276feca6b61157e54f64c80777adffc7fb69",
+      "actual_sha256": "ba8be3adc86dd829564d63523e04276feca6b61157e54f64c80777adffc7fb69",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-8704bb52504f.json",
+      "expected_sha256": "9be7f5f263b997aaf9adc390f00d5b8e74466435525dc241cd0f6c97b9c32b00",
+      "actual_sha256": "9be7f5f263b997aaf9adc390f00d5b8e74466435525dc241cd0f6c97b9c32b00",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-8bf4281fed33.json",
+      "expected_sha256": "784f68ab0f5224a9d6f4df13599775ca37af3ef8378b7651e17d683740ba1b4a",
+      "actual_sha256": "784f68ab0f5224a9d6f4df13599775ca37af3ef8378b7651e17d683740ba1b4a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-8f2808edae8a.json",
+      "expected_sha256": "4fcd2d66d81e77471c5086b8c5a409082006e2263bcfeddc200af63d52cf71a3",
+      "actual_sha256": "4fcd2d66d81e77471c5086b8c5a409082006e2263bcfeddc200af63d52cf71a3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-941f58aa0c48.json",
+      "expected_sha256": "811f77e7c9e6abf5dc805a9acdf4a6eeb51cecc4fa111995eeb34172eef2b6f0",
+      "actual_sha256": "811f77e7c9e6abf5dc805a9acdf4a6eeb51cecc4fa111995eeb34172eef2b6f0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-94d5aed48a6e.json",
+      "expected_sha256": "274e99f87a671add1c381681c1f3ddabd74955fb463e720316bbca5e3d7b839e",
+      "actual_sha256": "274e99f87a671add1c381681c1f3ddabd74955fb463e720316bbca5e3d7b839e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-95556f6888d2.json",
+      "expected_sha256": "bf8ac67195b1c172bc677fbfbd9dbce549724f485cb4b77f459f047eeefe97ab",
+      "actual_sha256": "bf8ac67195b1c172bc677fbfbd9dbce549724f485cb4b77f459f047eeefe97ab",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-955a065050b6.json",
+      "expected_sha256": "3d85cc2acf2254989d35d22bc541f213146cc450fb4fe60665354d6b02c523ce",
+      "actual_sha256": "3d85cc2acf2254989d35d22bc541f213146cc450fb4fe60665354d6b02c523ce",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-96dd6c16d908.json",
+      "expected_sha256": "3668eae4a1ea0657f59c3492db8a51a9f87ad2c1ed8ef9da0221eaff8973192b",
+      "actual_sha256": "3668eae4a1ea0657f59c3492db8a51a9f87ad2c1ed8ef9da0221eaff8973192b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-97df757fc018.json",
+      "expected_sha256": "f1eafda255587d5a1c68fc211ac405704f870e7a15a0d3230b5ae24cda47130b",
+      "actual_sha256": "f1eafda255587d5a1c68fc211ac405704f870e7a15a0d3230b5ae24cda47130b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-99071bd7de2c.json",
+      "expected_sha256": "bdb98818ce35e169050b45da271419ff213a5a23070d852f0506889d94eefa66",
+      "actual_sha256": "bdb98818ce35e169050b45da271419ff213a5a23070d852f0506889d94eefa66",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-9982d6e6882a.json",
+      "expected_sha256": "144a5138d40a504fca813843ef84967f14ab1caef7cbc283a46a47de1383bfc5",
+      "actual_sha256": "144a5138d40a504fca813843ef84967f14ab1caef7cbc283a46a47de1383bfc5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-9d95836625cc.json",
+      "expected_sha256": "e7d798946bea78fc8785450113f78dad9735adaa588773894ad1d9690c0b93b9",
+      "actual_sha256": "e7d798946bea78fc8785450113f78dad9735adaa588773894ad1d9690c0b93b9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-a08b3d783c44.json",
+      "expected_sha256": "9090f67d928dfa2e8cede9ff0ad870cf47b6100863a13704dd8ac886f40609ff",
+      "actual_sha256": "9090f67d928dfa2e8cede9ff0ad870cf47b6100863a13704dd8ac886f40609ff",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-a1d14344fba3.json",
+      "expected_sha256": "9e6200b1911b4d85a6fa670dca48610a9734c07b882922679f0faf535934e270",
+      "actual_sha256": "9e6200b1911b4d85a6fa670dca48610a9734c07b882922679f0faf535934e270",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-a8212b820a49.json",
+      "expected_sha256": "a7e2eb7b14aa26e9a538548886be5bb57eea0bc19cf22cdf8fbb80f0610d2ef0",
+      "actual_sha256": "a7e2eb7b14aa26e9a538548886be5bb57eea0bc19cf22cdf8fbb80f0610d2ef0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-a82deaa71d79.json",
+      "expected_sha256": "9921ef494d9709312d5baeba014515cd4533a36ba403aff6ce034ba0f002c7fb",
+      "actual_sha256": "9921ef494d9709312d5baeba014515cd4533a36ba403aff6ce034ba0f002c7fb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-a98c0d8acba2.json",
+      "expected_sha256": "1ab3d1240aedd838fa9487ba1d3e667bce07ab0dd55adf5ecdbf046d47af09d4",
+      "actual_sha256": "1ab3d1240aedd838fa9487ba1d3e667bce07ab0dd55adf5ecdbf046d47af09d4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ab74ad97c659.json",
+      "expected_sha256": "bda0601692791b5c07ec6200829df5532a7129b78608507dab1e5c3a20a9cae6",
+      "actual_sha256": "bda0601692791b5c07ec6200829df5532a7129b78608507dab1e5c3a20a9cae6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ac6593a6334d.json",
+      "expected_sha256": "ee688424ce4b2f8e1e7c985de818812ebc68dd787c3d1678ac3c9d64e7017222",
+      "actual_sha256": "ee688424ce4b2f8e1e7c985de818812ebc68dd787c3d1678ac3c9d64e7017222",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ac7c2eb25238.json",
+      "expected_sha256": "a77514a9d05aa28ce55f0287fcb1181b2ec6624b632687e58bfe5a3ede1611d9",
+      "actual_sha256": "a77514a9d05aa28ce55f0287fcb1181b2ec6624b632687e58bfe5a3ede1611d9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-acff9279ee9a.json",
+      "expected_sha256": "6bdcfe9493703e2fd0580d198036bf18e397cecdaa04221df6df51a553565181",
+      "actual_sha256": "6bdcfe9493703e2fd0580d198036bf18e397cecdaa04221df6df51a553565181",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-b4a3283ffd66.json",
+      "expected_sha256": "e099a4c9f6db978b96692e2af53342ff04daf6cd4a63dcfa432c1b07db114bdf",
+      "actual_sha256": "e099a4c9f6db978b96692e2af53342ff04daf6cd4a63dcfa432c1b07db114bdf",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-b7981041b9d1.json",
+      "expected_sha256": "b99d7d8f7ff31c8d77997e27d62190f26e0080bbb25e767eeea0dbda6d4f6673",
+      "actual_sha256": "b99d7d8f7ff31c8d77997e27d62190f26e0080bbb25e767eeea0dbda6d4f6673",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-b7a5a0a35b78.json",
+      "expected_sha256": "1e9f92df0ca056bd9adaace3306ccb6ab35926e034ea2a55149ae86e40665fb9",
+      "actual_sha256": "1e9f92df0ca056bd9adaace3306ccb6ab35926e034ea2a55149ae86e40665fb9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-b89f115a0e3a.json",
+      "expected_sha256": "347b0608e0439e2b2b76884b9b4e78fab6cdca170e79494889f14429a500145e",
+      "actual_sha256": "347b0608e0439e2b2b76884b9b4e78fab6cdca170e79494889f14429a500145e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ba416d111181.json",
+      "expected_sha256": "05116436a9adaa5bf85a31f679ed44c56444608ab91fcf5870e6d933527563da",
+      "actual_sha256": "05116436a9adaa5bf85a31f679ed44c56444608ab91fcf5870e6d933527563da",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ba94ca50899c.json",
+      "expected_sha256": "00b669667e0acb2496746e70df5db2a094b2e133354e6b7f9989312975b77d4d",
+      "actual_sha256": "00b669667e0acb2496746e70df5db2a094b2e133354e6b7f9989312975b77d4d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-bcace30ac06c.json",
+      "expected_sha256": "fa6f3da143e27747d298d043d53ed8c9e00270e9115fba0b0d0250ca8ebe2e38",
+      "actual_sha256": "fa6f3da143e27747d298d043d53ed8c9e00270e9115fba0b0d0250ca8ebe2e38",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-bcaed8dc7640.json",
+      "expected_sha256": "32ac0ed4e8c1f7e50895dfde0afd5686389b4507e680ed47e30bff2cc62d37a1",
+      "actual_sha256": "32ac0ed4e8c1f7e50895dfde0afd5686389b4507e680ed47e30bff2cc62d37a1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-bd8a19bf9e23.json",
+      "expected_sha256": "d84e8742d44bf2ff2700dc218c69854bdf7badc4c3c7b271c277e47cbcb10878",
+      "actual_sha256": "d84e8742d44bf2ff2700dc218c69854bdf7badc4c3c7b271c277e47cbcb10878",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-c0bb0fae708e.json",
+      "expected_sha256": "006be492c2807f458763d6e3dc1b863c9770e378c7f4acfe74eb2a328a9f4955",
+      "actual_sha256": "006be492c2807f458763d6e3dc1b863c9770e378c7f4acfe74eb2a328a9f4955",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-c19f122e2f75.json",
+      "expected_sha256": "e9833663d6fa3c3e3e60a8cc922a912bca36d64bfd99cbbe0a8390c60554b334",
+      "actual_sha256": "e9833663d6fa3c3e3e60a8cc922a912bca36d64bfd99cbbe0a8390c60554b334",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-c233f6b4dbb4.json",
+      "expected_sha256": "c2a7e648dcf71d27e7496c413aab878a584c769063e7c6bc1dd06b6e53e78614",
+      "actual_sha256": "c2a7e648dcf71d27e7496c413aab878a584c769063e7c6bc1dd06b6e53e78614",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-c3a58971ae37.json",
+      "expected_sha256": "cc5fa3d926211ba6f0b3e9c382f5b0e22d213ddb9c12e367e0f4fb0e4878c4d1",
+      "actual_sha256": "cc5fa3d926211ba6f0b3e9c382f5b0e22d213ddb9c12e367e0f4fb0e4878c4d1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-c573dadd61d3.json",
+      "expected_sha256": "b28adb0f321e06107e6aebbf138ce715af8a171857dfab5a8c1798e36d8c3ef0",
+      "actual_sha256": "b28adb0f321e06107e6aebbf138ce715af8a171857dfab5a8c1798e36d8c3ef0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-c6b8bfaabfa7.json",
+      "expected_sha256": "0f5dd8cd9670e26895fdeffed2e2e21e5a4b215ed6028dbe1b54837b78f54899",
+      "actual_sha256": "0f5dd8cd9670e26895fdeffed2e2e21e5a4b215ed6028dbe1b54837b78f54899",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-c7d269560d42.json",
+      "expected_sha256": "4892ed8765d04f9fc2b714da45b6bb97944bc7a324fdb6983e8208612063ae32",
+      "actual_sha256": "4892ed8765d04f9fc2b714da45b6bb97944bc7a324fdb6983e8208612063ae32",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ca9b96a924a4.json",
+      "expected_sha256": "d3fa57279311e072ec70d662f6ceb756ceb205566d224e4797a6ac92e2ada723",
+      "actual_sha256": "d3fa57279311e072ec70d662f6ceb756ceb205566d224e4797a6ac92e2ada723",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-cb003f3d4a87.json",
+      "expected_sha256": "3d8ffb3703f31ab204a7377d01bdfc60d8b8454a8f83043a38fc342a4a16f6f2",
+      "actual_sha256": "3d8ffb3703f31ab204a7377d01bdfc60d8b8454a8f83043a38fc342a4a16f6f2",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-cb1aef6f2a95.json",
+      "expected_sha256": "57d98dd7125e332dc1c3bab99b35fa55290111e6c0f1b207e243f203d8712566",
+      "actual_sha256": "57d98dd7125e332dc1c3bab99b35fa55290111e6c0f1b207e243f203d8712566",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ce0f63b902d9.json",
+      "expected_sha256": "88158dd99ba49df9adf4b8c3a5a325d1274279de229dfc73acd0f8e698febcad",
+      "actual_sha256": "88158dd99ba49df9adf4b8c3a5a325d1274279de229dfc73acd0f8e698febcad",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ce15d8148417.json",
+      "expected_sha256": "ce5503380717f76b1eef397794cd58dffc45ef316d748925170e29a1e34fefa3",
+      "actual_sha256": "ce5503380717f76b1eef397794cd58dffc45ef316d748925170e29a1e34fefa3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ce73a9727f7a.json",
+      "expected_sha256": "bbd8bc8c702a6880169a416371d80c776482ead3447221dfc8204cb28ea3a160",
+      "actual_sha256": "bbd8bc8c702a6880169a416371d80c776482ead3447221dfc8204cb28ea3a160",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-cf1364eaaa29.json",
+      "expected_sha256": "5d9be874b9fa880a5a2ea9f5b1303c7b67b2d85332038204f52a8679dd870cd7",
+      "actual_sha256": "5d9be874b9fa880a5a2ea9f5b1303c7b67b2d85332038204f52a8679dd870cd7",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-d520207ffa4b.json",
+      "expected_sha256": "f4ef670de4083a332341f83c10637c3be9defb4dde73ce0e7830775998ef5223",
+      "actual_sha256": "f4ef670de4083a332341f83c10637c3be9defb4dde73ce0e7830775998ef5223",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-d5bd29548268.json",
+      "expected_sha256": "eec06eb3fc04ae4eafecf084d11c0143cb2e732ec5f4a1688ae2a0ebd9622337",
+      "actual_sha256": "eec06eb3fc04ae4eafecf084d11c0143cb2e732ec5f4a1688ae2a0ebd9622337",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-d8b7301e99da.json",
+      "expected_sha256": "cf4d3156ee45299a83c8670458edc2064cd7a0384571459809b0f84192c80e6e",
+      "actual_sha256": "cf4d3156ee45299a83c8670458edc2064cd7a0384571459809b0f84192c80e6e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-d9ec537b185f.json",
+      "expected_sha256": "58dff2aad11d71481354523f3bec69e9bbb40a404ee6e809031b9c688b360478",
+      "actual_sha256": "58dff2aad11d71481354523f3bec69e9bbb40a404ee6e809031b9c688b360478",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-dace3615f9c4.json",
+      "expected_sha256": "d65b3db0c1a9392b720544b56e2b178cb7409421fca5194860f136ecbbff68c6",
+      "actual_sha256": "d65b3db0c1a9392b720544b56e2b178cb7409421fca5194860f136ecbbff68c6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-dd5c8af02cf0.json",
+      "expected_sha256": "0a667903b21d81f9f82897f95584fc078b2e302423921a29200c2f58cae46dee",
+      "actual_sha256": "0a667903b21d81f9f82897f95584fc078b2e302423921a29200c2f58cae46dee",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e06764886b6d.json",
+      "expected_sha256": "f56c5c52d8ab4988e592a58b33708c3d29f09de06d404bfde8637df7bbdbe008",
+      "actual_sha256": "f56c5c52d8ab4988e592a58b33708c3d29f09de06d404bfde8637df7bbdbe008",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e09cc59702d0.json",
+      "expected_sha256": "4915a536a5ff8b6b68bc591156248d1440852b5f0c0087cae6389d8c614a9d34",
+      "actual_sha256": "4915a536a5ff8b6b68bc591156248d1440852b5f0c0087cae6389d8c614a9d34",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e0a2fd3f8097.json",
+      "expected_sha256": "a9bb9c3f1d5790a737434006f0943ed6545bdd24411bd49e8f53a5d654364e38",
+      "actual_sha256": "a9bb9c3f1d5790a737434006f0943ed6545bdd24411bd49e8f53a5d654364e38",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e1b8a83d8993.json",
+      "expected_sha256": "443b5e95cfdfc19dc1d5c27d33fd05045f4e4c97b349b1b4337deb8f703009de",
+      "actual_sha256": "443b5e95cfdfc19dc1d5c27d33fd05045f4e4c97b349b1b4337deb8f703009de",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e2cd684731c5.json",
+      "expected_sha256": "1b2d3390d85fe0b02ee23232e4fc2c8f275bbf99fd98bed1bded4dc664f58d8a",
+      "actual_sha256": "1b2d3390d85fe0b02ee23232e4fc2c8f275bbf99fd98bed1bded4dc664f58d8a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e3cc57aec091.json",
+      "expected_sha256": "683e2710f643fbe6199209ef54e6903a85a2384f2c880f0406a6d3b42ed25fcf",
+      "actual_sha256": "683e2710f643fbe6199209ef54e6903a85a2384f2c880f0406a6d3b42ed25fcf",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e5658ba499fb.json",
+      "expected_sha256": "099d8b2c4078e699a0654c867a50071757f4fb536e9cea60707e2e3e336af580",
+      "actual_sha256": "099d8b2c4078e699a0654c867a50071757f4fb536e9cea60707e2e3e336af580",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e7dc8dbf0854.json",
+      "expected_sha256": "2668d1cb98980d3b5ef0db57e961708f15cf692e4eb82cb7bc057f4e8dda2559",
+      "actual_sha256": "2668d1cb98980d3b5ef0db57e961708f15cf692e4eb82cb7bc057f4e8dda2559",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-e99a0043777e.json",
+      "expected_sha256": "ab27a85ec5752eea2627432c01f7c36046510c7ef013b3b830df5c6af10880f4",
+      "actual_sha256": "ab27a85ec5752eea2627432c01f7c36046510c7ef013b3b830df5c6af10880f4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ecc29109ecc1.json",
+      "expected_sha256": "8f2aff6b7a6221f76e42987d39364d741eeb0a7ed3d834eec6d53b718fe99be3",
+      "actual_sha256": "8f2aff6b7a6221f76e42987d39364d741eeb0a7ed3d834eec6d53b718fe99be3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ed08bb80e846.json",
+      "expected_sha256": "f739a8f4f1c5cc4e4e207719dfd7efae2791d4826d533c19364aa10453b3c92c",
+      "actual_sha256": "f739a8f4f1c5cc4e4e207719dfd7efae2791d4826d533c19364aa10453b3c92c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ed366d8b7d63.json",
+      "expected_sha256": "d46ff9364c4bb8cc4c75a10ebc249d1359917dd0e8dc8f4619fe4a1101722807",
+      "actual_sha256": "d46ff9364c4bb8cc4c75a10ebc249d1359917dd0e8dc8f4619fe4a1101722807",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-efaf307130fe.json",
+      "expected_sha256": "ea635878ac1f02b31d213f2fea89df5493b6e03580967093048a067523c28c70",
+      "actual_sha256": "ea635878ac1f02b31d213f2fea89df5493b6e03580967093048a067523c28c70",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-f1549d439c69.json",
+      "expected_sha256": "713cbcff0f6e123e9888505df6e3bcdaa1546673db686e8d513597239f4c6ca3",
+      "actual_sha256": "713cbcff0f6e123e9888505df6e3bcdaa1546673db686e8d513597239f4c6ca3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-f235d401bd75.json",
+      "expected_sha256": "d7415c9e44dc449790ed3153fbf9bd82f9f81bdc146a800fdbf72d4d26a1a4cc",
+      "actual_sha256": "d7415c9e44dc449790ed3153fbf9bd82f9f81bdc146a800fdbf72d4d26a1a4cc",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-f3e6a8a79cba.json",
+      "expected_sha256": "f161b56232ab0de738f6ac59011ca90658af95435e0d0053142d9448c5bf2707",
+      "actual_sha256": "f161b56232ab0de738f6ac59011ca90658af95435e0d0053142d9448c5bf2707",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-f3fdb5827521.json",
+      "expected_sha256": "0b709852bc2eb411e44c232156768889a0386c4050179982c704de2d4d97654a",
+      "actual_sha256": "0b709852bc2eb411e44c232156768889a0386c4050179982c704de2d4d97654a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-f5be5cc03fe6.json",
+      "expected_sha256": "89793ad524619da266602c7a7299009af30bfbeff15c759a981225915a61418f",
+      "actual_sha256": "89793ad524619da266602c7a7299009af30bfbeff15c759a981225915a61418f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-f6535a9a4ee6.json",
+      "expected_sha256": "ea2047f9537343534ae74c136f383d39be639a6ee408b1aae4506f4355326eed",
+      "actual_sha256": "ea2047f9537343534ae74c136f383d39be639a6ee408b1aae4506f4355326eed",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-fc96b231815f.json",
+      "expected_sha256": "f0d802c5441748a404fb21cb8cd7a25b69389a23c214fcd4744aa3bead4e1370",
+      "actual_sha256": "f0d802c5441748a404fb21cb8cd7a25b69389a23c214fcd4744aa3bead4e1370",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/fengyuan/pp-ff30b20cbf4c.json",
+      "expected_sha256": "5be429146c69fa73b243ac8f2226502ad3d30dee8416070bc99143226c55ecc8",
+      "actual_sha256": "5be429146c69fa73b243ac8f2226502ad3d30dee8416070bc99143226c55ecc8",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-02137c90ec72.json",
+      "expected_sha256": "e447786d3f18451cd6afd8bd64063db1ce991a9db7c236f2299706c1ff7c283d",
+      "actual_sha256": "e447786d3f18451cd6afd8bd64063db1ce991a9db7c236f2299706c1ff7c283d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-06b4c1283969.json",
+      "expected_sha256": "808d241efcda1f48f0cd322cd4d625e004edb09e72fc4b8786232da54f49e2ad",
+      "actual_sha256": "808d241efcda1f48f0cd322cd4d625e004edb09e72fc4b8786232da54f49e2ad",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-06b61a18ede1.json",
+      "expected_sha256": "4c1a9e702cd071ae022625b7bb062bf5ffe87ec71c1c11b4fdcaae3872b6f958",
+      "actual_sha256": "4c1a9e702cd071ae022625b7bb062bf5ffe87ec71c1c11b4fdcaae3872b6f958",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-07b752045ae0.json",
+      "expected_sha256": "df3e9c3fbaf8d21526a9ecf25c641edc53e8c95f4b0cb049a985c5a018d17b4b",
+      "actual_sha256": "df3e9c3fbaf8d21526a9ecf25c641edc53e8c95f4b0cb049a985c5a018d17b4b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-0a6902fcdd9a.json",
+      "expected_sha256": "fc17a1ced9a3f5ffbd25d65ad99a1ca0b5bdbf4f975f83ee72a3990a518f05b6",
+      "actual_sha256": "fc17a1ced9a3f5ffbd25d65ad99a1ca0b5bdbf4f975f83ee72a3990a518f05b6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-0a9daf5bbb93.json",
+      "expected_sha256": "bb23e00d60c574e48fd8f0d5f787503a6629f478c10cd94eae62cd68d4049ad7",
+      "actual_sha256": "bb23e00d60c574e48fd8f0d5f787503a6629f478c10cd94eae62cd68d4049ad7",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-0c45ff4e382a.json",
+      "expected_sha256": "4f771457462bc89f934c16071ab80a0f75b4d50f6403537a3d54ad8893bb00ee",
+      "actual_sha256": "4f771457462bc89f934c16071ab80a0f75b4d50f6403537a3d54ad8893bb00ee",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-0c8760221984.json",
+      "expected_sha256": "2d556e3fb1e7e0c651b99ad17f95338def00ce80610a2ea2fc77fd68b3a18a6a",
+      "actual_sha256": "2d556e3fb1e7e0c651b99ad17f95338def00ce80610a2ea2fc77fd68b3a18a6a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-0d06899176e9.json",
+      "expected_sha256": "55f9aaf35285d02a0ce48edbb0f8a130f9cf7c2b3148f7dfea808c6734ca47cd",
+      "actual_sha256": "55f9aaf35285d02a0ce48edbb0f8a130f9cf7c2b3148f7dfea808c6734ca47cd",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-0e725c992238.json",
+      "expected_sha256": "83f0ece7f14534c2bfc788a4f3883b6b66b1b538590ed5c729b6cb8c18e980f5",
+      "actual_sha256": "83f0ece7f14534c2bfc788a4f3883b6b66b1b538590ed5c729b6cb8c18e980f5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-0f029e8f79d0.json",
+      "expected_sha256": "b2f63b6b085ea64f9f61f2cd4ffb9dcb884326142f7890254419f9a59568441c",
+      "actual_sha256": "b2f63b6b085ea64f9f61f2cd4ffb9dcb884326142f7890254419f9a59568441c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-106a563dce25.json",
+      "expected_sha256": "05314ebef15fbcb30c546aafc4a7043b60d062b10c56afbd5e438e76400f0e5b",
+      "actual_sha256": "05314ebef15fbcb30c546aafc4a7043b60d062b10c56afbd5e438e76400f0e5b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-12677fa6e0dd.json",
+      "expected_sha256": "f3005e553826a535f9c3627c1e95039c1416de384a1d6476e9cecf80dc1c9aae",
+      "actual_sha256": "f3005e553826a535f9c3627c1e95039c1416de384a1d6476e9cecf80dc1c9aae",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-12b25e59c185.json",
+      "expected_sha256": "cc88ccdc83f9ef42e161c6200c57acffb91d679e170da9e805a5867da6c995e0",
+      "actual_sha256": "cc88ccdc83f9ef42e161c6200c57acffb91d679e170da9e805a5867da6c995e0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-133175120370.json",
+      "expected_sha256": "211ce9063806fe0ff421790c57a2163bf53cf99386679298be7708cb7dd6997c",
+      "actual_sha256": "211ce9063806fe0ff421790c57a2163bf53cf99386679298be7708cb7dd6997c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-13a307b7d250.json",
+      "expected_sha256": "b774153eaa5fd85fe97987756997ce512ae10d6d9672d28368a9c4d8e4bbf22f",
+      "actual_sha256": "b774153eaa5fd85fe97987756997ce512ae10d6d9672d28368a9c4d8e4bbf22f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-14b54f1512b5.json",
+      "expected_sha256": "93096018d02cbb673182e5eaa4bcb4c27976cf3788a7a165b3d2ed2a13a5536a",
+      "actual_sha256": "93096018d02cbb673182e5eaa4bcb4c27976cf3788a7a165b3d2ed2a13a5536a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-151ed0dacff5.json",
+      "expected_sha256": "58272c00343fab73a3462f2f98971a1dccd09f70eed525b16c06969509b8feb2",
+      "actual_sha256": "58272c00343fab73a3462f2f98971a1dccd09f70eed525b16c06969509b8feb2",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-16fe2e252e44.json",
+      "expected_sha256": "ac9a63aff7bb44a400d4beb27e645e1590eacbc465bf8bb104b097f114a2774c",
+      "actual_sha256": "ac9a63aff7bb44a400d4beb27e645e1590eacbc465bf8bb104b097f114a2774c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-176be9bae7e2.json",
+      "expected_sha256": "1547c5f445563a3fc2a437f5ab48b3ebd1db9a9fba362521d7657470e9b651bf",
+      "actual_sha256": "1547c5f445563a3fc2a437f5ab48b3ebd1db9a9fba362521d7657470e9b651bf",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-189a47692cc5.json",
+      "expected_sha256": "563231c4f64e96cd07d0822fce070e58ef64a261f51580f489cbd2398096f377",
+      "actual_sha256": "563231c4f64e96cd07d0822fce070e58ef64a261f51580f489cbd2398096f377",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-1940ab940917.json",
+      "expected_sha256": "b80b26b49b4c22d8ed7d60499e384e55449ab085bb3e5028d161bb2732f89a5a",
+      "actual_sha256": "b80b26b49b4c22d8ed7d60499e384e55449ab085bb3e5028d161bb2732f89a5a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-19a6e53b12ed.json",
+      "expected_sha256": "e6c002395884879a3fe84a3de0847a4177b1d61a35473a3911e2858748015603",
+      "actual_sha256": "e6c002395884879a3fe84a3de0847a4177b1d61a35473a3911e2858748015603",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-19b3f87b0f2d.json",
+      "expected_sha256": "5e39cdf9a0bfc20abfeda899207e1f83900f2aabc3bf1afc1c4814dd9e58f7c6",
+      "actual_sha256": "5e39cdf9a0bfc20abfeda899207e1f83900f2aabc3bf1afc1c4814dd9e58f7c6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-19cc93c28e11.json",
+      "expected_sha256": "4aa21d810f768e60c19708d86bd63e3cc07f802d74843bef732bff61b189d7f6",
+      "actual_sha256": "4aa21d810f768e60c19708d86bd63e3cc07f802d74843bef732bff61b189d7f6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-1b4940fcf8be.json",
+      "expected_sha256": "98853b3a2e9e4cc10e63710b6d5dc5b7dfa01dc92a3604dda85b43159b34049b",
+      "actual_sha256": "98853b3a2e9e4cc10e63710b6d5dc5b7dfa01dc92a3604dda85b43159b34049b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-1b8eaeb4ff02.json",
+      "expected_sha256": "23c7f524d0f0fddf49e28cf0cfc83300b9798a4356ece45757dab004298f6a4f",
+      "actual_sha256": "23c7f524d0f0fddf49e28cf0cfc83300b9798a4356ece45757dab004298f6a4f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-1c96db4f2cb6.json",
+      "expected_sha256": "b65ddd5aa535eee1bac46dcffe6486c230c920e45f89350b59fe0f6a95449592",
+      "actual_sha256": "b65ddd5aa535eee1bac46dcffe6486c230c920e45f89350b59fe0f6a95449592",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-21dff8c5f68f.json",
+      "expected_sha256": "22dc4a7cc1fb05958ea5a0f09986a9cf9ef7103eb403720e023c9e398cf894dc",
+      "actual_sha256": "22dc4a7cc1fb05958ea5a0f09986a9cf9ef7103eb403720e023c9e398cf894dc",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-2229cebff136.json",
+      "expected_sha256": "c1d05213784e6b45aa309dfcc3f0691437e7f69b83f3ee349edc282b6fa077f5",
+      "actual_sha256": "c1d05213784e6b45aa309dfcc3f0691437e7f69b83f3ee349edc282b6fa077f5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-233aa3b2123a.json",
+      "expected_sha256": "27eb197e128f9c1447904eefab98a1522d04e8f78073d2853aee45fad58b5bec",
+      "actual_sha256": "27eb197e128f9c1447904eefab98a1522d04e8f78073d2853aee45fad58b5bec",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-245031807698.json",
+      "expected_sha256": "09d78ea9714ff42e3737457aec01a3c56921847207b660328e703c99f0910a5b",
+      "actual_sha256": "09d78ea9714ff42e3737457aec01a3c56921847207b660328e703c99f0910a5b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-24b3caee0501.json",
+      "expected_sha256": "54f1326cb54cd0b616ea6653e3c3be409af62a2d7a1a841d1547bffad79ceb22",
+      "actual_sha256": "54f1326cb54cd0b616ea6653e3c3be409af62a2d7a1a841d1547bffad79ceb22",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-24c6b9c2c13c.json",
+      "expected_sha256": "d7407867cb1d29942723a226e5ac64e366e14ef6e060533aca69b8cf59b67e67",
+      "actual_sha256": "d7407867cb1d29942723a226e5ac64e366e14ef6e060533aca69b8cf59b67e67",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-28a5e06b331a.json",
+      "expected_sha256": "8851c02f8c1a17daa4bfe55c7cb74647ea675f8ef1620c30664f033e1c505856",
+      "actual_sha256": "8851c02f8c1a17daa4bfe55c7cb74647ea675f8ef1620c30664f033e1c505856",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-28d303983b9e.json",
+      "expected_sha256": "5d1b4d656ecdd0c3aeb721047c5215beccf3004e21379ec2133f7398ed6d2c59",
+      "actual_sha256": "5d1b4d656ecdd0c3aeb721047c5215beccf3004e21379ec2133f7398ed6d2c59",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-29bbc4c1f691.json",
+      "expected_sha256": "3e00391aeea6909e1090aa0b6b23a45440568b22bde9f9cef01999a3f4ff0ec4",
+      "actual_sha256": "3e00391aeea6909e1090aa0b6b23a45440568b22bde9f9cef01999a3f4ff0ec4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-2befbf2fc6f4.json",
+      "expected_sha256": "04f05d45958e4930c2c47a390132f8c9822a4c6fa0965986ca9c714e76903066",
+      "actual_sha256": "04f05d45958e4930c2c47a390132f8c9822a4c6fa0965986ca9c714e76903066",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-2d9090034b44.json",
+      "expected_sha256": "f637609fbfa315411ddfeeabee767fd4345af62531fb228de3448fab7323adbb",
+      "actual_sha256": "f637609fbfa315411ddfeeabee767fd4345af62531fb228de3448fab7323adbb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-2e36891dd011.json",
+      "expected_sha256": "e166b1f080ad1094d820ca538a15de913c213fca3c1301ba71b32cd539b5f119",
+      "actual_sha256": "e166b1f080ad1094d820ca538a15de913c213fca3c1301ba71b32cd539b5f119",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-337fdca4238b.json",
+      "expected_sha256": "d6223206d94fb5fd2d0756e7399ecf02da5269d19404a7d873b81d7d78480b1c",
+      "actual_sha256": "d6223206d94fb5fd2d0756e7399ecf02da5269d19404a7d873b81d7d78480b1c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-33cf2a81ba25.json",
+      "expected_sha256": "f4c9732bbbabac38b482eba80aba1b5bd1e4685471608b52bbeba918b843d3d5",
+      "actual_sha256": "f4c9732bbbabac38b482eba80aba1b5bd1e4685471608b52bbeba918b843d3d5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-361909f3632d.json",
+      "expected_sha256": "fcda7d2199f3845145e3f24bf8ef4d433da72b6cda825fd167c07c94116fdc69",
+      "actual_sha256": "fcda7d2199f3845145e3f24bf8ef4d433da72b6cda825fd167c07c94116fdc69",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-3626f4fe9181.json",
+      "expected_sha256": "430da479f5f737b2c1f0ebec379ddad20ab5dee1262a1471867da140cc929934",
+      "actual_sha256": "430da479f5f737b2c1f0ebec379ddad20ab5dee1262a1471867da140cc929934",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-369be03afd2d.json",
+      "expected_sha256": "d9728c0c309075f108ee16626a0ffa23d5e62685be2682736a82e81ecff7a3a5",
+      "actual_sha256": "d9728c0c309075f108ee16626a0ffa23d5e62685be2682736a82e81ecff7a3a5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-36ad38ef38a7.json",
+      "expected_sha256": "9ce3ecff8795412d667bee0e20fa52b26e7f8ac8132c85deaaa54728c900db00",
+      "actual_sha256": "9ce3ecff8795412d667bee0e20fa52b26e7f8ac8132c85deaaa54728c900db00",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-372066966a59.json",
+      "expected_sha256": "6ca81873407d313daf92f413402d30551a1218538ff594086bb81740c2d4dd1c",
+      "actual_sha256": "6ca81873407d313daf92f413402d30551a1218538ff594086bb81740c2d4dd1c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-380eac3b8d44.json",
+      "expected_sha256": "c131726d2b757154d913edcd430d0dadc5c20865da19ea3195be8c63f0645f9d",
+      "actual_sha256": "c131726d2b757154d913edcd430d0dadc5c20865da19ea3195be8c63f0645f9d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-38410390ae32.json",
+      "expected_sha256": "fac0ef442f91bf9530220c575f9e4e7398a0ec5486576db8056417fbc95b8f87",
+      "actual_sha256": "fac0ef442f91bf9530220c575f9e4e7398a0ec5486576db8056417fbc95b8f87",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-38427a0a3f59.json",
+      "expected_sha256": "0a233ef262add0af9a7b28c4649555acefea1320e26b67a16369aedbd6ff1289",
+      "actual_sha256": "0a233ef262add0af9a7b28c4649555acefea1320e26b67a16369aedbd6ff1289",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-3c4a6a460cd1.json",
+      "expected_sha256": "cf523f32722f68dbeb96ec0fda02ac982aac9cd87c0594b87a816c6847a5ab5e",
+      "actual_sha256": "cf523f32722f68dbeb96ec0fda02ac982aac9cd87c0594b87a816c6847a5ab5e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-3cbd08abb237.json",
+      "expected_sha256": "9e2cb95ddf891172eb0d380774c418d411b64dc4ce9c3aef16e8e08a4c56a2be",
+      "actual_sha256": "9e2cb95ddf891172eb0d380774c418d411b64dc4ce9c3aef16e8e08a4c56a2be",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-3eb1e8fef5ba.json",
+      "expected_sha256": "7f6c2da31e2cf77435b828a6e6a8167a165b81e91c03bf0624ab795af5d32644",
+      "actual_sha256": "7f6c2da31e2cf77435b828a6e6a8167a165b81e91c03bf0624ab795af5d32644",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-3fe69fbf4b1a.json",
+      "expected_sha256": "c30de55283ee96d75882292b91e3aaeead6364f48fd9fb9614e2c594f8827452",
+      "actual_sha256": "c30de55283ee96d75882292b91e3aaeead6364f48fd9fb9614e2c594f8827452",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-431ca58b9fbc.json",
+      "expected_sha256": "20635d981ab36b365c509fb19208efaac75c968e1c6d2515b2d372636882c480",
+      "actual_sha256": "20635d981ab36b365c509fb19208efaac75c968e1c6d2515b2d372636882c480",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-440977d4ea38.json",
+      "expected_sha256": "7c8de748d8e1792c852d80e4a033caa8c88bddebc5bf66b14ddcfbd43dd6e971",
+      "actual_sha256": "7c8de748d8e1792c852d80e4a033caa8c88bddebc5bf66b14ddcfbd43dd6e971",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-45a43ddf05da.json",
+      "expected_sha256": "859f638e1797649ce77186911becf417ebf98093f3d948604877310a198e3bb6",
+      "actual_sha256": "859f638e1797649ce77186911becf417ebf98093f3d948604877310a198e3bb6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-45afd52a9aac.json",
+      "expected_sha256": "a5f41e2b6006f06557944718005f96a54046c6e4bd2f86a66b34b7156cb194ea",
+      "actual_sha256": "a5f41e2b6006f06557944718005f96a54046c6e4bd2f86a66b34b7156cb194ea",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-479c92d503c1.json",
+      "expected_sha256": "4713f68526e6b257fe94c0b4a47caf9a3b2756064e05c34f6366ebd2158846c3",
+      "actual_sha256": "4713f68526e6b257fe94c0b4a47caf9a3b2756064e05c34f6366ebd2158846c3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-484bf87f4f2d.json",
+      "expected_sha256": "fa8d5f2567c0a50cba38e2295309d2be1290afcf63ef914704134895205e13a1",
+      "actual_sha256": "fa8d5f2567c0a50cba38e2295309d2be1290afcf63ef914704134895205e13a1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-48c735ed66f1.json",
+      "expected_sha256": "bf12251b41a97f83d56751f24f2379169baad64afa3548eb924da3e91e5ffd58",
+      "actual_sha256": "bf12251b41a97f83d56751f24f2379169baad64afa3548eb924da3e91e5ffd58",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-4b60f22c7815.json",
+      "expected_sha256": "bc3ec6200ce5159bd45ee85e2b9f6c19981ab3ce07679a4229919d5cecb30d4f",
+      "actual_sha256": "bc3ec6200ce5159bd45ee85e2b9f6c19981ab3ce07679a4229919d5cecb30d4f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-4db8f2f29ea1.json",
+      "expected_sha256": "d32b7b9a32531a968f3bcb48a96ea496db945f2c86b824b737352fff77c2f7cf",
+      "actual_sha256": "d32b7b9a32531a968f3bcb48a96ea496db945f2c86b824b737352fff77c2f7cf",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-4f169ebc7e6a.json",
+      "expected_sha256": "541013de8215f3dc288db3fbc26879f5ef59a0420f5ddf9201325d56090aeaa7",
+      "actual_sha256": "541013de8215f3dc288db3fbc26879f5ef59a0420f5ddf9201325d56090aeaa7",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-50a9eac57c6f.json",
+      "expected_sha256": "619b02cf14f0b160753bd030d6a12d59ce1628c4caaa228360858255fc7eb8e4",
+      "actual_sha256": "619b02cf14f0b160753bd030d6a12d59ce1628c4caaa228360858255fc7eb8e4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-511dd804bb56.json",
+      "expected_sha256": "4921cecaa26fdcbf38b7cf17dad139d6fa73c0bba617a7b8c47dc548a5f349da",
+      "actual_sha256": "4921cecaa26fdcbf38b7cf17dad139d6fa73c0bba617a7b8c47dc548a5f349da",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-5382d3010889.json",
+      "expected_sha256": "1656ede263a708a44d94b0c804f0ebc39dfe43f785b2abc0264d80f87fac38d3",
+      "actual_sha256": "1656ede263a708a44d94b0c804f0ebc39dfe43f785b2abc0264d80f87fac38d3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-540190f3a627.json",
+      "expected_sha256": "a1262c27c4ad56ae0238799bd53455cb4ae2f9fbb10041bad4c4617728327284",
+      "actual_sha256": "a1262c27c4ad56ae0238799bd53455cb4ae2f9fbb10041bad4c4617728327284",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-556017f83c58.json",
+      "expected_sha256": "b9e9afe9e56f90d6586e6313808626841ae57a30622992ff247e81cac33a8195",
+      "actual_sha256": "b9e9afe9e56f90d6586e6313808626841ae57a30622992ff247e81cac33a8195",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-567b51564d86.json",
+      "expected_sha256": "54852a83491331191fdb16f71a35338333509001b3e957c5011b5f79568f69d4",
+      "actual_sha256": "54852a83491331191fdb16f71a35338333509001b3e957c5011b5f79568f69d4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-56c9bb54209c.json",
+      "expected_sha256": "d36e55e82fe3c662f564fe28f8ce1cda57895c500828ce44ab33f7956e88e8e9",
+      "actual_sha256": "d36e55e82fe3c662f564fe28f8ce1cda57895c500828ce44ab33f7956e88e8e9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-575a700c79b1.json",
+      "expected_sha256": "161bc2bff77fb3ed344e512c56829bcd1017c4e30471f0cf9be0103d9fc1625b",
+      "actual_sha256": "161bc2bff77fb3ed344e512c56829bcd1017c4e30471f0cf9be0103d9fc1625b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-57d1c6e571b7.json",
+      "expected_sha256": "60dd02cd1605a2c0fc3f98ddf5b80f8f3d9f6e74b7e845b93b9f943e3e5b0873",
+      "actual_sha256": "60dd02cd1605a2c0fc3f98ddf5b80f8f3d9f6e74b7e845b93b9f943e3e5b0873",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-57f19ccb5d2b.json",
+      "expected_sha256": "4356a3028adc08a4784795e890c98b033ab7d44666198c8719ed7c5ee918974a",
+      "actual_sha256": "4356a3028adc08a4784795e890c98b033ab7d44666198c8719ed7c5ee918974a",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-5858649ae25c.json",
+      "expected_sha256": "fdafae05e757f8168d47258a2da945cd27653eb359da99c3a5ee80b2f92b5db7",
+      "actual_sha256": "fdafae05e757f8168d47258a2da945cd27653eb359da99c3a5ee80b2f92b5db7",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-5a26ffa95680.json",
+      "expected_sha256": "1703eb50d73cec549075607932d48ca9951da1273427399969e18ec1b20dfced",
+      "actual_sha256": "1703eb50d73cec549075607932d48ca9951da1273427399969e18ec1b20dfced",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-5ba71846eed0.json",
+      "expected_sha256": "867de122b16cb2e02411d72a38df44e762e9c87272cffba8fc0faff120536430",
+      "actual_sha256": "867de122b16cb2e02411d72a38df44e762e9c87272cffba8fc0faff120536430",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-612a66629fa1.json",
+      "expected_sha256": "30917757dde435f6882990b33c1f3fbde4533728f20d9eda4611f45d94b9528c",
+      "actual_sha256": "30917757dde435f6882990b33c1f3fbde4533728f20d9eda4611f45d94b9528c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-62c8af42d6d5.json",
+      "expected_sha256": "101d0c61e6230ca2fcbae9f2ef0f6ec47ffd83c36bd981480e949a7d1147d535",
+      "actual_sha256": "101d0c61e6230ca2fcbae9f2ef0f6ec47ffd83c36bd981480e949a7d1147d535",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-62e6feb19850.json",
+      "expected_sha256": "8beae11e1fd084505a3f516e8f9c6a598c7e89765c4e0cc6d662208be17d2b87",
+      "actual_sha256": "8beae11e1fd084505a3f516e8f9c6a598c7e89765c4e0cc6d662208be17d2b87",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-6501a05c689a.json",
+      "expected_sha256": "f83cb30d4948fd551c8f0aca59ad786a42f8b09384e896257f5d7cb4b90bcb99",
+      "actual_sha256": "f83cb30d4948fd551c8f0aca59ad786a42f8b09384e896257f5d7cb4b90bcb99",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-653826423781.json",
+      "expected_sha256": "176a34f62785d9f67f616a9629fdb1de4d4aee5c7fc92366c4983a287f7d05e3",
+      "actual_sha256": "176a34f62785d9f67f616a9629fdb1de4d4aee5c7fc92366c4983a287f7d05e3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-66362182a8a8.json",
+      "expected_sha256": "cc76bbb7dd51c4ba4e428af3e121a1603cc87962966cd2024c13bff73e658626",
+      "actual_sha256": "cc76bbb7dd51c4ba4e428af3e121a1603cc87962966cd2024c13bff73e658626",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-66394458ae99.json",
+      "expected_sha256": "d6005f1709ef1ae08705164eaf97152a776e27ab41fc7638404040cae2bf8e9f",
+      "actual_sha256": "d6005f1709ef1ae08705164eaf97152a776e27ab41fc7638404040cae2bf8e9f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-6a4255d437b0.json",
+      "expected_sha256": "fa95502f9dcfce3f7936dfb2ab02a32a4178c2cc024a8a52108fa5371484b6e7",
+      "actual_sha256": "fa95502f9dcfce3f7936dfb2ab02a32a4178c2cc024a8a52108fa5371484b6e7",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-6cd94087eaec.json",
+      "expected_sha256": "4d8765c4048ad9610791577c29b75b22b738d1ebd148236e7d29372c93093af0",
+      "actual_sha256": "4d8765c4048ad9610791577c29b75b22b738d1ebd148236e7d29372c93093af0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-6ed7c80a55cf.json",
+      "expected_sha256": "94bdef0c4b55635891d3114b98ada4cc169f94c3f66c1455bc07a0cd8a9602ce",
+      "actual_sha256": "94bdef0c4b55635891d3114b98ada4cc169f94c3f66c1455bc07a0cd8a9602ce",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-6fffb41c3c50.json",
+      "expected_sha256": "d98e2ce36a2c0211f77cdeef13d6ca4be9470ae43547d5eeb60db0f7d57f82f0",
+      "actual_sha256": "d98e2ce36a2c0211f77cdeef13d6ca4be9470ae43547d5eeb60db0f7d57f82f0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-709b9de135de.json",
+      "expected_sha256": "075baeadfdbc475e66e7556227e6d688456ea48abc79cc4bd6b058c5854d11fd",
+      "actual_sha256": "075baeadfdbc475e66e7556227e6d688456ea48abc79cc4bd6b058c5854d11fd",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-729e462b7599.json",
+      "expected_sha256": "faa913528e68b6a4857113af8fd7ddbbf2a20c73bb3515d6414bb641918fe919",
+      "actual_sha256": "faa913528e68b6a4857113af8fd7ddbbf2a20c73bb3515d6414bb641918fe919",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-72b7882845b4.json",
+      "expected_sha256": "7b15d96cbd345149b4d099f6e7b05240312db182e3f8cd95453a05640efb262b",
+      "actual_sha256": "7b15d96cbd345149b4d099f6e7b05240312db182e3f8cd95453a05640efb262b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-7340b69cefe1.json",
+      "expected_sha256": "4826cc6f3eb4bbef2d3d85eac19717c2da4f7d41d890d37eee0f42dc22a69db9",
+      "actual_sha256": "4826cc6f3eb4bbef2d3d85eac19717c2da4f7d41d890d37eee0f42dc22a69db9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-7350967a513e.json",
+      "expected_sha256": "16b86a1963b54c91f9a0ca3957f4b90f7d6ed40ea26156d5aa081a35ab8f42d0",
+      "actual_sha256": "16b86a1963b54c91f9a0ca3957f4b90f7d6ed40ea26156d5aa081a35ab8f42d0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-757fc0c6855e.json",
+      "expected_sha256": "89370bc56482bc659a4758a3dd3515b6fd2b7dd5d969b586ab52f9eb1f68758c",
+      "actual_sha256": "89370bc56482bc659a4758a3dd3515b6fd2b7dd5d969b586ab52f9eb1f68758c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-764df7ad03b9.json",
+      "expected_sha256": "fc68f092698571e5c95453f56c7387be5eea8de505fffb1894587e0e36004064",
+      "actual_sha256": "fc68f092698571e5c95453f56c7387be5eea8de505fffb1894587e0e36004064",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-76718531a7cc.json",
+      "expected_sha256": "fd20cda0dacf6dc3aa4938b3fce5ee2d7c9db4271679fa53ec932445823c9e8d",
+      "actual_sha256": "fd20cda0dacf6dc3aa4938b3fce5ee2d7c9db4271679fa53ec932445823c9e8d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-78684cd76aa1.json",
+      "expected_sha256": "4117b2f6207e952a4d250a6b2eab7769b5f302bec422d5742948dd4afcd4e103",
+      "actual_sha256": "4117b2f6207e952a4d250a6b2eab7769b5f302bec422d5742948dd4afcd4e103",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-78778cfc5551.json",
+      "expected_sha256": "1da666c9a765c5bfafef0425086710076e86b6a5f458c2b2627ecff6d90f1d34",
+      "actual_sha256": "1da666c9a765c5bfafef0425086710076e86b6a5f458c2b2627ecff6d90f1d34",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-78d1f32460b3.json",
+      "expected_sha256": "defd985eb5d9522187f8833cd9c81eadb47f680f835af35f59e5efcfc36acb91",
+      "actual_sha256": "defd985eb5d9522187f8833cd9c81eadb47f680f835af35f59e5efcfc36acb91",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-7c577d07ad81.json",
+      "expected_sha256": "509e05d4ca3271b6bdf8f96e989927eeff936bef2263bbebdebb23d666f71c2d",
+      "actual_sha256": "509e05d4ca3271b6bdf8f96e989927eeff936bef2263bbebdebb23d666f71c2d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-7d0135b4a43c.json",
+      "expected_sha256": "a2df43270913855710d1b2ebe87fc4de327641f1367a572b4a676ee82eb15a6e",
+      "actual_sha256": "a2df43270913855710d1b2ebe87fc4de327641f1367a572b4a676ee82eb15a6e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-7d27d9d75f8f.json",
+      "expected_sha256": "5204cd04292a744f154c587769eb26c83c13ecfc7d30012b937871f3347c58b9",
+      "actual_sha256": "5204cd04292a744f154c587769eb26c83c13ecfc7d30012b937871f3347c58b9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-84118bb9312d.json",
+      "expected_sha256": "25f4627d541644a95c0ef4a74f4bf210f28895452d70712fc6a5ebfa27a200af",
+      "actual_sha256": "25f4627d541644a95c0ef4a74f4bf210f28895452d70712fc6a5ebfa27a200af",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-842c8d1771ca.json",
+      "expected_sha256": "6c153913b7523d6e9ffff6582148637d4a10a5e28a69d6e3a19d4fe1d8c8940c",
+      "actual_sha256": "6c153913b7523d6e9ffff6582148637d4a10a5e28a69d6e3a19d4fe1d8c8940c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-88c64cfbdb97.json",
+      "expected_sha256": "59141c4fc94acae8ac1c05806712993094ff972bc0d6e16d55a53c2c485b0447",
+      "actual_sha256": "59141c4fc94acae8ac1c05806712993094ff972bc0d6e16d55a53c2c485b0447",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-89a35d50b545.json",
+      "expected_sha256": "7153a4a9dcc6284402be8d27f8ebfe17cb235ed359cf1a4891168fe28dc93166",
+      "actual_sha256": "7153a4a9dcc6284402be8d27f8ebfe17cb235ed359cf1a4891168fe28dc93166",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-8b43b52cb70e.json",
+      "expected_sha256": "0a657abacc88e3a4169024c4c54791781ad7c2d200186964ecc3ac3198369475",
+      "actual_sha256": "0a657abacc88e3a4169024c4c54791781ad7c2d200186964ecc3ac3198369475",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-8cf114309db8.json",
+      "expected_sha256": "ae30eb260c505a38a25c982c7cd45132e5cce10621cbd13c5d45f699149fe30c",
+      "actual_sha256": "ae30eb260c505a38a25c982c7cd45132e5cce10621cbd13c5d45f699149fe30c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-8e46d5dc6797.json",
+      "expected_sha256": "fa2d14f20b86f7a3059dcfb06c4c78822744aa6ad1e033642de6cc6030d27f90",
+      "actual_sha256": "fa2d14f20b86f7a3059dcfb06c4c78822744aa6ad1e033642de6cc6030d27f90",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-8ff20fa5e29e.json",
+      "expected_sha256": "2a80fb064a77685886a85640e09a97b0c3ff11784c16cac48835ae4af94e01fd",
+      "actual_sha256": "2a80fb064a77685886a85640e09a97b0c3ff11784c16cac48835ae4af94e01fd",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-91b010a550ae.json",
+      "expected_sha256": "71e572e20a5265704a361a96504823dc7957e276482c3ce51f9b2667e51bed2c",
+      "actual_sha256": "71e572e20a5265704a361a96504823dc7957e276482c3ce51f9b2667e51bed2c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-93f0b3bd31a5.json",
+      "expected_sha256": "575e391852b084aca3f9627dd0864be8e9a613f743424777246ad87be2e0ef85",
+      "actual_sha256": "575e391852b084aca3f9627dd0864be8e9a613f743424777246ad87be2e0ef85",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-95168fc3940b.json",
+      "expected_sha256": "662abf08f7af3f08954e28b3e7ef1dd8f30aed4475aae98263f293dd80270d7d",
+      "actual_sha256": "662abf08f7af3f08954e28b3e7ef1dd8f30aed4475aae98263f293dd80270d7d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-967264146781.json",
+      "expected_sha256": "7b17080794051f5de3c8faf651cf11c99e6bfd36ce4da38c9e5ba081ca19bbb0",
+      "actual_sha256": "7b17080794051f5de3c8faf651cf11c99e6bfd36ce4da38c9e5ba081ca19bbb0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-96a61230a2e0.json",
+      "expected_sha256": "44656827c64eb1145e58f77003ba8fc7e1fab1ea5eac4c1f9b422a580213e827",
+      "actual_sha256": "44656827c64eb1145e58f77003ba8fc7e1fab1ea5eac4c1f9b422a580213e827",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-96f007b4ded8.json",
+      "expected_sha256": "208663eeed69dc01dc0ce59977d57abd7b67f99513cf3f4045da3a18dfee283f",
+      "actual_sha256": "208663eeed69dc01dc0ce59977d57abd7b67f99513cf3f4045da3a18dfee283f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-9ac81d31ef43.json",
+      "expected_sha256": "ed1310afcc594325e5fd7d6f10e5f0275c853a6a3fa39d7c5c5b1fba3b50d6bb",
+      "actual_sha256": "ed1310afcc594325e5fd7d6f10e5f0275c853a6a3fa39d7c5c5b1fba3b50d6bb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-9bb47fddfc95.json",
+      "expected_sha256": "4466e9880a323ce4a9a9f869716826135994e5f7989b7fefbae47c37e1a04117",
+      "actual_sha256": "4466e9880a323ce4a9a9f869716826135994e5f7989b7fefbae47c37e1a04117",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-9d63e9d62068.json",
+      "expected_sha256": "819638376986d8da37ae7847206427769eb3ebe25bed74a2c00e029cc43cfaa1",
+      "actual_sha256": "819638376986d8da37ae7847206427769eb3ebe25bed74a2c00e029cc43cfaa1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-9dbd0b3a1d60.json",
+      "expected_sha256": "95eb761762732e4a7438639e90c907ac9488c0ffb4289271c5972b0560bccd2c",
+      "actual_sha256": "95eb761762732e4a7438639e90c907ac9488c0ffb4289271c5972b0560bccd2c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-9f28bf019050.json",
+      "expected_sha256": "9bdd815a4c36ffc8d16f015f7ec89a5e057f3c0046852f308cc5256eba3ecb0b",
+      "actual_sha256": "9bdd815a4c36ffc8d16f015f7ec89a5e057f3c0046852f308cc5256eba3ecb0b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-9f8f354e7f13.json",
+      "expected_sha256": "2713dd67c8e392a5477eebd4ff058c316ea63c1c707d8fba32ded7e7bc14be57",
+      "actual_sha256": "2713dd67c8e392a5477eebd4ff058c316ea63c1c707d8fba32ded7e7bc14be57",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a18d1629b48c.json",
+      "expected_sha256": "e5819dd0cad1cfd1336a76a5df6c8d83ff33704b805237eaba68a4b46fcbc7c9",
+      "actual_sha256": "e5819dd0cad1cfd1336a76a5df6c8d83ff33704b805237eaba68a4b46fcbc7c9",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a2046511eddf.json",
+      "expected_sha256": "34518bebce35d75ce67c1bc8973c19f8b25dfa7e28f16ce113d080492e3f8d87",
+      "actual_sha256": "34518bebce35d75ce67c1bc8973c19f8b25dfa7e28f16ce113d080492e3f8d87",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a4e6b76b1716.json",
+      "expected_sha256": "f4149a6a4d1760b4e16b793a06aa9f0455d198124dd6642777db3b67f99c9afa",
+      "actual_sha256": "f4149a6a4d1760b4e16b793a06aa9f0455d198124dd6642777db3b67f99c9afa",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a544c5e96532.json",
+      "expected_sha256": "11c75433ef0126592480618b71d23ae025536201d1a55f6a481533befec9e731",
+      "actual_sha256": "11c75433ef0126592480618b71d23ae025536201d1a55f6a481533befec9e731",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a54772a362fa.json",
+      "expected_sha256": "ad78f76171d6c91b68807436895ef378f57c2fca91405004fd8450e45647a71b",
+      "actual_sha256": "ad78f76171d6c91b68807436895ef378f57c2fca91405004fd8450e45647a71b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a6c2b9a93ba7.json",
+      "expected_sha256": "a0935339ffeaed77c6296a6258e784e81d8cb8970a170909190c5969a920adf6",
+      "actual_sha256": "a0935339ffeaed77c6296a6258e784e81d8cb8970a170909190c5969a920adf6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a8017668b833.json",
+      "expected_sha256": "cfea30d16917cdc4c885effc195ea91ae034ff05ced876f9b8f20fa8d4cd5401",
+      "actual_sha256": "cfea30d16917cdc4c885effc195ea91ae034ff05ced876f9b8f20fa8d4cd5401",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a81457374f2d.json",
+      "expected_sha256": "49f3b93332ba49182386641f4f4d8b2911566844eba84b66e9eeed3988703dba",
+      "actual_sha256": "49f3b93332ba49182386641f4f4d8b2911566844eba84b66e9eeed3988703dba",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a9329bf13807.json",
+      "expected_sha256": "f42389a644c09b00cf1e7802c06e89ae4943b7f90ae83cfe6adcfd8b670d4019",
+      "actual_sha256": "f42389a644c09b00cf1e7802c06e89ae4943b7f90ae83cfe6adcfd8b670d4019",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-a9862a46a907.json",
+      "expected_sha256": "828d0a4a47b1a0849b2e1aa753216a2e8e7cd0caf396d5d93a17d870cf6703ff",
+      "actual_sha256": "828d0a4a47b1a0849b2e1aa753216a2e8e7cd0caf396d5d93a17d870cf6703ff",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-aa834c31bbf9.json",
+      "expected_sha256": "a3d6bf4c097de4943cd3a9ac4c773d2adf57a10d51b25fe754f283a133202f07",
+      "actual_sha256": "a3d6bf4c097de4943cd3a9ac4c773d2adf57a10d51b25fe754f283a133202f07",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-aa85c98411c0.json",
+      "expected_sha256": "5d642f452dbfac3be872f24f05b4fbe069521cff423282554e577fac0232904c",
+      "actual_sha256": "5d642f452dbfac3be872f24f05b4fbe069521cff423282554e577fac0232904c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ad4097b79b96.json",
+      "expected_sha256": "bea46d68e0717e590d121d15028b5f3c0e5b65cc6d2265c44129219039b910f4",
+      "actual_sha256": "bea46d68e0717e590d121d15028b5f3c0e5b65cc6d2265c44129219039b910f4",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ad6087b8b517.json",
+      "expected_sha256": "45660130ef10cdea28fa1b0f6fb4dafbbdf7199972262cbd5eaaf2f9785e6df5",
+      "actual_sha256": "45660130ef10cdea28fa1b0f6fb4dafbbdf7199972262cbd5eaaf2f9785e6df5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-af576b55aef5.json",
+      "expected_sha256": "2866c1ee1507952c0a4498e708e161963bb8297fe46f9d8ee5a2da14d7fcb413",
+      "actual_sha256": "2866c1ee1507952c0a4498e708e161963bb8297fe46f9d8ee5a2da14d7fcb413",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-b0333c8ea32e.json",
+      "expected_sha256": "8fc2fe91cb5156de97e366846f37ba88e61cd956913035811313b6ad2e03c448",
+      "actual_sha256": "8fc2fe91cb5156de97e366846f37ba88e61cd956913035811313b6ad2e03c448",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-b13f5c58d697.json",
+      "expected_sha256": "5dba59cd271f552656606d37c173c821f3724dc007a55c5ede1262b09f7e68ed",
+      "actual_sha256": "5dba59cd271f552656606d37c173c821f3724dc007a55c5ede1262b09f7e68ed",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-b5b3dfc161da.json",
+      "expected_sha256": "a3e456e5f616d46ad712e45bf3476969c6d9e773ec3a0f5ca7a6333093a9c830",
+      "actual_sha256": "a3e456e5f616d46ad712e45bf3476969c6d9e773ec3a0f5ca7a6333093a9c830",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-b5d00e6caea1.json",
+      "expected_sha256": "514745d7e4af6ad823c937dc0d77ea20bb8967b9bc94dc38e5305d1a554d17c2",
+      "actual_sha256": "514745d7e4af6ad823c937dc0d77ea20bb8967b9bc94dc38e5305d1a554d17c2",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-b69c81f18d9c.json",
+      "expected_sha256": "f3d93f48b2538b9158d49b5cbd861726fc3d5406f6e246bba9608646776625c8",
+      "actual_sha256": "f3d93f48b2538b9158d49b5cbd861726fc3d5406f6e246bba9608646776625c8",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-b788a6d320b5.json",
+      "expected_sha256": "d481a0ab1a7d3e943cc57bb69514d117d54b343c7cc27434dcd224fd4e8b0645",
+      "actual_sha256": "d481a0ab1a7d3e943cc57bb69514d117d54b343c7cc27434dcd224fd4e8b0645",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ba7e14affdc1.json",
+      "expected_sha256": "92d605367aa530b032aaa21a6577d3481f50448f14587d45947345915d16fce3",
+      "actual_sha256": "92d605367aa530b032aaa21a6577d3481f50448f14587d45947345915d16fce3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-bb625c563192.json",
+      "expected_sha256": "ce987896383aba3ab3a63e8923a5f11f2bdcef65c75646a15c63db65228cab17",
+      "actual_sha256": "ce987896383aba3ab3a63e8923a5f11f2bdcef65c75646a15c63db65228cab17",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-bd96248af503.json",
+      "expected_sha256": "d318b3b9d613b2f68768901f606344f756cf88fa43d78f36340230e8a6e12261",
+      "actual_sha256": "d318b3b9d613b2f68768901f606344f756cf88fa43d78f36340230e8a6e12261",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-bfc78acf96ce.json",
+      "expected_sha256": "5ffd45bfa18817225b6171c97f300116079feb5ab01b6ad85a9ec4ff22647606",
+      "actual_sha256": "5ffd45bfa18817225b6171c97f300116079feb5ab01b6ad85a9ec4ff22647606",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-c12b2215d098.json",
+      "expected_sha256": "98519674b799df5776f34d9c76783d81029d84c77bdbe4871c5e78bd578b0eb8",
+      "actual_sha256": "98519674b799df5776f34d9c76783d81029d84c77bdbe4871c5e78bd578b0eb8",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-c17cb697279c.json",
+      "expected_sha256": "d086053d275b89890562100eced9dcea2b57c0b461f9f58e52bed0df6435ab87",
+      "actual_sha256": "d086053d275b89890562100eced9dcea2b57c0b461f9f58e52bed0df6435ab87",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-c7c41415c4b4.json",
+      "expected_sha256": "0cd2cf809cf0dc3b22d6abff523bf6677a6ac1bff2e813106b37f41b40265711",
+      "actual_sha256": "0cd2cf809cf0dc3b22d6abff523bf6677a6ac1bff2e813106b37f41b40265711",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ca2ae83d1855.json",
+      "expected_sha256": "6e5eb188273a27351249b9779feb7fea3cb931b6d4fdfaa4a9d89e16d3681617",
+      "actual_sha256": "6e5eb188273a27351249b9779feb7fea3cb931b6d4fdfaa4a9d89e16d3681617",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ca83f2453126.json",
+      "expected_sha256": "0360867b33054767b3401f1bf89dd8bda36496da23bcd0136b15b89d73189480",
+      "actual_sha256": "0360867b33054767b3401f1bf89dd8bda36496da23bcd0136b15b89d73189480",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-cb0f46f085fd.json",
+      "expected_sha256": "0df4713839eb0d130248c0891b8fa43243324986fba7ed072a90577b5cd2464f",
+      "actual_sha256": "0df4713839eb0d130248c0891b8fa43243324986fba7ed072a90577b5cd2464f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ce1ab311b770.json",
+      "expected_sha256": "3e6e065fc0078ea1b29b4acbf2b8096f27fb83b5079d388170b6ae4bdfbdad67",
+      "actual_sha256": "3e6e065fc0078ea1b29b4acbf2b8096f27fb83b5079d388170b6ae4bdfbdad67",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-cecc47419796.json",
+      "expected_sha256": "62f8074dc2d96243e7f5cc2ede92e16f778c7ac8839b47723ca9ff440615bd50",
+      "actual_sha256": "62f8074dc2d96243e7f5cc2ede92e16f778c7ac8839b47723ca9ff440615bd50",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-cfb696323974.json",
+      "expected_sha256": "71d5f2692cff3b1095a388e0bba59d5b3704f56a8d69b2107492be022a9dbfcb",
+      "actual_sha256": "71d5f2692cff3b1095a388e0bba59d5b3704f56a8d69b2107492be022a9dbfcb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-cfd734d9ee6a.json",
+      "expected_sha256": "1a9ba80efd593d3c9e9552e348d3f3db2630c210ef3bafc5ebd36e8228fbdb8e",
+      "actual_sha256": "1a9ba80efd593d3c9e9552e348d3f3db2630c210ef3bafc5ebd36e8228fbdb8e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d0d39a846f38.json",
+      "expected_sha256": "95d08f26280a8f6b08997e0a8916514ebf62ba2df727c9e1f1645bcc2be10e38",
+      "actual_sha256": "95d08f26280a8f6b08997e0a8916514ebf62ba2df727c9e1f1645bcc2be10e38",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d1bb01064a86.json",
+      "expected_sha256": "638711abd745b22be92a723ec6e467dbeb6ee37e38be2f0b2ae792d94f5aee86",
+      "actual_sha256": "638711abd745b22be92a723ec6e467dbeb6ee37e38be2f0b2ae792d94f5aee86",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d346c6351dd2.json",
+      "expected_sha256": "7c3a6690f775bd30249e5c348b58ab36932e1983c85aaca352f410965d513fee",
+      "actual_sha256": "7c3a6690f775bd30249e5c348b58ab36932e1983c85aaca352f410965d513fee",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d39b3de98d62.json",
+      "expected_sha256": "7b39f56665a160dce19c06200d731b9c4c2a3644e267a8e0182a6417f49d57ef",
+      "actual_sha256": "7b39f56665a160dce19c06200d731b9c4c2a3644e267a8e0182a6417f49d57ef",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d46953f0d84c.json",
+      "expected_sha256": "03111380b8eba0943178b7f6989fbdd2858d2c0ec0ecb8e75024b8753f51a156",
+      "actual_sha256": "03111380b8eba0943178b7f6989fbdd2858d2c0ec0ecb8e75024b8753f51a156",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d556a8eab611.json",
+      "expected_sha256": "8d2b631231d2dfca3b6e4d9e8b690b449ba093ea15eaa494906cce30936476cf",
+      "actual_sha256": "8d2b631231d2dfca3b6e4d9e8b690b449ba093ea15eaa494906cce30936476cf",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d5bb70b7d158.json",
+      "expected_sha256": "becf6a7bb47dad9ec09082a775961528b6b22f6db19d49539a39994148c9ad11",
+      "actual_sha256": "becf6a7bb47dad9ec09082a775961528b6b22f6db19d49539a39994148c9ad11",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d69a28de5806.json",
+      "expected_sha256": "e437488a9e13eb69d10d5016a0e0cc759e2dfb6afed3dc66204f4180e63b0a9b",
+      "actual_sha256": "e437488a9e13eb69d10d5016a0e0cc759e2dfb6afed3dc66204f4180e63b0a9b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d84ec8b5317e.json",
+      "expected_sha256": "c95033560461fd0c2fd2cf151e0f00e86b20c0775fe6640c20d0da260194d848",
+      "actual_sha256": "c95033560461fd0c2fd2cf151e0f00e86b20c0775fe6640c20d0da260194d848",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-d88aa3efe52f.json",
+      "expected_sha256": "d67cf093a2be6af92d524f90e2f5b5934a62a1c140bf239d3ebc5bf6df0ac7d0",
+      "actual_sha256": "d67cf093a2be6af92d524f90e2f5b5934a62a1c140bf239d3ebc5bf6df0ac7d0",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-da1f6e9f98ca.json",
+      "expected_sha256": "073a00571c5634717895b8be4c91be93e5363803650982d7596c9290e7b1c3b1",
+      "actual_sha256": "073a00571c5634717895b8be4c91be93e5363803650982d7596c9290e7b1c3b1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-dae9404d6617.json",
+      "expected_sha256": "9a8247960d5b0d27e8a72733d62e8d739b7c28e1a2b17992d4c09544a68dfb22",
+      "actual_sha256": "9a8247960d5b0d27e8a72733d62e8d739b7c28e1a2b17992d4c09544a68dfb22",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-db0f4e35e45f.json",
+      "expected_sha256": "d67ef382ce25bbeff4003b49884cf3c52c68a1e3dabb6cb278c6c241c844f737",
+      "actual_sha256": "d67ef382ce25bbeff4003b49884cf3c52c68a1e3dabb6cb278c6c241c844f737",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-db595a423949.json",
+      "expected_sha256": "f16596fb53fdaff82e7642690c9620c2e2c1b6ce24c467f6b77af4af72a31ef6",
+      "actual_sha256": "f16596fb53fdaff82e7642690c9620c2e2c1b6ce24c467f6b77af4af72a31ef6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-db973e71e099.json",
+      "expected_sha256": "19a832a94b81b263af58eb313777c7ed018832c7fcdd1c99f542dcd46931bd5d",
+      "actual_sha256": "19a832a94b81b263af58eb313777c7ed018832c7fcdd1c99f542dcd46931bd5d",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-dca26cb8dfac.json",
+      "expected_sha256": "22d0bc579c8a607defe150ef8c5daec9bf56db2d2212814054e118e81d4abcae",
+      "actual_sha256": "22d0bc579c8a607defe150ef8c5daec9bf56db2d2212814054e118e81d4abcae",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-dd7b2634c851.json",
+      "expected_sha256": "52188c43370c2a8fe681c4d6d53bb82a9ceaf10fc7410aa9ef28ad754dd9b54c",
+      "actual_sha256": "52188c43370c2a8fe681c4d6d53bb82a9ceaf10fc7410aa9ef28ad754dd9b54c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-df806f0c845c.json",
+      "expected_sha256": "35d439b2921b35f42e803b4ea6d000eba92167004435063f81d20a17ee1abae6",
+      "actual_sha256": "35d439b2921b35f42e803b4ea6d000eba92167004435063f81d20a17ee1abae6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e1dd44d1fc9f.json",
+      "expected_sha256": "bd86ff28eebb33ee4affebd18c3caacf0aa6d9a8e4de6118115de82aefa3748f",
+      "actual_sha256": "bd86ff28eebb33ee4affebd18c3caacf0aa6d9a8e4de6118115de82aefa3748f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e2c5efc765de.json",
+      "expected_sha256": "6bb3e67fd4984529486efceabcc2f4cf8e8b0cab58c02acf58d0e2e67b71b83f",
+      "actual_sha256": "6bb3e67fd4984529486efceabcc2f4cf8e8b0cab58c02acf58d0e2e67b71b83f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e2e0ccf75491.json",
+      "expected_sha256": "f14fd787c021ae1198aa3f166e0e786b1099fbb4b46cf2e1af55d2f866a61bb3",
+      "actual_sha256": "f14fd787c021ae1198aa3f166e0e786b1099fbb4b46cf2e1af55d2f866a61bb3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e30613a35a92.json",
+      "expected_sha256": "af045e4094de907327d3ef5be90422d93cb31ab786328b78910fa78e7b81dc9e",
+      "actual_sha256": "af045e4094de907327d3ef5be90422d93cb31ab786328b78910fa78e7b81dc9e",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e4061986f3ca.json",
+      "expected_sha256": "50ffb6331025129067cc231a17935f5e826c7a59acbfd61180f26d50e4cfb1b3",
+      "actual_sha256": "50ffb6331025129067cc231a17935f5e826c7a59acbfd61180f26d50e4cfb1b3",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e464c3f98dfe.json",
+      "expected_sha256": "5acd4c022592c9c8a1ae0925d0a65a2453275e92fcd122811a0ba65879421cfb",
+      "actual_sha256": "5acd4c022592c9c8a1ae0925d0a65a2453275e92fcd122811a0ba65879421cfb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e4d02529564e.json",
+      "expected_sha256": "24be66e39d97ead7c97b75af44e15e8215c08be9522d5e9c325a6a9043b3104f",
+      "actual_sha256": "24be66e39d97ead7c97b75af44e15e8215c08be9522d5e9c325a6a9043b3104f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e4e851d6c5c0.json",
+      "expected_sha256": "b0309467a3f867c81cc7194dadc7776f45d72e81c81f48d793f5668cb06703bd",
+      "actual_sha256": "b0309467a3f867c81cc7194dadc7776f45d72e81c81f48d793f5668cb06703bd",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e51b2fdfbe8b.json",
+      "expected_sha256": "8bf9aa876901ec133095490f947f0d37af08543c64b7d170272b4f647eaff66c",
+      "actual_sha256": "8bf9aa876901ec133095490f947f0d37af08543c64b7d170272b4f647eaff66c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e61831f74a66.json",
+      "expected_sha256": "5f6b3a112d911cf47bdf8b347aa025a302dd5c79520a5801084daba40326f1b1",
+      "actual_sha256": "5f6b3a112d911cf47bdf8b347aa025a302dd5c79520a5801084daba40326f1b1",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-e6ba29e4053f.json",
+      "expected_sha256": "3eac0a248b969b6c26788304daf025a4d2e247d6fca1a1088af3956522b6767f",
+      "actual_sha256": "3eac0a248b969b6c26788304daf025a4d2e247d6fca1a1088af3956522b6767f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ed109ca9f818.json",
+      "expected_sha256": "9ae86ce19276d87eb58930e2293850b70c004e64866df59db05a9a3ac6eefd81",
+      "actual_sha256": "9ae86ce19276d87eb58930e2293850b70c004e64866df59db05a9a3ac6eefd81",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-eee85f21b019.json",
+      "expected_sha256": "65460881461b7db57824d2f09e7401a7a5dd483824511546715de1bc6bface60",
+      "actual_sha256": "65460881461b7db57824d2f09e7401a7a5dd483824511546715de1bc6bface60",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-efd4892d6423.json",
+      "expected_sha256": "9933dd65f7249de18dc63ee09ebb187a3cab6bc07753eb3536a08f6c2312cc89",
+      "actual_sha256": "9933dd65f7249de18dc63ee09ebb187a3cab6bc07753eb3536a08f6c2312cc89",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f0e4407a9d10.json",
+      "expected_sha256": "9a8657ae753cd1e6e65210903554fac42db2627a5418602cd35f2246e1a740a5",
+      "actual_sha256": "9a8657ae753cd1e6e65210903554fac42db2627a5418602cd35f2246e1a740a5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f1c56a7a1d99.json",
+      "expected_sha256": "1afd2a7dc5be378572340436e6101ae4c4d962ef29d00d90499e81d2c1258e69",
+      "actual_sha256": "1afd2a7dc5be378572340436e6101ae4c4d962ef29d00d90499e81d2c1258e69",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f1d372c6f1ee.json",
+      "expected_sha256": "06a0c48a2fc0f068485c81b8c97d1f7d98d413e66a823908e642093b3da8fd5c",
+      "actual_sha256": "06a0c48a2fc0f068485c81b8c97d1f7d98d413e66a823908e642093b3da8fd5c",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f25ef82a7a23.json",
+      "expected_sha256": "70535f7b5264bae726e6219da04381e34f51c01ebf02b1056a12037db3bbf4bb",
+      "actual_sha256": "70535f7b5264bae726e6219da04381e34f51c01ebf02b1056a12037db3bbf4bb",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f6f6d3c0b166.json",
+      "expected_sha256": "144b2e225ab8e9eb91798285976cccfce0526e37e5a3214bf7927d025763f08b",
+      "actual_sha256": "144b2e225ab8e9eb91798285976cccfce0526e37e5a3214bf7927d025763f08b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f7b5e9c5db8f.json",
+      "expected_sha256": "7f9fcd0e8318310f01ff87b76fbcb432b4902345443191b692a2eeefda4bb174",
+      "actual_sha256": "7f9fcd0e8318310f01ff87b76fbcb432b4902345443191b692a2eeefda4bb174",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f85c2a057c2c.json",
+      "expected_sha256": "f6d10aaf09d27375aaa18ed2b8196ab408fe3e76243dc39616e4b515c5afa736",
+      "actual_sha256": "f6d10aaf09d27375aaa18ed2b8196ab408fe3e76243dc39616e4b515c5afa736",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-f8aa3db47b09.json",
+      "expected_sha256": "8388861cf2c7a0d2c4193a349a891eaa6fad12bddea1a605d9b41f3bcb1c4014",
+      "actual_sha256": "8388861cf2c7a0d2c4193a349a891eaa6fad12bddea1a605d9b41f3bcb1c4014",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-faa233d96075.json",
+      "expected_sha256": "0f27163664f6a56ce71220a3ff013d3f69bb47a7e16f01901bb82fb9f662dfc5",
+      "actual_sha256": "0f27163664f6a56ce71220a3ff013d3f69bb47a7e16f01901bb82fb9f662dfc5",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-fb1017079393.json",
+      "expected_sha256": "688915a589011d41ff4783a14f1bdaacfb5d7b6f88d1f0c196c147ad6c5b4b9b",
+      "actual_sha256": "688915a589011d41ff4783a14f1bdaacfb5d7b6f88d1f0c196c147ad6c5b4b9b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-fc51bcb35285.json",
+      "expected_sha256": "6b726ef24bbb36f4d61298567413d67156bd1ccb3897beee126c4623b4e4745b",
+      "actual_sha256": "6b726ef24bbb36f4d61298567413d67156bd1ccb3897beee126c4623b4e4745b",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-fca68b41116d.json",
+      "expected_sha256": "892ca7cbaa1b694c2520edea11ce8e5ed49f1f6cb7e5a1c6b548cf46ad9650d6",
+      "actual_sha256": "892ca7cbaa1b694c2520edea11ce8e5ed49f1f6cb7e5a1c6b548cf46ad9650d6",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-fdae10a4012f.json",
+      "expected_sha256": "27024632019ab9e8b2a0191a09748a935eced041bce7233ccc996ba3d1bfed3f",
+      "actual_sha256": "27024632019ab9e8b2a0191a09748a935eced041bce7233ccc996ba3d1bfed3f",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-ff43ac2613a8.json",
+      "expected_sha256": "51974a697a192b647240d7b28195b08eacd65cb176535230f795df49a2ec5dbf",
+      "actual_sha256": "51974a697a192b647240d7b28195b08eacd65cb176535230f795df49a2ec5dbf",
+      "match": true
+    },
+    {
+      "source": "perspectives/patches/sptfei/pp-fff2fde9b1ee.json",
+      "expected_sha256": "cba44b0fbd4cad51a5ca01de3f0eeb4ee8e4c4eaf7cad287073a57c98d0227da",
+      "actual_sha256": "cba44b0fbd4cad51a5ca01de3f0eeb4ee8e4c4eaf7cad287073a57c98d0227da",
+      "match": true
+    }
+  ],
+  "limits": "Integrity only, not authority, truth, current approval, or online availability."
+}

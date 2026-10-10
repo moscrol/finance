@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "patch_id": "pp-484bf87f4f2d",
+  "perspective_id": "sptfei",
+  "field": "opportunity_preferences",
+  "value": "优先关注在主线调整期间逆势抗分歧、处于中低位且临近突破的板块或个股。",
+  "status": "rejected",
+  "supporting_article_count": 1,
+  "evidence": [
+    {
+      "article_id": "pa-4f56572bb540",
+      "title": "2026.23.超板块",
+      "date": "2026-06-02",
+      "quote": "回流以下跌阶段逆势抗分歧的待突破类中低位个股和板块为最核心"
+    }
+  ],
+  "created_at": "2026-08-22T11:39:44+00:00",
+  "reviewed_at": "2026-08-22T11:40:07+00:00",
+  "review_note": "已有：临突破+抗分歧+中低位"
+}

@@ -1,0 +1,38 @@
+{
+  "started_at": "2026-10-07T14:19:27.786908+00:00",
+  "finished_at": "2026-10-07T14:19:29.498863+00:00",
+  "duckdb_version": "1.5.4",
+  "python_version": "3.12.13",
+  "connections": "duckdb.connect(..., read_only=True); independent read transactions; TEMP views only; ROLLBACK then close",
+  "writes": "Files under this package/data only; no database writes, profile edits, network or uploads.",
+  "database_before": [
+    {
+      "file": "market_feature_store.duckdb",
+      "bytes": 3879743488,
+      "mtime_ns": 1791376806599172416,
+      "identity_limit": "stat only, not a database-content hash"
+    },
+    {
+      "file": "history_labels.duckdb",
+      "bytes": 273690624,
+      "mtime_ns": 1790789004323168666,
+      "identity_limit": "stat only, not a database-content hash"
+    }
+  ],
+  "database_after": [
+    {
+      "file": "market_feature_store.duckdb",
+      "bytes": 3879743488,
+      "mtime_ns": 1791376806599172416,
+      "identity_limit": "stat only, not a database-content hash"
+    },
+    {
+      "file": "history_labels.duckdb",
+      "bytes": 273690624,
+      "mtime_ns": 1790789004323168666,
+      "identity_limit": "stat only, not a database-content hash"
+    }
+  ],
+  "database_stat_unchanged": true,
+  "limitations": "Separate source/sidecar snapshots; file stats are not full content hashes. No alternate labels DB exhaustively searched. No full framework build or history-return validation."
+}

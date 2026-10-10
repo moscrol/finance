@@ -1,0 +1,246 @@
+{
+  "kind": "READ_ONLY_RECOMPUTED_NOT_PERSISTED_LABELS",
+  "sources": {
+    "stock": "fact_stock_daily_hithink+adjustment",
+    "sector_px": "fact_sector_kline_daily",
+    "new_high": "fact_stock_daily_hithink",
+    "dragon": "fact_dragon_tiger_hithink+legacy_fill",
+    "auction_zt": "fact_auction_hithink+legacy_fill"
+  },
+  "calendar_days": 432,
+  "field_coverage": [
+    {
+      "field": "dragon_count",
+      "rows": 432,
+      "non_null_rows": 417,
+      "null_rows": 15,
+      "first_non_null": "2025-01-02",
+      "last_non_null": "2026-09-30",
+      "true_rows": null
+    },
+    {
+      "field": "dragon_net_amount",
+      "rows": 432,
+      "non_null_rows": 417,
+      "null_rows": 15,
+      "first_non_null": "2025-01-02",
+      "last_non_null": "2026-09-30",
+      "true_rows": null
+    },
+    {
+      "field": "dragon_net_amount_ratio_pm",
+      "rows": 432,
+      "non_null_rows": 417,
+      "null_rows": 15,
+      "first_non_null": "2025-01-02",
+      "last_non_null": "2026-09-30",
+      "true_rows": null
+    },
+    {
+      "field": "dragon_buy_sell_ratio",
+      "rows": 432,
+      "non_null_rows": 417,
+      "null_rows": 15,
+      "first_non_null": "2025-01-02",
+      "last_non_null": "2026-09-30",
+      "true_rows": null
+    },
+    {
+      "field": "dragon_net_amount_ratio_pm_ma5",
+      "rows": 432,
+      "non_null_rows": 409,
+      "null_rows": 23,
+      "first_non_null": "2025-01-08",
+      "last_non_null": "2026-09-30",
+      "true_rows": null
+    },
+    {
+      "field": "dragon_buy_sell_ratio_ma5",
+      "rows": 432,
+      "non_null_rows": 409,
+      "null_rows": 23,
+      "first_non_null": "2025-01-08",
+      "last_non_null": "2026-09-30",
+      "true_rows": null
+    },
+    {
+      "field": "limit_seal_amount_median_wan",
+      "rows": 432,
+      "non_null_rows": 394,
+      "null_rows": 38,
+      "first_non_null": "2025-01-02",
+      "last_non_null": "2026-09-02",
+      "true_rows": null
+    },
+    {
+      "field": "limit_seal_mv_ratio_median",
+      "rows": 432,
+      "non_null_rows": 394,
+      "null_rows": 38,
+      "first_non_null": "2025-01-02",
+      "last_non_null": "2026-09-02",
+      "true_rows": null
+    },
+    {
+      "field": "limit_thick_seal_share_pct",
+      "rows": 432,
+      "non_null_rows": 394,
+      "null_rows": 38,
+      "first_non_null": "2025-01-02",
+      "last_non_null": "2026-09-02",
+      "true_rows": null
+    },
+    {
+      "field": "auction_zt_pct_median",
+      "rows": 432,
+      "non_null_rows": 151,
+      "null_rows": 281,
+      "first_non_null": "2026-01-16",
+      "last_non_null": "2026-09-02",
+      "true_rows": null
+    },
+    {
+      "field": "auction_zt_positive_share_pct",
+      "rows": 432,
+      "non_null_rows": 151,
+      "null_rows": 281,
+      "first_non_null": "2026-01-16",
+      "last_non_null": "2026-09-02",
+      "true_rows": null
+    },
+    {
+      "field": "auction_zt_amount",
+      "rows": 432,
+      "non_null_rows": 151,
+      "null_rows": 281,
+      "first_non_null": "2026-01-16",
+      "last_non_null": "2026-09-02",
+      "true_rows": null
+    }
+  ],
+  "samples_latest": [
+    {
+      "trade_date": "2026-09-23",
+      "dragon_count": 68,
+      "dragon_net_amount": 25.332581,
+      "dragon_net_amount_ratio_pm": 1.435674723874714,
+      "dragon_buy_sell_ratio": 3.2828374517694967,
+      "dragon_net_amount_ratio_pm_ma5": null,
+      "dragon_buy_sell_ratio_ma5": null,
+      "limit_seal_amount_median_wan": null,
+      "limit_seal_mv_ratio_median": null,
+      "limit_thick_seal_share_pct": null,
+      "auction_zt_pct_median": null,
+      "auction_zt_positive_share_pct": null,
+      "auction_zt_amount": null
+    },
+    {
+      "trade_date": "2026-09-24",
+      "dragon_count": 63,
+      "dragon_net_amount": 13.205471,
+      "dragon_net_amount_ratio_pm": 0.7988147959057135,
+      "dragon_buy_sell_ratio": 2.143418930116693,
+      "dragon_net_amount_ratio_pm_ma5": 0.9538852290612896,
+      "dragon_buy_sell_ratio_ma5": 2.5917898656496865,
+      "limit_seal_amount_median_wan": null,
+      "limit_seal_mv_ratio_median": null,
+      "limit_thick_seal_share_pct": null,
+      "auction_zt_pct_median": null,
+      "auction_zt_positive_share_pct": null,
+      "auction_zt_amount": null
+    },
+    {
+      "trade_date": "2026-09-28",
+      "dragon_count": 55,
+      "dragon_net_amount": -0.634762,
+      "dragon_net_amount_ratio_pm": -0.03728060798985118,
+      "dragon_buy_sell_ratio": 0.9609350354073591,
+      "dragon_net_amount_ratio_pm_ma5": 0.6364138220096389,
+      "dragon_buy_sell_ratio_ma5": 1.9014082698669952,
+      "limit_seal_amount_median_wan": null,
+      "limit_seal_mv_ratio_median": null,
+      "limit_thick_seal_share_pct": null,
+      "auction_zt_pct_median": null,
+      "auction_zt_positive_share_pct": null,
+      "auction_zt_amount": null
+    },
+    {
+      "trade_date": "2026-09-29",
+      "dragon_count": 66,
+      "dragon_net_amount": 15.666193,
+      "dragon_net_amount_ratio_pm": 1.1118100507355555,
+      "dragon_buy_sell_ratio": 2.3814185881310572,
+      "dragon_net_amount_ratio_pm_ma5": 0.7860027504642296,
+      "dragon_buy_sell_ratio_ma5": 2.0963509927012764,
+      "limit_seal_amount_median_wan": null,
+      "limit_seal_mv_ratio_median": null,
+      "limit_thick_seal_share_pct": null,
+      "auction_zt_pct_median": null,
+      "auction_zt_positive_share_pct": null,
+      "auction_zt_amount": null
+    },
+    {
+      "trade_date": "2026-09-30",
+      "dragon_count": 66,
+      "dragon_net_amount": 10.66261,
+      "dragon_net_amount_ratio_pm": 0.7416322487935777,
+      "dragon_buy_sell_ratio": 1.9214129493888752,
+      "dragon_net_amount_ratio_pm_ma5": 0.8101302422639419,
+      "dragon_buy_sell_ratio_ma5": 2.138004590962696,
+      "limit_seal_amount_median_wan": null,
+      "limit_seal_mv_ratio_median": null,
+      "limit_thick_seal_share_pct": null,
+      "auction_zt_pct_median": null,
+      "auction_zt_positive_share_pct": null,
+      "auction_zt_amount": null
+    }
+  ],
+  "samples_latest_all_fields_non_null": [
+    {
+      "trade_date": "2026-08-31",
+      "dragon_count": 70,
+      "dragon_net_amount": 9.469112,
+      "dragon_net_amount_ratio_pm": 0.44444177431035836,
+      "dragon_buy_sell_ratio": 1.4659426934170736,
+      "dragon_net_amount_ratio_pm_ma5": 0.794769485827244,
+      "dragon_buy_sell_ratio_ma5": 2.6113818955922623,
+      "limit_seal_amount_median_wan": 7360.35,
+      "limit_seal_mv_ratio_median": 98.33950677666027,
+      "limit_thick_seal_share_pct": 50.0,
+      "auction_zt_pct_median": 3.52,
+      "auction_zt_positive_share_pct": 80.0,
+      "auction_zt_amount": 7.95
+    },
+    {
+      "trade_date": "2026-09-01",
+      "dragon_count": 64,
+      "dragon_net_amount": -6.014655,
+      "dragon_net_amount_ratio_pm": -0.29586619489329763,
+      "dragon_buy_sell_ratio": 0.8077359043154594,
+      "dragon_net_amount_ratio_pm_ma5": 0.48215717140414327,
+      "dragon_buy_sell_ratio_ma5": 2.2890031859681996,
+      "limit_seal_amount_median_wan": 7609.86,
+      "limit_seal_mv_ratio_median": 133.4391563007031,
+      "limit_thick_seal_share_pct": 62.65060240963855,
+      "auction_zt_pct_median": 5.77,
+      "auction_zt_positive_share_pct": 90.0,
+      "auction_zt_amount": 15.76
+    },
+    {
+      "trade_date": "2026-09-02",
+      "dragon_count": 71,
+      "dragon_net_amount": -1.48039,
+      "dragon_net_amount_ratio_pm": -0.08266275946057774,
+      "dragon_buy_sell_ratio": 0.9176042328244935,
+      "dragon_net_amount_ratio_pm_ma5": 0.43288818841703175,
+      "dragon_buy_sell_ratio_ma5": 2.233387095424633,
+      "limit_seal_amount_median_wan": 7507.514999999999,
+      "limit_seal_mv_ratio_median": 124.32766386694757,
+      "limit_thick_seal_share_pct": 61.53846153846154,
+      "auction_zt_pct_median": 3.005,
+      "auction_zt_positive_share_pct": 100.0,
+      "auction_zt_amount": 5.05
+    }
+  ],
+  "limit": "Non-null coverage is not correctness, unit validation or founder approval. SQL is reproduced unchanged."
+}

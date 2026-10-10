@@ -1,0 +1,68 @@
+{
+  "kind": "PERSISTED_DB_READ",
+  "groups": {
+    "fact_auction_hithink": [
+      {
+        "kind": "benchmark",
+        "rows": 1033,
+        "days": 174,
+        "first_day": "2026-01-05",
+        "last_day": "2026-09-30"
+      },
+      {
+        "kind": "snapshot",
+        "rows": 27879,
+        "days": 5,
+        "first_day": "2026-09-08",
+        "last_day": "2026-09-30"
+      }
+    ],
+    "fact_theme_limit_stock_daily": [
+      {
+        "limit_status": "U",
+        "rows": 149893,
+        "days": 395,
+        "first_day": "2025-01-02",
+        "last_day": "2026-09-02"
+      },
+      {
+        "limit_status": null,
+        "rows": 10078,
+        "days": 19,
+        "first_day": "2026-09-03",
+        "last_day": "2026-09-30"
+      }
+    ],
+    "fact_dragon_tiger_hithink": [
+      {
+        "range_days": 1,
+        "rows": 12823,
+        "days": 251,
+        "first_day": "2025-09-08",
+        "last_day": "2026-09-30"
+      },
+      {
+        "range_days": 3,
+        "rows": 5140,
+        "days": 251,
+        "first_day": "2025-09-08",
+        "last_day": "2026-09-30"
+      },
+      {
+        "range_days": 10,
+        "rows": 90,
+        "days": 67,
+        "first_day": "2025-09-10",
+        "last_day": "2026-09-29"
+      },
+      {
+        "range_days": 30,
+        "rows": 55,
+        "days": 40,
+        "first_day": "2025-09-12",
+        "last_day": "2026-08-28"
+      }
+    ]
+  },
+  "limits": "Auction benchmark rows are not snapshot rows; a null limit_status is not a confirmed limit-up. Dragon range_days mixes reporting intervals; aggregation does not filter it."
+}

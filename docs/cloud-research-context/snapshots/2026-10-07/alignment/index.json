@@ -1,0 +1,447 @@
+[
+  {
+    "line": 1,
+    "id": null,
+    "ts": "2026-06-29T09:37:58+00:00",
+    "source_record_sha256": "ac4acf4733834ecf319ee8c33d9d666cc1745a0c2a7749fc947d0daec66833d2",
+    "status_events": [
+      {
+        "record_type": "memory_status",
+        "ts": "2026-08-28T03:06:14+00:00",
+        "target_ts": "2026-06-29T09:37:58+00:00",
+        "status": "archived",
+        "reason": "promoted_to_code: already in pipeline (2026-08-28 UMD experiment); 反模板化：answer_quality / answer_lint"
+      }
+    ]
+  },
+  {
+    "line": 2,
+    "id": null,
+    "ts": "2026-06-29T09:43:06+00:00",
+    "source_record_sha256": "d8aa46b1c4ae26abd499aa1064fa9f4807be5046b9c24d9f114b5724b8aeaff8",
+    "status_events": []
+  },
+  {
+    "line": 3,
+    "id": null,
+    "ts": "2026-06-29T12:57:20+00:00",
+    "source_record_sha256": "04c0a8d20dbee9296553adc33539b8528d25ea709074186e3b6f9532f0245a85",
+    "status_events": [
+      {
+        "record_type": "memory_status",
+        "ts": "2026-08-28T03:06:14+00:00",
+        "target_ts": "2026-06-29T12:57:20+00:00",
+        "status": "archived",
+        "reason": "promoted_to_code: already in pipeline (2026-08-28 UMD experiment); 多维动态推理：orchestrator 生命周期"
+      }
+    ]
+  },
+  {
+    "line": 4,
+    "id": null,
+    "ts": "2026-06-29T13:09:40+00:00",
+    "source_record_sha256": "e2ba326ec9bb320f6d627a6f48017b7563fd0c7b68d8310657a731083b5bab54",
+    "status_events": []
+  },
+  {
+    "line": 5,
+    "id": null,
+    "ts": "2026-06-29T13:16:40+00:00",
+    "source_record_sha256": "9364aad07ca79af58e0994ef2bb2079da421dfb3e804c6f4c2580c5a789db636",
+    "status_events": [
+      {
+        "record_type": "memory_status",
+        "ts": "2026-08-28T03:06:14+00:00",
+        "target_ts": "2026-06-29T13:16:40+00:00",
+        "status": "archived",
+        "reason": "promoted_to_code: already in pipeline (2026-08-28 UMD experiment); 第一性原理 + 二阶导：stock-deep-dive D1–D3"
+      }
+    ]
+  },
+  {
+    "line": 6,
+    "id": null,
+    "ts": "2026-06-29T13:38:00+00:00",
+    "source_record_sha256": "0f1d5fafed6466694f35965301108556d2556a5afdf6fdb9885c1b7c115a013d",
+    "status_events": []
+  },
+  {
+    "line": 7,
+    "id": null,
+    "ts": "2026-06-29T13:49:00+00:00",
+    "source_record_sha256": "e9c7b9584ed663c60ca42d744edffdd96afa3dd3a20384bf7f4bff951836f853",
+    "status_events": []
+  },
+  {
+    "line": 8,
+    "id": null,
+    "ts": "2026-06-29T14:18:00+00:00",
+    "source_record_sha256": "a44a603c8dcfc5c38cefd010f5d2de10632f4226ccdee0eb20a6a5440517de65",
+    "status_events": []
+  },
+  {
+    "line": 9,
+    "id": null,
+    "ts": "2026-06-29T14:32:00+00:00",
+    "source_record_sha256": "c4c412730b202273c5dee9d7a1cd0b20bd5a6250806cb8f094b287fc8b199454",
+    "status_events": []
+  },
+  {
+    "line": 10,
+    "id": null,
+    "ts": "2026-06-30T22:57:37.594296+08:00",
+    "source_record_sha256": "d624a879233a294ae86eef58e68a858214a5d0b59e6df334eee6a6b8a0e24de0",
+    "status_events": []
+  },
+  {
+    "line": 11,
+    "id": null,
+    "ts": "2026-07-02T00:31:00+08:00",
+    "source_record_sha256": "8d7c6795beba34b39671b16f66e6330ecd0401c09693bfdb9294bbb7ba5cfdec",
+    "status_events": [
+      {
+        "record_type": "memory_status",
+        "ts": "2026-08-28T03:06:14+00:00",
+        "target_ts": "2026-07-02T00:31:00+08:00",
+        "status": "archived",
+        "reason": "promoted_to_code: already in pipeline (2026-08-28 UMD experiment); 日度四源推演：forecast 管线；查远端 PR/main 是运营泄漏"
+      }
+    ]
+  },
+  {
+    "line": 12,
+    "id": null,
+    "ts": "2026-07-06T11:24:11+00:00",
+    "source_record_sha256": "558f34292acf5c473f4d48687fd10002576b07622f1d64b3c47e1769322fa2ec",
+    "status_events": []
+  },
+  {
+    "line": 13,
+    "id": null,
+    "ts": "2026-07-06T11:29:58+00:00",
+    "source_record_sha256": "422a7d3c226000112698218a8498dbd5dc4ac2300ba0280f2b23a4d716dc07aa",
+    "status_events": []
+  },
+  {
+    "line": 14,
+    "id": null,
+    "ts": "2026-08-15T10:03:55+00:00",
+    "source_record_sha256": "b1bc64f8d4a7ce949f23bf341cc074e514c66fe02e288ba1b9b58b66c8be5894",
+    "status_events": []
+  },
+  {
+    "line": 15,
+    "id": "94e428ff0583",
+    "ts": "2026-08-16T02:58:45+00:00",
+    "source_record_sha256": "6bbb9b5911bb5f0e122babad892a1765c155dd82b07987bf219bd7773d404fbd",
+    "status_events": []
+  },
+  {
+    "line": 16,
+    "id": "32fa156c666e",
+    "ts": "2026-08-21T17:08:03+00:00",
+    "source_record_sha256": "3b050584ae2c334d504b6747e8ba7e5923b28b4fa8ed9d282d7b2809ea839bbf",
+    "status_events": []
+  },
+  {
+    "line": 17,
+    "id": "600501290d70",
+    "ts": "2026-08-22T06:42:12+00:00",
+    "source_record_sha256": "bb5ebbe4f4a884d74d1863f1f1c589aa23f8ab48b0f2b4eeb10bad74b9fe3fa5",
+    "status_events": []
+  },
+  {
+    "line": 18,
+    "id": null,
+    "ts": "2026-08-22T10:22:52+00:00",
+    "source_record_sha256": "23128392a9f56489f6dd5acea3f48d6f80c1b43db44db8e830df93eaf5a48738",
+    "status_events": []
+  },
+  {
+    "line": 19,
+    "id": "2279d7a812aa",
+    "ts": "2026-08-22T15:51:40+00:00",
+    "source_record_sha256": "bebc9403f4c212b08bc20165a512d0728126252ff7880429b994b1c4dd59c9f3",
+    "status_events": []
+  },
+  {
+    "line": 20,
+    "id": "ad359ec91559",
+    "ts": "2026-08-22T16:02:11+00:00",
+    "source_record_sha256": "9efb833463b13aa89ac5345aac1a228334aa689bbdfc51c483cf37ca72fd5f2b",
+    "status_events": []
+  },
+  {
+    "line": 21,
+    "id": "7b062b2c3375",
+    "ts": "2026-08-23T10:07:29+00:00",
+    "source_record_sha256": "87fc1f678c447ab863837027adc2a3871aff7bf4dd10a31e740b23b04716722d",
+    "status_events": []
+  },
+  {
+    "line": 22,
+    "id": null,
+    "ts": "2026-08-25T02:17:19+00:00",
+    "source_record_sha256": "21fd4048c5db9f7990fac0508e81bec041b3e027cc69f15be215cd084a26ac71",
+    "status_events": []
+  },
+  {
+    "line": 23,
+    "id": null,
+    "ts": "2026-08-25T02:17:19+00:00",
+    "source_record_sha256": "bd672595d2d83771a82a146267ba461552b20457c75eeb0142fb63258db608ce",
+    "status_events": []
+  },
+  {
+    "line": 24,
+    "id": null,
+    "ts": "2026-08-25T02:17:19+00:00",
+    "source_record_sha256": "503a20454fa0c7f11e5cdca876f694012556cb53bbe2accb2dd16d1e20b9e146",
+    "status_events": []
+  },
+  {
+    "line": 25,
+    "id": null,
+    "ts": "2026-08-26T05:41:23+00:00",
+    "source_record_sha256": "bad7c80e5487b447f2d7a6c4c104aa55bd7a30d611b7d529424b855b69d7a461",
+    "status_events": []
+  },
+  {
+    "line": 26,
+    "id": "c5be5b292a9e",
+    "ts": "2026-08-26T07:09:50+00:00",
+    "source_record_sha256": "9a2b4df6380d514c8d3c742411ebd4ba354c41f22ec76bbc34982b5839c89ab5",
+    "status_events": []
+  },
+  {
+    "line": 27,
+    "id": "bfd6cd20b33b",
+    "ts": "2026-08-26T07:36:17+00:00",
+    "source_record_sha256": "95cc4fd7d2d1d17abe1b41593a1d8d5de9a2a4c05f1f6988d1442643f7cb2851",
+    "status_events": []
+  },
+  {
+    "line": 32,
+    "id": "cdeac1f88775",
+    "ts": "2026-08-28T15:25:31+00:00",
+    "source_record_sha256": "d7646f045a8291234328725f670f774c969d0dd2ebd06af2c562192f9dcdec92",
+    "status_events": []
+  },
+  {
+    "line": 33,
+    "id": "9cecbaa66c84",
+    "ts": "2026-09-04T08:45:24+00:00",
+    "source_record_sha256": "612346284f2161143bffd6100da3ea3d142eb837b9ce3b93695e3302e3c83281",
+    "status_events": []
+  },
+  {
+    "line": 34,
+    "id": "56d1f5fa88d9",
+    "ts": "2026-09-06T18:16:28+00:00",
+    "source_record_sha256": "31a0bebea71570c128c43c12d103abe04fcce17aa2fbdb4d90f2eecf78f533aa",
+    "status_events": []
+  },
+  {
+    "line": 35,
+    "id": "6eb05cd5d7ac",
+    "ts": "2026-09-06T18:41:15+00:00",
+    "source_record_sha256": "4f0f137d8e6bb53ee4c66cedbf76719aaf4c7c29d85a66a26c4353037cbf0d5c",
+    "status_events": []
+  },
+  {
+    "line": 36,
+    "id": "298b8fbcba91",
+    "ts": "2026-09-06T19:21:47+00:00",
+    "source_record_sha256": "b599aed86d953adbd38314e43ee79f7546553b34bfd7fa990b231133808cb3cf",
+    "status_events": []
+  },
+  {
+    "line": 37,
+    "id": "7cc4a8172796",
+    "ts": "2026-09-07T07:15:50+00:00",
+    "source_record_sha256": "371f380b637756028fee32f696f28c63f774aecbb112ea0c80c6f2f18ead2bb3",
+    "status_events": []
+  },
+  {
+    "line": 38,
+    "id": "27947017531c",
+    "ts": "2026-09-08T14:50:25+00:00",
+    "source_record_sha256": "551407cb5e679ad1413b028e1ded3e33812ea01c6535fcc1a5b69bea14051d9b",
+    "status_events": []
+  },
+  {
+    "line": 39,
+    "id": "22402197da78",
+    "ts": "2026-09-08T16:11:40+00:00",
+    "source_record_sha256": "633d5f6365bf64334bba0252a630dd53a61087bc1e358c86330ecd56e3195ad6",
+    "status_events": []
+  },
+  {
+    "line": 40,
+    "id": "13e7a947d6aa",
+    "ts": "2026-09-08T16:16:47+00:00",
+    "source_record_sha256": "27783905b8257bc07557bf4c3742ea56bfe431b30e1452c6bfcb5751ba9cd1f1",
+    "status_events": []
+  },
+  {
+    "line": 41,
+    "id": "d786e388b25a",
+    "ts": "2026-09-13T05:58:20+00:00",
+    "source_record_sha256": "ab2c572dec9b57691fed9f8abfb81356334f38a3853b25a3461ceb475f4f6e90",
+    "status_events": []
+  },
+  {
+    "line": 42,
+    "id": "32954367aa47",
+    "ts": "2026-09-15T04:00:47+00:00",
+    "source_record_sha256": "12bcd6c390732b7772b31e414784d5a0955cd1c90e78e5f6e465cbd72217b50a",
+    "status_events": []
+  },
+  {
+    "line": 43,
+    "id": "f0db6d2817d6",
+    "ts": "2026-09-15T13:32:43+00:00",
+    "source_record_sha256": "4b9d6001d1097954b5d915a7a0adb264ae266bc61fbf38cdc99444747363c616",
+    "status_events": []
+  },
+  {
+    "line": 44,
+    "id": "913e720e4765",
+    "ts": "2026-09-15T13:40:56+00:00",
+    "source_record_sha256": "0d6dbf6273ad97c3f0a99348cc9fa3f6a2325fce2861dd73d6660e98d646cafe",
+    "status_events": []
+  },
+  {
+    "line": 45,
+    "id": "9e91fc2905ed",
+    "ts": "2026-09-15T13:45:38+00:00",
+    "source_record_sha256": "6739bca4e799ef83d61f6450cbade9ec84fd4f2103e35be38557fc7579ac44ed",
+    "status_events": []
+  },
+  {
+    "line": 46,
+    "id": "978f31bd059b",
+    "ts": "2026-09-17T13:53:27+00:00",
+    "source_record_sha256": "82c8da467471935979b1344cce2199aa02ac55896d902a3845849588aebd7364",
+    "status_events": []
+  },
+  {
+    "line": 47,
+    "id": "b4dc68eee72c",
+    "ts": "2026-09-18T02:06:56+00:00",
+    "source_record_sha256": "fca8d0c6f6c6074e99062d328862c097c3e950ca48781320ab62bc806db9051b",
+    "status_events": []
+  },
+  {
+    "line": 48,
+    "id": "40118b5d528c",
+    "ts": "2026-09-18T04:31:56+00:00",
+    "source_record_sha256": "6be52cbd7c8eac2a68f352e598f8d6bbe888bfeb5fd4254dca36d70fc41ead56",
+    "status_events": []
+  },
+  {
+    "line": 49,
+    "id": "7fe048decc27",
+    "ts": "2026-09-20T12:26:24+00:00",
+    "source_record_sha256": "e7fdfa98e022ebee8494b5be298ccf8969b021973fd117eaf8e76f7951f66a44",
+    "status_events": []
+  },
+  {
+    "line": 50,
+    "id": "849b7ddb3421",
+    "ts": "2026-09-20T13:45:39+00:00",
+    "source_record_sha256": "6e91862a2495e7e092551ae8bbc1248c7cb238b7a2bd40e88e94530919e79e3c",
+    "status_events": []
+  },
+  {
+    "line": 51,
+    "id": "9db89ebc66a5",
+    "ts": "2026-09-20T14:46:50+00:00",
+    "source_record_sha256": "34528dce49da3c675c48d4b32b817a7804695eb27897f5fc2e247e1bb74719b3",
+    "status_events": []
+  },
+  {
+    "line": 52,
+    "id": "64faa386d9f2",
+    "ts": "2026-09-20T15:33:43+00:00",
+    "source_record_sha256": "a7fbbd61b5457515e7914ae6573fb3c4c9a2556ca65e5b60104f8de527dc2b49",
+    "status_events": []
+  },
+  {
+    "line": 53,
+    "id": "42dca7d60778",
+    "ts": "2026-09-21T09:49:35+00:00",
+    "source_record_sha256": "0ba87fd562069ffd146df22999c78229f6ab9d70c47c3c05afb547a9c48cf24d",
+    "status_events": []
+  },
+  {
+    "line": 54,
+    "id": "1be39b9ce356",
+    "ts": "2026-09-21T11:00:22+00:00",
+    "source_record_sha256": "ddd305fd92d7b1c6171a18c90512d130892960287f5c5e5cf07cd4449a504728",
+    "status_events": []
+  },
+  {
+    "line": 55,
+    "id": "d3008130b657",
+    "ts": "2026-09-21T12:42:44+00:00",
+    "source_record_sha256": "f51d47850bf24ba4fb3adb20afa676c3f42700040f9fce0b534eb780e6368d56",
+    "status_events": []
+  },
+  {
+    "line": 56,
+    "id": "2e91bc904aec",
+    "ts": "2026-09-27T12:56:29+00:00",
+    "source_record_sha256": "33db32a36745c80898f44aae837f91cf2b734ba8de082a2880fa8a237f24a539",
+    "status_events": []
+  },
+  {
+    "line": 57,
+    "id": "26984d375378",
+    "ts": "2026-09-28T07:19:40+00:00",
+    "source_record_sha256": "c86c9ef4ef9c56df07d368050efcf6520fe0d0635d01dd213938679125f27909",
+    "status_events": []
+  },
+  {
+    "line": 58,
+    "id": "0f8bb454b497",
+    "ts": "2026-09-29T06:21:43+00:00",
+    "source_record_sha256": "13503ed7f1a27e79abca89ca06c116a4a5751e7a757b324fd101c56512b45af6",
+    "status_events": []
+  },
+  {
+    "line": 59,
+    "id": "d0abda287494",
+    "ts": "2026-10-02T02:26:06+00:00",
+    "source_record_sha256": "1f02603388f5c197170f1c260ddf6bff5d1f74b6a8235b66d72393814d355661",
+    "status_events": []
+  },
+  {
+    "line": 60,
+    "id": "f7ddbfc308ce",
+    "ts": "2026-10-02T12:12:40+00:00",
+    "source_record_sha256": "6f51514bd62c4fe547be31911a6085575e5c7ab48242a188f2df231dc946a0b7",
+    "status_events": []
+  },
+  {
+    "line": 61,
+    "id": "65961f19bae1",
+    "ts": "2026-10-03T08:57:56+00:00",
+    "source_record_sha256": "6cbcbb1523a80a218edce1e5edd9d80aaf66e709c6a277c5b9b6bfe204e1f950",
+    "status_events": []
+  },
+  {
+    "line": 62,
+    "id": "a0234811e5b5",
+    "ts": "2026-10-07T04:38:39+00:00",
+    "source_record_sha256": "c4cf099a2d128468ef0855852a68afd5681fe956aa5f93d2a30618faa84f82c2",
+    "status_events": []
+  },
+  {
+    "line": 63,
+    "id": "0a3034caf2f6",
+    "ts": "2026-10-07T05:28:29+00:00",
+    "source_record_sha256": "84e14be0fe74af21644ef0445e7e23710223c00243ea7b1367e76118a9f3d590",
+    "status_events": []
+  }
+]

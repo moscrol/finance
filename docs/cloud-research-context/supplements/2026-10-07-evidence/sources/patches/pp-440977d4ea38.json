@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "patch_id": "pp-440977d4ea38",
+  "perspective_id": "sptfei",
+  "field": "opportunity_preferences",
+  "value": "优先参与出现资金强共振、持续放量并完成关键突破的板块。",
+  "status": "rejected",
+  "supporting_article_count": 1,
+  "evidence": [
+    {
+      "article_id": "pa-f1d319af8db0",
+      "title": "2026.16",
+      "date": "2026-04-13",
+      "quote": "如果周一和周二从大看板上能够明确看到资金强共振和放量突破"
+    }
+  ],
+  "created_at": "2026-08-22T14:56:24+00:00",
+  "reviewed_at": "2026-08-22T14:56:41+00:00",
+  "review_note": "已有临突破+放量突破+抢资金"
+}

@@ -2,6 +2,10 @@
 
 A股量化复盘+研究工具集。数据来源：fupanhui.com API（浏览器内 XHR）、iFinD、AKShare、飞书 Bitable。
 
+## 云端模型优化资料
+
+需要读取既有 SPT／风远蒸馏、用户认知框架或投研协作纠偏时，先读[公开资料包](docs/cloud-research-context/README.md)。它包含授权筛选的静态快照与版本关系，不需要访问私有 `agent-memory`，也不是生产配置或完整原文备份。
+
 ## 目录结构
 
 ```

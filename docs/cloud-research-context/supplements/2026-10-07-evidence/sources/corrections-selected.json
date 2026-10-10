@@ -1,0 +1,33 @@
+{
+  "source": "corrections.jsonl",
+  "source_sha256": "85090193d9087993d116cbca419e802be95a839d6a9cecba1577820aeb747b9d",
+  "kind": "用户纠偏台账选条（不等于原始聊天逐字记录）",
+  "selection": "Rows containing either of the two target IDs, including any matching lifecycle records.",
+  "records": [
+    {
+      "line": 108,
+      "record": {
+        "ts": "2026-08-26T07:36:17+00:00",
+        "id": "bfd6cd20b33b",
+        "correction": "见顶判据的价维不用板块RPS（用户已不记得该指标，非实际用法）；实际用：板块内新高个股数、涨停个数、波段涨幅个股，个股层用 UP 值/UP偏离度（up-line skill 既有数据）",
+        "themes": [
+          "user_framework"
+        ],
+        "original": "user_framework 语料（2026-07-03 问卷第八层）记录见顶价维含「板块 RPS 强度」",
+        "principle": "画像语料里的指标名要区分「用户实际在用」和「借用的框架语言」；编译进画像前逐个确认数据源与用法"
+      },
+      "line_sha256": "dedb6976d738e58df1f4815b6dd33241aa03483ef611d2ba82885f0dbd242831"
+    },
+    {
+      "line": 226,
+      "record": {
+        "ts": "2026-10-02T02:26:06+00:00",
+        "id": "d0abda287494",
+        "correction": "所有 harness 优化都应改善任务、证据、工具、状态与错误反馈，让弱模型发挥好、强模型获得更大决策空间；不靠针对题型或坏例不断添加硬语义规则。权限、预算、协议、证据身份可以硬约束；拆解、工具选择、验证和修订尽量由模型决定。验收同时覆盖未参与调试的题目和强弱模型，核对质量、完成度、保真、恢复、延迟与成本。",
+        "themes": [],
+        "principle": "以通用信息与工具机制放大模型能力；局部修例、工程门禁通过、更多预算和模型档位标签都不能替代跨题跨模型收益。语义判断须区分模型可修订的假设与不可越权的事实契约。"
+      },
+      "line_sha256": "1037e3361c18389a0f76dae9e8dac06c06d8e581ac489155eae7d665ffb1dee7"
+    }
+  ]
+}

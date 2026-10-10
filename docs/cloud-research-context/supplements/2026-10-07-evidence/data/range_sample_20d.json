@@ -1,0 +1,110 @@
+{
+  "kind": "READ_ONLY_RECOMPUTED_NOT_PERSISTED_LABELS",
+  "trade_date": "2026-09-30",
+  "window_days": 20,
+  "rows": [
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 1,
+      "stock_ts_code": "688137.SH",
+      "stock_name": null,
+      "gain_pct": 121.25810456614707,
+      "sw_l1": "医药生物",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 2,
+      "stock_ts_code": "605058.SH",
+      "stock_name": null,
+      "gain_pct": 93.71614301191767,
+      "sw_l1": "电子",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 3,
+      "stock_ts_code": "601811.SH",
+      "stock_name": null,
+      "gain_pct": 85.42581211589113,
+      "sw_l1": "传媒",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 4,
+      "stock_ts_code": "601579.SH",
+      "stock_name": null,
+      "gain_pct": 80.19323671497585,
+      "sw_l1": "食品饮料",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 5,
+      "stock_ts_code": "301080.SZ",
+      "stock_name": null,
+      "gain_pct": 77.24588516145243,
+      "sw_l1": "医药生物",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 6,
+      "stock_ts_code": "001216.SZ",
+      "stock_name": null,
+      "gain_pct": 76.41509433962264,
+      "sw_l1": "轻工制造",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 7,
+      "stock_ts_code": "301190.SZ",
+      "stock_name": null,
+      "gain_pct": 73.82680212868891,
+      "sw_l1": "基础化工",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 8,
+      "stock_ts_code": "301132.SZ",
+      "stock_name": null,
+      "gain_pct": 70.42721923765669,
+      "sw_l1": "电子",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 9,
+      "stock_ts_code": "000993.SZ",
+      "stock_name": null,
+      "gain_pct": 69.71201588877854,
+      "sw_l1": "公用事业",
+      "limit_times": null
+    },
+    {
+      "window_days": 20,
+      "trade_date": "2026-09-30",
+      "rank": 10,
+      "stock_ts_code": "301122.SZ",
+      "stock_name": null,
+      "gain_pct": 65.92832254853161,
+      "sw_l1": "医药生物",
+      "limit_times": null
+    }
+  ],
+  "available_top30_rows": 30,
+  "actual_formula": "(close / close_20_trading_rows_ago - 1) * 100, requiring calendar index gap = 20",
+  "limit": "Current source view exposes raw close; adjustment events alter pct_chg but not close. This is a sample of the implementation, not an endorsed wave-gain definition. Latest industry mapping is ex-post."
+}

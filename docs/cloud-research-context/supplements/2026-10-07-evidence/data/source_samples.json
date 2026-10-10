@@ -1,0 +1,374 @@
+{
+  "kind": "PERSISTED_SOURCE_ROWS",
+  "selection": "Latest five rows at or before market calendar end; deterministic field sort, not representative of the full market.",
+  "tables": {
+    "fact_market_daily": [
+      {
+        "trade_date": "2026-09-30",
+        "total_amount": 14377.22,
+        "sh_index_open": 3839.253,
+        "sh_index_high": 3851.217,
+        "sh_index_low": 3833.086,
+        "sh_index_close": 3842.195,
+        "sh_week_ma": 3864.23,
+        "sh_deviation_pct": -0.57,
+        "cycle_stage": null
+      },
+      {
+        "trade_date": "2026-09-29",
+        "total_amount": 14090.71,
+        "sh_index_open": 3816.154,
+        "sh_index_high": 3843.838,
+        "sh_index_low": 3810.812,
+        "sh_index_close": 3830.451,
+        "sh_week_ma": 3886.22,
+        "sh_deviation_pct": -1.44,
+        "cycle_stage": null
+      },
+      {
+        "trade_date": "2026-09-28",
+        "total_amount": 17026.6,
+        "sh_index_open": 3878.409,
+        "sh_index_high": 3878.409,
+        "sh_index_low": 3806.671,
+        "sh_index_close": 3823.621,
+        "sh_week_ma": 3910.11,
+        "sh_deviation_pct": -2.21,
+        "cycle_stage": null
+      },
+      {
+        "trade_date": "2026-09-24",
+        "total_amount": 16531.33,
+        "sh_index_open": 3925.323,
+        "sh_index_high": 3930.496,
+        "sh_index_low": 3888.374,
+        "sh_index_close": 3888.374,
+        "sh_week_ma": 3927.76,
+        "sh_deviation_pct": -1.0,
+        "cycle_stage": null
+      },
+      {
+        "trade_date": "2026-09-23",
+        "total_amount": 17645.07,
+        "sh_index_open": 3951.366,
+        "sh_index_high": 3951.523,
+        "sh_index_low": 3934.459,
+        "sh_index_close": 3936.52,
+        "sh_week_ma": 3925.21,
+        "sh_deviation_pct": 0.29,
+        "cycle_stage": null
+      }
+    ],
+    "fact_dragon_tiger_hithink": [
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000002.SZ",
+        "net_value": 71384559.48,
+        "buy_value": 688964755.91,
+        "sell_value": 617580196.43,
+        "range_days": 1
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000011.SZ",
+        "net_value": -55949842.32,
+        "buy_value": 107516407.36,
+        "sell_value": 163466249.68,
+        "range_days": 1
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000504.SZ",
+        "net_value": 81628947.42,
+        "buy_value": 211621186.0,
+        "sell_value": 129992238.58,
+        "range_days": 1
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000560.SZ",
+        "net_value": 171060394.0,
+        "buy_value": 465305276.36,
+        "sell_value": 294244882.36,
+        "range_days": 1
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000678.SZ",
+        "net_value": 138619979.02,
+        "buy_value": 256972357.22,
+        "sell_value": 118352378.2,
+        "range_days": 1
+      }
+    ],
+    "fact_dragon_tiger_daily": [
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000628.SZ",
+        "net_amount": 0.59,
+        "l_buy": 2.23,
+        "l_sell": 1.64
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "002297.SZ",
+        "net_amount": 1.36,
+        "l_buy": 2.97,
+        "l_sell": 1.61
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "002536.SZ",
+        "net_amount": 4.59,
+        "l_buy": 7.87,
+        "l_sell": 3.28
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "002886.SZ",
+        "net_amount": 1.36,
+        "l_buy": 3.27,
+        "l_sell": 1.9
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "002942.SZ",
+        "net_amount": 0.1,
+        "l_buy": 0.36,
+        "l_sell": 0.26
+      }
+    ],
+    "fact_theme_limit_stock_daily": [
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000011.SZ",
+        "sector_ts_code": "990034.FP",
+        "fd_amount": null,
+        "circ_mv": null,
+        "limit_status": null
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000011.SZ",
+        "sector_ts_code": "990081.FP",
+        "fd_amount": null,
+        "circ_mv": null,
+        "limit_status": null
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000011.SZ",
+        "sector_ts_code": "990184.FP",
+        "fd_amount": null,
+        "circ_mv": null,
+        "limit_status": null
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000011.SZ",
+        "sector_ts_code": "990307.FP",
+        "fd_amount": null,
+        "circ_mv": null,
+        "limit_status": null
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000504.SZ",
+        "sector_ts_code": "990014.FP",
+        "fd_amount": null,
+        "circ_mv": null,
+        "limit_status": null
+      }
+    ],
+    "fact_auction_hithink": [
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000001.SZ",
+        "auction_pct": 0.0881,
+        "auction_amount": 2982000.0,
+        "kind": "snapshot"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000002.SZ",
+        "auction_pct": -6.8627,
+        "auction_amount": 150436680.0,
+        "kind": "snapshot"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000002.SZ",
+        "auction_pct": -6.8627,
+        "auction_amount": null,
+        "kind": "benchmark"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000006.SZ",
+        "auction_pct": -9.1864,
+        "auction_amount": 12326229.2,
+        "kind": "snapshot"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000007.SZ",
+        "auction_pct": -0.0903,
+        "auction_amount": 44280.0,
+        "kind": "snapshot"
+      }
+    ],
+    "fact_auction_stock_daily": [
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000017.SZ",
+        "auction_pct": -3.66,
+        "auction_amount": 0.29,
+        "panel_key": "qdb"
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000158.SZ",
+        "auction_pct": 0.29,
+        "auction_amount": 0.43,
+        "panel_key": "zt"
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000564.SZ",
+        "auction_pct": 2.41,
+        "auction_amount": 0.59,
+        "panel_key": "zt"
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000567.SZ",
+        "auction_pct": -1.83,
+        "auction_amount": 0.02,
+        "panel_key": "qdb"
+      },
+      {
+        "trade_date": "2026-09-02",
+        "stock_ts_code": "000592.SZ",
+        "auction_pct": 0.14,
+        "auction_amount": 0.29,
+        "panel_key": "dqdb"
+      }
+    ],
+    "fact_stock_daily_hithink": [
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000001.SZ",
+        "close": 11.57,
+        "high": 11.65,
+        "low": 11.33,
+        "adjusted": "none"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000002.SZ",
+        "close": 4.26,
+        "high": 4.4,
+        "low": 3.67,
+        "adjusted": "none"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000006.SZ",
+        "close": 7.51,
+        "high": 7.59,
+        "low": 6.86,
+        "adjusted": "none"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000007.SZ",
+        "close": 10.96,
+        "high": 11.23,
+        "low": 10.76,
+        "adjusted": "none"
+      },
+      {
+        "trade_date": "2026-09-30",
+        "stock_ts_code": "000008.SZ",
+        "close": 2.4,
+        "high": 2.41,
+        "low": 2.37,
+        "adjusted": "none"
+      }
+    ],
+    "fact_stock_adjustment_hithink": [
+      {
+        "ex_date": "2026-09-30",
+        "stock_ts_code": "000062.SZ",
+        "dividend_per_share": 0.3,
+        "per_share_bonus": 0.0,
+        "allotment_ratio": 0.0
+      },
+      {
+        "ex_date": "2026-09-30",
+        "stock_ts_code": "000700.SZ",
+        "dividend_per_share": 0.1634,
+        "per_share_bonus": 0.0,
+        "allotment_ratio": 0.0
+      },
+      {
+        "ex_date": "2026-09-30",
+        "stock_ts_code": "002039.SZ",
+        "dividend_per_share": 0.1,
+        "per_share_bonus": 0.0,
+        "allotment_ratio": 0.0
+      },
+      {
+        "ex_date": "2026-09-30",
+        "stock_ts_code": "002050.SZ",
+        "dividend_per_share": 0.12,
+        "per_share_bonus": 0.0,
+        "allotment_ratio": 0.0
+      },
+      {
+        "ex_date": "2026-09-30",
+        "stock_ts_code": "002111.SZ",
+        "dividend_per_share": 0.15,
+        "per_share_bonus": 0.0,
+        "allotment_ratio": 0.0
+      }
+    ],
+    "fact_sector_kline_daily": [
+      {
+        "trade_date": "2026-09-30",
+        "sector_ts_code": "000001.SH",
+        "close": 3842.19,
+        "high": 3851.22,
+        "low": 3833.09
+      },
+      {
+        "trade_date": "2026-09-30",
+        "sector_ts_code": "000016.SH",
+        "close": 2823.28,
+        "high": 2828.13,
+        "low": 2807.7
+      },
+      {
+        "trade_date": "2026-09-30",
+        "sector_ts_code": "000300.SH",
+        "close": 4357.62,
+        "high": 4368.61,
+        "low": 4341.88
+      },
+      {
+        "trade_date": "2026-09-30",
+        "sector_ts_code": "000688.SH",
+        "close": 1530.01,
+        "high": 1578.96,
+        "low": 1526.79
+      },
+      {
+        "trade_date": "2026-09-30",
+        "sector_ts_code": "000852.SH",
+        "close": 7298.82,
+        "high": 7375.44,
+        "low": 7288.98
+      }
+    ]
+  }
+}
